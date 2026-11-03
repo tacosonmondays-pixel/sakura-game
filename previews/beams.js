@@ -125,8 +125,9 @@ async function main() {
     return { uid, x, z, h, view, sim: { uid, x, y: z, dead: false } };
   });
   scene.updateMatrixWorld(true);
-  // each girl's face (her head: the top 42 % of her figure's box) for the beams' ink clear zone: the circle, in the
-  // view plane, round every corner of that box (the board's camera is orthographic, so it is her head on screen)
+  // each girl's face (her head: the top 42 % of her figure's box) for the beams' clear zone (none of a beam or its
+  // charge-up is drawn over it): the box, in the view plane, round every corner of that box, a little wider (the board's
+  // camera is orthographic, so it is her head on screen); faceR is the circle round the same corners
   stage.camera.updateMatrixWorld(true);
   const toView = stage.camera.matrixWorldInverse;
   const fv = new THREE.Vector3();
@@ -137,11 +138,16 @@ async function main() {
     g.face = [(box.min.x + box.max.x) / 2, box.max.y - hh / 2, (box.min.z + box.max.z) / 2];
     fv.set(g.face[0], g.face[1], g.face[2]).applyMatrix4(toView);
     let r = 0;
+    let hx = 0;
+    let hy = 0;
     for (const x of [box.min.x, box.max.x]) for (const y of [box.max.y - hh, box.max.y]) for (const z of [box.min.z, box.max.z]) {
       cv.set(x, y, z).applyMatrix4(toView);
       r = Math.max(r, Math.hypot(cv.x - fv.x, cv.y - fv.y));
+      hx = Math.max(hx, Math.abs(cv.x - fv.x));
+      hy = Math.max(hy, Math.abs(cv.y - fv.y));
     }
     g.faceR = 1.08 * r;
+    g.faceBox = [hx + 0.03, hy + 0.03];
   }
 
   // the attack context the styles draw through (the muzzles; today's look with old=1)
@@ -252,13 +258,13 @@ async function main() {
         st.aimAt(0);
         if (!old) {
           const hit = !!near(st.B[0], st.B[2]);
-          st.recs.push(beams.fire(pid, st.A, st.B, { hit, face: g.face, faceR: g.faceR }));
-          if (pid === 'luna') st.recs.push(beams.fire(pid, st.A, st.B2, { hit: !!near(st.B2[0], st.B2[2]), face: g.face, faceR: g.faceR }));
+          st.recs.push(beams.fire(pid, st.A, st.B, { hit, face: g.face, faceR: g.faceR, faceBox: g.faceBox }));
+          if (pid === 'luna') st.recs.push(beams.fire(pid, st.A, st.B2, { hit: !!near(st.B2[0], st.B2[2]), face: g.face, faceR: g.faceR, faceBox: g.faceBox }));
         }
       } else if (pid === 'kohaku') {
         const f = st.foe0;
         st.B[0] = f.x; st.B[1] = f.h * 0.55; st.B[2] = f.z;
-        if (!old) st.recs.push(beams.fire(pid, st.A, st.B, { face: g.face, faceR: g.faceR }));
+        if (!old) st.recs.push(beams.fire(pid, st.A, st.B, { face: g.face, faceR: g.faceR, faceBox: g.faceBox }));
         else {
           st.tw = { data: kohaku_tsubaki.init(), look: { accent: [0, 0, 0] } };
           st.holds = [{ e: f.sim, held: 0 }];
@@ -268,7 +274,7 @@ async function main() {
         // a fired lance at her goblin (Miko's holy ray, Raika's Overcharge lance)
         const f = st.foe0;
         st.B[0] = f.x; st.B[1] = H_END; st.B[2] = f.z;
-        if (!old) st.recs.push(beams.fire(pid, st.A, st.B, { width: 0.2, face: g.face, faceR: g.faceR }));
+        if (!old) st.recs.push(beams.fire(pid, st.A, st.B, { width: 0.2, face: g.face, faceR: g.faceR, faceBox: g.faceBox }));
         else st.oldAt = TOON_BEAM_PRESETS[pid].windup; // (today's lance fires on the sim's beam event: at the same beat)
       }
     }
@@ -309,7 +315,7 @@ async function main() {
           if (!st.fired2 && t >= 1.1) {
             st.fired2 = true;
             st.B2 = [f2.x, f2.h * 0.55, f2.z];
-            st.recs.push(beams.fire(pid, st.A, st.B2, { face: g.face, faceR: g.faceR }));
+            st.recs.push(beams.fire(pid, st.A, st.B2, { face: g.face, faceR: g.faceR, faceBox: g.faceBox }));
           }
           if (st.recs[1] && t >= 2.2) beams.release(st.recs[1]);
           for (const r of st.recs) beams.aim(r, st.A, r === st.recs[0] ? st.B : st.B2);
@@ -375,7 +381,9 @@ async function main() {
   // ---- the dark-ink measurement (in the page: no image dependency). A pixel the effect changed (any channel off the
   // board without it by ≥ 10) is "dark" when its luma is under 0.2 and the effect did not brighten it (a translucent
   // band over a dark outline is not ink); dark pixels are joined 8-connected, and a
-  // component under 40 px that touches no colour pixel of the effect (luma ≥ 0.2) is a loose dark-ink fragment.
+  // component under 40 px that touches no colour pixel of the effect (luma ≥ 0.2) is a loose dark-ink fragment; a
+  // component that touches the effect's colour but no untouched background pixel (the screen's edge counts as
+  // background) is interior ink: ink inside the colour, not on its true outer silhouette.
   const gl = stage.renderer.getContext();
   const N = W * H;
   const base = new Uint8Array(N * 4);
@@ -421,6 +429,7 @@ async function main() {
     }
     seen.fill(0);
     const frags = [];
+    const interior = [];
     let dark = 0;
     for (let i = 0; i < N; i++) {
       if (cls[i] !== 1 || seen[i]) continue;
@@ -429,6 +438,7 @@ async function main() {
       seen[i] = 1;
       let size = 0;
       let touch = false;
+      let touchBg = false;
       let sx = 0;
       let sy = 0;
       let y0min = 1;
@@ -453,12 +463,20 @@ async function main() {
         y1min = Math.min(y1min, (0.2126 * px[o4] + 0.7152 * px[o4 + 1] + 0.0722 * px[o4 + 2]) / 255);
         for (let dy = -1; dy <= 1; dy++) {
           const yy = y + dy;
-          if (yy < 0 || yy >= H) continue;
+          if (yy < 0 || yy >= H) {
+            touchBg = true;
+            continue;
+          }
           for (let dx = -1; dx <= 1; dx++) {
             const xx = x + dx;
-            if (xx < 0 || xx >= W || (dx === 0 && dy === 0)) continue;
+            if (xx < 0 || xx >= W) {
+              touchBg = true;
+              continue;
+            }
+            if (dx === 0 && dy === 0) continue;
             const q = yy * W + xx;
             if (cls[q] === 2) touch = true;
+            else if (cls[q] === 0) touchBg = true;
             else if (cls[q] === 1 && !seen[q]) {
               seen[q] = 1;
               stack[sp++] = q;
@@ -467,6 +485,7 @@ async function main() {
         }
       }
       dark++;
+      if (touch && !touchBg) interior.push({ x: Math.round(sx / size), y: H - 1 - Math.round(sy / size), size });
       if (size < maxSize && !touch) frags.push({ x: Math.round(sx / size), y: H - 1 - Math.round(sy / size), size, box: [bx0, H - 1 - by1, bx1, H - 1 - by0], before: +y0min.toFixed(3), after: +y1min.toFixed(3) });
     }
     // dark effect pixels over a girl's face (screen y is flipped against the read rows)
@@ -477,7 +496,7 @@ async function main() {
         for (let x = Math.max(0, f.x0); x <= Math.min(W - 1, f.x1); x++) if (cls[row + x] === 1) face++;
       }
     }
-    return { frags, dark, face };
+    return { frags, interior, dark, face };
   }
 
   window.__lab = {
@@ -522,7 +541,8 @@ async function main() {
     },
     /**
      * The dark-ink fragments of every frame from now to t s (1/60 s steps, the whole view): { frames, frags (total),
-     * worst (most in one frame), examples: [{ t, x, y, size }] }. Call on a fresh page (manual=1): the board without
+     * worst (most in one frame), interior (interior ink components, total), interiorFrames, examples and
+     * interiorExamples: [{ t, x, y, size }] }. Call on a fresh page (manual=1): the board without
      * the beams is shot first.
      */
     inkScan(t, maxSize = 40) {
@@ -537,7 +557,10 @@ async function main() {
       let darkMax = 0;
       let faceMax = 0;
       let faceFrames = 0;
+      let interior = 0;
+      let interiorFrames = 0;
       const examples = [];
+      const interiorExamples = [];
       while (frame < target) {
         step();
         stage.render();
@@ -549,9 +572,12 @@ async function main() {
         darkMax = Math.max(darkMax, r.dark);
         faceMax = Math.max(faceMax, r.face);
         if (r.face > 0) faceFrames++;
+        interior += r.interior.length;
+        if (r.interior.length) interiorFrames++;
         for (const f of r.frags) if (examples.length < 24) examples.push({ t: +(frame * DT).toFixed(3), ...f });
+        for (const f of r.interior) if (interiorExamples.length < 24) interiorExamples.push({ t: +(frame * DT).toFixed(3), ...f });
       }
-      return { frames, frags: total, worst, darkComponentsMax: darkMax, faceInkMax: faceMax, faceInkFrames: faceFrames, faces, examples, ...guardStats() };
+      return { frames, frags: total, worst, interior, interiorFrames, darkComponentsMax: darkMax, faceInkMax: faceMax, faceInkFrames: faceFrames, faces, examples, interiorExamples, ...guardStats() };
     },
     /**
      * Frame time on this machine (headless SwiftShader: compare runs, nothing absolute about a phone): `n` drawn frames

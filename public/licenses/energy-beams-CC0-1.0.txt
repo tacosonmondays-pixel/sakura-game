@@ -5,7 +5,8 @@ Used in: src/render/vfx/toonBeams.js, the beam body. Only ideas are used: a beam
 colour round it (here: the stepped ramp from the white-hot middle out to the body colour, and an ink rim on the outer
 silhouette only), and one progress value that wipes the beam on and off by its thickness (here: the hard-stepped start
 and end, the end eroding out along the beam after its ink has left). The code is our own GLSL on the toon core (no
-shader text copied); the original's fBm, its sine hash and its additive blend are not used.
+shader text copied); the original's fBm and its additive blend are not used. For per-record seeds and per-tongue
+lengths the beams use a common one-line sine hash of the same form, fract(sin(x * 12.9898 + c) * 43758.5453), in 1-D.
 
 CC0 needs no credit; it is given here anyway.
 

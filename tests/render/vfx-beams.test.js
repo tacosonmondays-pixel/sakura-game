@@ -268,10 +268,11 @@ import {
   createToonBeamFx, paintBeamRamp, beamInked, beamCut, crownInked, crownCut, ringInked, ringCut, TOON_BEAM_SHADERS,
   BEAM_YOUNG, BODY_YOUNG, BEAM_INK, BEAM_ERODE_AT, CROWN_INK, CROWN_ERODE_AT, RING_INK, RING_ERODE_AT, BEAM_PUNCH,
   BEAM_END_WIDTH, LEADER_WIDTH, HEAD_STEPS, BEAM_FACE_CLEAR, BEAM_FACE_R, REDUCE_FADE, CROWN_PUNCH,
+  CROWN_REBURST, CHARGE_FACE_GAP, CROWN_INK_CLEAR, crownOuter,
 } from '../../src/render/vfx/toonBeams.js';
 import {
   TOON_BEAM_PRESETS, TOON_BEAM_TIERS, TOON_BEAM_GIRLS, BEAM_BAND, LANCE_HALF, HELD_VISIBLE, PRISM_SPECTRUM, WINDUPS,
-  MAX_TOON_BEAMS,
+  MAX_TOON_BEAMS, PAIR_SWEEP,
 } from '../../src/render/vfx/toonBeamPresets.js';
 import { SWEEP_HALF_WIDTH, MOON_HALF_WIDTH } from '../../src/sim/constants.js';
 import { RED_SHARE, WORLD_DIM, WORLD_BUDGET, FlashGuard, redShare, screenShare } from '../../src/render/vfx/flashGuard.js';
@@ -341,7 +342,7 @@ tbDescribe('toon beam presets and tiers', () => {
   tbIt('match today\'s widths and wind-ups', () => {
     const P = TOON_BEAM_PRESETS;
     tbExpect(P.umeko.half).toBeCloseTo(SWEEP_HALF_WIDTH * HELD_VISIBLE, 9);
-    tbExpect(P.luna.half).toBeCloseTo(MOON_HALF_WIDTH * HELD_VISIBLE, 9);
+    tbExpect(P.luna.half).toBeCloseTo(MOON_HALF_WIDTH * HELD_VISIBLE * PAIR_SWEEP, 9); // (a pair sweeping in mirror)
     tbExpect(LANCE_HALF).toEqual(BEAM_HALF); // a fired lance: the same half width from the sim's beam width as today
     const { fx } = tbMake();
     const r = fx.fire('miko', A0, B0, { width: 0.2 });
@@ -575,15 +576,30 @@ tbDescribe('toon beams: the ink leaves before any erosion; never over her face',
     tbExpect(S.SPOT_FRAG).toContain(`step(e + ${f3(CROWN_INK.wobble)} * (n - 0.5), ${f3(CROWN_INK.end)})`);
     tbExpect(S.SPOT_FRAG).toContain(`(e - ${f3(CROWN_ERODE_AT)})`);
     tbExpect(S.GROUND_FRAG).toContain(`step(age + ${f3(RING_INK.wobble)} * (n - 0.5), ${f3(RING_INK.end)})`);
-    // the crown inks its outer half only (never its hole), the ring its outer edge only, the charge-up and pool never
-    tbExpect(S.SPOT_FRAG).toMatch(/inked \* step\(0\.5, x\)/);
+    // dark ink on the body's outer silhouette and the ring's outer edge only; the crown (over the pool and the enemy),
+    // the charge-up and the pool never: the crown's silhouette is its deep band, and that leaves before it erodes
     tbExpect(S.GROUND_FRAG).toMatch(/step\(0\.0, xr\) \* inked/);
-    tbExpect(S.BODY_FRAG).toContain(`step(${f3(BEAM_FACE_CLEAR)} + 0.1 * (n - 0.5), u) * step(vFace.z, length(vFace.xy))`);
-    // the hard toon edge, no discard
-    for (const k of ['BODY_FRAG', 'SPOT_FRAG', 'GROUND_FRAG']) {
-      tbExpect(S[k]).toMatch(/toonMask\(heat, cut\)/);
-      tbExpect(S[k]).not.toMatch(/\bdiscard\s*;/);
-    }
+    tbExpect(S.GROUND_FRAG).toMatch(/ink = bEdgeInk\(\(xo - xr\)/);
+    tbExpect(S.SPOT_FRAG).not.toMatch(/ink = bEdgeInk/);
+    tbExpect(S.SPOT_FRAG).toMatch(/inked \* step\(rim, max\(/);
+    // the body's ink is worked out from its outer silhouette's own curves (bEdgeInk on the distance in from the nearer
+    // edge), never from heat minus the cut (bRim): no noise valley, near-hole or seam inside the colour is ever inked
+    tbExpect(S.BODY_FRAG).toMatch(/float rim = min\(eT - x, x \+ eB\);/);
+    tbExpect(S.BODY_FRAG).toMatch(/float ink = bEdgeInk\(rim, /);
+    for (const k of ['BODY_FRAG', 'SPOT_FRAG', 'GROUND_FRAG']) tbExpect(S[k].split('void main()')[1]).not.toMatch(/bRim\(/);
+    // no ink near the muzzle, none where it grows out of her face (and none of it inside her face), none while it fades in
+    tbExpect(S.BODY_FRAG).toContain(`step(${f3(BEAM_FACE_CLEAR)} + 0.1 * (nt.x - 0.5), u) * step(0.999, sFace) * step(0.999, vE.z) * step(u, L - vPrism2.y)`);
+    tbExpect(S.BODY_FRAG).toMatch(/float sFace = clamp\(fd \//);
+    tbExpect(S.SPOT_FRAG).toMatch(/m \*= step\(0\.0, bFaceDist\(vFace\)\)/);
+    // the crown's and the charge's angle is seam-free: whole seeds, every index mod its count
+    tbExpect(S.SPOT_FRAG).toMatch(/float fi = mod\(floor\(sec\), N\);/);
+    tbExpect(S.SPOT_FRAG).toMatch(/float fi2 = mod\(floor\(sec2\), N\);/);
+    // the hard toon edge, no discard (the body and the crown: whole inside their silhouette while they hold, then a
+    // hard step as the erosion rises; the charge-up and the ground pieces: the toon core's mask)
+    tbExpect(S.BODY_FRAG).toMatch(/float m = inside \* step\(gone, max\(h0, hS\)\);/);
+    tbExpect(S.SPOT_FRAG).toMatch(/m = inside \* step\(gone, heat\);/);
+    for (const k of ['SPOT_FRAG', 'GROUND_FRAG']) tbExpect(S[k]).toMatch(/toonMask\(heat, cut\)/);
+    for (const k of ['BODY_FRAG', 'SPOT_FRAG', 'GROUND_FRAG']) tbExpect(S[k]).not.toMatch(/\bdiscard\s*;/);
   });
 
   tbIt('a beam carries her face to the shader: no ink within its radius on screen', () => {
@@ -629,7 +645,9 @@ tbDescribe('toon beams: the prism', () => {
     const { fx: f2, body: b2 } = tbMake('high');
     f2.fire('luna', A0, B0);
     tbRun(f2, 0.3);
-    tbExpect(rows(b2)[0].bG[0]).toBe(0);
+    tbExpect(rows(b2)[0].bI[0]).toBe(0);
+    tbExpect(rows(b2)[0].bG[0]).toBe(TOON_BEAM_TIERS.high.strands); // (its strands: one colour, the tier's count)
+    tbExpect(rows(body)[0].bI[0]).toBe(1);
   });
 });
 
@@ -650,7 +668,7 @@ tbDescribe('toon beams: Reduce Motion', () => {
       for (const s of rows(spots)) tbExpect(s.sD[2]).toBe(0); // no streaks
       for (const g of rows(ground)) tbExpect(g.gA[3]).toBe(1); // pools only: never a ring
       if (!b.length) continue;
-      const lance = b.filter((r) => r.bG[0] === 0);
+      const lance = b.filter((r) => r.bI[0] === 0);
       if (!lance.length) continue;
       alphas.push(lance[0].bE[2]);
       tbExpect(lance[0].bE[0]).toBeGreaterThan(lance[0].bD[3]); // whole at once: no racing head
@@ -764,5 +782,97 @@ tbDescribe('toon beams: credits and display only', () => {
     tbExpect(readFileSync('src/render/BattleRenderer.js', 'utf8')).not.toMatch(/toonBeams/);
     tbExpect(readFileSync('src/render/vfx/toonBeams.js', 'utf8')).toMatch(/laser-beam-MIT\.txt/);
     tbExpect(CROWN_PUNCH.length).toBeGreaterThan(0);
+  });
+});
+
+tbDescribe('toon beams: review r1 (interior ink, the face, chatter)', () => {
+  tbIt('the crown\'s tongues are seam-free: their outer radius is continuous where atan wraps, for any seed and beat', () => {
+    let worst = 0;
+    for (const N of [5, 7, 9]) {
+      for (let seed = 1; seed < 97; seed += 7) {
+        for (let beat = 0; beat < 12; beat++) {
+          for (const rr of [0.5, 0.75, 1]) {
+            // (the same direction seen from both sides of the wrap)
+            worst = Math.max(worst, Math.abs(crownOuter(1 - 1e-7, rr, N, seed, beat) - crownOuter(1e-7, rr, N, seed, beat)));
+            // and nowhere a jump in the middle of a tongue: small steps stay small
+            for (let u = 0; u < 1; u += 1 / 512) {
+              const d = Math.abs(crownOuter(u + 1e-5, rr, N, seed, beat) - crownOuter(u, rr, N, seed, beat));
+              worst = Math.max(worst, d);
+            }
+          }
+        }
+      }
+    }
+    tbExpect(worst).toBeLessThan(0.01);
+  });
+
+  tbIt('a chattering hit never strobes: at most one white burst and one ask of the flash guard each CROWN_REBURST', () => {
+    for (const period of [2, 4, 6, 10]) {
+      const { fx, spots } = tbMake('high');
+      const asks = [];
+      let now = 0;
+      fx.flashGate = vi.fn(() => {
+        asks.push(now);
+        return 1;
+      });
+      const r = fx.fire('umeko', A0, B0);
+      for (let f = 0; f < 30; f++) {
+        now += 1 / 60;
+        fx.update(1 / 60);
+      }
+      let onsets = [];
+      let prev = false;
+      for (let f = 0; f < 120; f++) {
+        fx.aim(r, A0, B0, { hit: Math.floor(f / period) % 2 === 0 });
+        now += 1 / 60;
+        fx.update(1 / 60);
+        const lit = rows(spots).some((s) => s.sB[0] === 1 && s.sC[3] > 0);
+        if (lit && !prev) onsets.push(now);
+        prev = lit;
+      }
+      for (let i = 1; i < onsets.length; i++) tbExpect(onsets[i] - onsets[i - 1]).toBeGreaterThanOrEqual(CROWN_REBURST - 1e-6);
+      for (let i = 1; i < asks.length; i++) tbExpect(asks[i] - asks[i - 1]).toBeGreaterThanOrEqual(Math.min(CROWN_REBURST, 0.05) - 1e-6);
+      tbExpect(onsets.length).toBeLessThanOrEqual(Math.ceil(2 / CROWN_REBURST)); // (3 bursts a second at most)
+      onsets = [];
+    }
+    tbExpect(1 / CROWN_REBURST).toBeLessThanOrEqual(3);
+  });
+
+  tbIt('no body ink under a crown that is up (its rim is the silhouette there); every preset has one shape', () => {
+    const { fx, body } = tbMake('high');
+    const r = fx.fire('umeko', A0, B0);
+    tbRun(fx, 0.4);
+    tbExpect(r.crownAt).toBeGreaterThanOrEqual(0);
+    tbExpect(rows(body)[0].bI[2]).toBeCloseTo(CROWN_INK_CLEAR * r.crownS, 5);
+    fx.aim(r, A0, B0, { hit: false });
+    tbRun(fx, 0.3); // (its crown ends over CROWN_END)
+    tbExpect(rows(body)[0].bI[2]).toBe(0);
+    const shapes = new Set(Object.values(TOON_BEAM_PRESETS).map((p) => Object.keys(p).join(',')));
+    tbExpect(shapes.size).toBe(1);
+  });
+
+  tbIt('the charge-up gathers past her head on screen (a muzzle behind it gathers in front of it)', () => {
+    const rig = new CameraRig({ width: 12, height: 7 });
+    rig.setViewport(844, 390);
+    rig.camera.updateMatrixWorld(true);
+    const fx = createToonBeamFx({ scene: new THREE.Scene(), camera: rig.camera, quality: 'high', rand: createVisualRandom(3).fork('beams') });
+    const spots = fx.meshes[1];
+    // her face, and a muzzle right behind it (Miko's mirror over her shoulder)
+    const face = [3, 1.0, 3];
+    const box = [0.3, 0.25];
+    fx.fire('miko', [3.05, 1.1, 2.9], [7, 0.35, 4], { width: 0.2, face, faceBox: box });
+    tbRun(fx, 0.08);
+    const c = rows(spots).find((s) => s.sB[0] === 0);
+    tbExpect(c).toBeTruthy();
+    const m = rig.camera.matrixWorldInverse.elements;
+    const vx = (p) => m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12];
+    const vy = (p) => m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13];
+    const dx = Math.abs(vx(c.sA) - vx(face));
+    const dy = Math.abs(vy(c.sA) - vy(face));
+    // its centre is out of the box by CHARGE_FACE_GAP of its size on one axis (and the shader cuts the rest)
+    const gap = CHARGE_FACE_GAP * c.sA[3];
+    tbExpect(dx > box[0] + gap * 0.99 || dy > box[1] + gap * 0.99).toBe(true);
+    tbExpect(c.sE[3]).toBeCloseTo(box[0], 6);
+    tbExpect(c.sD[3]).toBeCloseTo(box[1], 6);
   });
 });

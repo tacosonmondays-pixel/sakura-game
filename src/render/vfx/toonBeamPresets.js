@@ -1,12 +1,12 @@
 // Toon beam presets (docs/VFX.md "Toon beams", batch B3; display only, lab only: not wired into the battle yet). Plain
-// data, read by src/render/vfx/toonBeams.js. A toon beam is a flowing band on the shared toon core: the house noise
-// running out along it, a stepped ramp from its white-hot middle out to its body colour, an ink rim on its outer
-// silhouette only (none near the muzzle: her face), in hard-stepped beats:
+// data, read by src/render/vfx/toonBeams.js. A toon beam is a layered band on the shared toon core: a silhouette of
+// swept tongues, a sheath and twisting strands broken into strokes running out along it with the flow, stepped bands,
+// an ink rim on its true outer silhouette only (none near the muzzle, none over her face), in hard-stepped beats:
 //
-//   charge   a ring gathers in at the muzzle, streaks converge on it, both eroding in over her wind-up
+//   charge   a ring gathers in where the beam is first seen, streaks converge on it, both eroding in over her wind-up
 //   start    the release (flash-guarded): the head races out as a spear tip, then the band punches in wider in two
 //            hard steps and settles
-//   sustain  the bands flow out to the target; at the hit point an inked crown of tongues (re-rolled on a stepped
+//   sustain  the strokes flow out to the target; at the hit point a curling crown of tongues (re-rolled on a stepped
 //            beat), a stepped ring on the ground and a glow pool under it (the impact asks the flash guard)
 //   end      the band thins in steps, its ink leaves (one front, muzzle first), then it erodes out along itself, from the muzzle on
 //            to the target, ending in its colour bands (never loose ink), and the pool cools into a scorch and erodes
@@ -25,6 +25,11 @@ export const LANCE_HALF = Object.freeze({ base: 0.05, per: 0.3 });
 export const PRISM_HALF_SHARE = 0.6;
 /** A held beam's half width from the sim's (0.25): the share of today's soft band that reads on screen. */
 export const HELD_VISIBLE = 0.62;
+/**
+ * A pair of held beams sweeping in mirror (Luna's moonbeams: two bands always on the move) draws each at this share of
+ * the held width, so the pair's per-frame change on screen stays near one beam's (under 1.5 % of a phone screen a frame).
+ */
+export const PAIR_SWEEP = 0.78;
 /** The prism's stripe colours: the duo's Grand Spectrum (kohaku_tsubaki.js SPECTRUM, the white is the core thread). */
 export const PRISM_SPECTRUM = Object.freeze(['#c9a8ff', '#8fd8ff', '#ffd27a', '#ff9ad5', '#9dffc4']);
 
@@ -41,10 +46,20 @@ const IMPACT = Object.freeze({
   pool: Object.freeze({ size: 0.3, linger: 0.4 }), // the glow pool: radius, how long its scorch lingers after the end
 });
 
+/**
+ * Every preset has the same fields in the same order (these neutral values where a preset has none): the layer's hot
+ * path then reads one object shape, so the engine keeps it fast and allocation free (no polymorphic reads).
+ */
+const SHAPE = Object.freeze({
+  held: false, prism: false, half: null, width: null, twist: 0.6, spin: 0, stripes: null,
+  zig: 0, restrike: 0, jag: 0, jagMax: 0, lift: 0,
+});
+const preset = (o) => Object.freeze({ ...SHAPE, ...o });
+
 export const TOON_BEAM_PRESETS = Object.freeze({
   // Umeko's Searchlight Sweep (src/render/attackFx/patterns/held.js SWEEP_BODY #fff3c4, core #ffffff; the sim's
   // SWEEP_HALF_WIDTH 0.25 × HELD_VISIBLE, the share of today's soft band that reads): warm lantern light, amber-brown ink
-  umeko: Object.freeze({
+  umeko: preset({
     label: 'Searchlight Sweep (Umeko)',
     held: true,
     half: 0.25 * HELD_VISIBLE,
@@ -53,29 +68,31 @@ export const TOON_BEAM_PRESETS = Object.freeze({
     hold: 0, // (held: until release())
     fade: 0.26,
     flow: 2.4, // tiles a second the noise runs out along the beam
+    twist: 0.55, // strand turns a tile along the beam (they run out along it with the flow)
     noise: Object.freeze([0.2, 0.1]), // [along (texture tiles a tile), across]
     coreHeat: 0.18,
-    charge: Object.freeze({ size: 0.44 }),
+    charge: Object.freeze({ size: 0.62 }),
     ramp: Object.freeze(['#3a2806', '#d9b85a', '#ffe08a', '#fff3c4', '#fffbe6', '#ffffff', '#ffffff', '#ffffff']),
     hdr: 0.3,
     zig: 0,
     ...IMPACT,
   }),
   // Luna's moonbeams (her Moonbeam Sweep, src/render/attackFx/patterns/s5held.js MOON_BODY #d9ceff, MOON_CORE #f6f2ff;
-  // the sim's MOON_HALF_WIDTH 0.25 × HELD_VISIBLE; the moon lance's ink, and its body as the deep band, beamPresets.js
-  // `moon`: pale moonlight with a violet rim, never a heavy purple tube)
-  luna: Object.freeze({
+  // the sim's MOON_HALF_WIDTH 0.25 × HELD_VISIBLE × PAIR_SWEEP (two beams sweeping in mirror); the moon lance's ink,
+  // and its body as the deep band, beamPresets.js `moon`: pale moonlight with a violet rim, never a heavy purple tube)
+  luna: preset({
     label: 'Moonbeams (Luna)',
     held: true,
-    half: 0.25 * HELD_VISIBLE,
+    half: 0.25 * HELD_VISIBLE * PAIR_SWEEP,
     windup: WINDUPS.staff,
     grow: 0.07,
     hold: 0,
     fade: 0.22,
     flow: 2.0,
+    twist: 0.6, // strand turns a tile along the beam (they run out along it with the flow)
     noise: Object.freeze([0.18, 0.1]),
     coreHeat: 0.16,
-    charge: Object.freeze({ size: 0.4 }),
+    charge: Object.freeze({ size: 0.58 }),
     ramp: Object.freeze(['#1d0f4f', '#a77bff', '#c4a8ff', '#d9ceff', '#ece6ff', '#f6f2ff', '#f6f2ff', '#f6f2ff']),
     hdr: 0.3,
     zig: 0,
@@ -83,7 +100,7 @@ export const TOON_BEAM_PRESETS = Object.freeze({
   }),
   // Kohaku & Tsubaki's prism beam (kohaku_tsubaki.js: LILAC #c9a8ff, the Grand Spectrum stripes, a white core; the
   // beam's width w × PRISM_HALF_SHARE): a band per colour, side by side and twisting
-  kohaku: Object.freeze({
+  kohaku: preset({
     label: 'Prism beam (Kohaku & Tsubaki)',
     held: true,
     prism: true,
@@ -93,11 +110,11 @@ export const TOON_BEAM_PRESETS = Object.freeze({
     hold: 0,
     fade: 0.18,
     flow: 2.0,
-    twist: 0.9, // stripe turns a tile along the beam
-    spin: 1.6, // stripe turns a second (Reduce Motion: none)
+    twist: 0.9, // strand (one a colour) turns a tile along the beam
+    spin: 1.6, // strand turns a second round the beam (Reduce Motion: none)
     noise: Object.freeze([0.2, 0.1]),
     coreHeat: 0.14,
-    charge: Object.freeze({ size: 0.4 }),
+    charge: Object.freeze({ size: 0.58 }),
     ramp: Object.freeze(['#24154f', '#9a6cf2', '#c9a8ff', '#ddc8ff', '#efe6ff', '#ffffff', '#ffffff', '#ffffff']),
     stripes: PRISM_SPECTRUM,
     hdr: 0.3,
@@ -105,7 +122,7 @@ export const TOON_BEAM_PRESETS = Object.freeze({
     ...IMPACT,
   }),
   // Miko's holy ray (src/render/vfx/beamPresets.js `holy`: ink #4a2a05, body #ffd65a, core #fffdf0, width × 1.1)
-  miko: Object.freeze({
+  miko: preset({
     label: 'Holy ray (Miko)',
     held: false,
     width: 1.1, // × the lance's half width from the sim's beam width
@@ -114,9 +131,10 @@ export const TOON_BEAM_PRESETS = Object.freeze({
     hold: 0.14, // the holy ray's punch + hold
     fade: 0.18,
     flow: 3.0,
+    twist: 0.7, // strand turns a tile along the beam (they run out along it with the flow)
     noise: Object.freeze([0.24, 0.1]),
     coreHeat: 0.18,
-    charge: Object.freeze({ size: 0.4 }),
+    charge: Object.freeze({ size: 0.58 }),
     ramp: Object.freeze(['#4a2a05', '#d9ad48', '#ffd65a', '#ffe680', '#fff3c0', '#fffdf0', '#fffdf0', '#fffdf0']),
     hdr: 0.35,
     zig: 0,
@@ -124,7 +142,7 @@ export const TOON_BEAM_PRESETS = Object.freeze({
   }),
   // Raika's Overcharge lance (beamPresets.js `storm`: ink #33216e, body #ffd23f, core #fffbea; a zig-zag struck again
   // on the beat, raika.js: 6 kinks, 2 on low)
-  raika: Object.freeze({
+  raika: preset({
     label: 'Overcharge lance (Raika)',
     held: false,
     width: 1,
@@ -133,9 +151,10 @@ export const TOON_BEAM_PRESETS = Object.freeze({
     hold: 0.12,
     fade: 0.16,
     flow: 3.6,
+    twist: 0.8, // strand turns a tile along the beam (they run out along it with the flow)
     noise: Object.freeze([0.26, 0.1]),
     coreHeat: 0.18,
-    charge: Object.freeze({ size: 0.4 }),
+    charge: Object.freeze({ size: 0.58 }),
     ramp: Object.freeze(['#33216e', '#e0b44a', '#ffd23f', '#ffe45c', '#fff6cc', '#fffbea', '#fffbea', '#fffbea']),
     hdr: 0.35,
     zig: 6, // kinks (straight: 0)
@@ -148,13 +167,14 @@ export const TOON_BEAM_PRESETS = Object.freeze({
 });
 
 /**
- * Detail per graphics tier: crown tongues, charge streaks, the ground ring and glow pool, prism stripes, the zig-zag's
- * kinks, and whether the white band may go over white (high, with the bloom on, through the flash guard).
+ * Detail per graphics tier: crown tongues, charge streaks, the ground ring and glow pool, prism strands (one a colour),
+ * the zig-zag's kinks, whether the white band may go over white (high, with the bloom on, through the flash guard),
+ * and the strands twisting through a single-colour beam.
  */
 export const TOON_BEAM_TIERS = Object.freeze({
-  high: Object.freeze({ tongues: 9, streaks: 8, ring: true, pool: true, prism: 5, zig: 6, hdr: true }),
-  medium: Object.freeze({ tongues: 7, streaks: 6, ring: true, pool: true, prism: 5, zig: 6, hdr: false }),
-  low: Object.freeze({ tongues: 5, streaks: 0, ring: false, pool: false, prism: 3, zig: 2, hdr: false }),
+  high: Object.freeze({ tongues: 9, streaks: 8, ring: true, pool: true, prism: 5, zig: 6, hdr: true, strands: 3 }),
+  medium: Object.freeze({ tongues: 7, streaks: 6, ring: true, pool: true, prism: 5, zig: 6, hdr: false, strands: 3 }),
+  low: Object.freeze({ tongues: 5, streaks: 0, ring: false, pool: false, prism: 3, zig: 2, hdr: false, strands: 2 }),
 });
 
 /** Most toon beams up at once (a new one past it takes a beam already ending, else the oldest). */
