@@ -422,3 +422,58 @@ every attack and the batch that styles it. Display only: the sim id does not cha
 - **Ground:** a ring's band faces the camera, so it is lifted by its half width with the ink and never dips into the ground.
 - **Flash guard:** toon slashes and rings cover the board rather than add light, so the flash guard does not count them (the old additive slash sprites were counted).
 - **Reduce Motion:** no sweep or chasing tail; the ring grows linearly and lasts a little longer.
+
+## Star trail (look test, `src/render/vfx/starTrail.js`; not in the game yet)
+
+A shooting star that flies to a point and lands with a burst, built for the SSR and LR recruit reveal ("Starfall").
+This is step 1 of that plan: the effect and a lab page only. Nothing in the game calls it yet: no recruit, screen,
+sim, online or data file changes, and the sim id does not move. The recruit wiring (a timeline in the cinematic, a 2D
+fallback, the WebGL host and its teardown) is steps 2 and 3, after the owner has seen the look.
+
+- **What is drawn:** a concave 4-point star with a halo and two long axis flares; a soft ribbon behind it (a white core
+  in a wide glow, an iridescent band of colour at its edges that shifts along and across it, up to 3 thin waving
+  strands, a fading tail); a crescent riding just ahead of the star; on landing the star swells towards the viewer,
+  then a ring of glassy shards flies out while it settles and fades.
+- **Two draw calls while it plays, none otherwise.** The ribbon is one triangle strip; everything else (star, flares,
+  halo, crescent, shards) is one instanced quad that picks a shape per instance from a small signed-distance shader.
+  The flares are their own thin quads, so the star's quad stays small, and the halo quad has a size cap. Both meshes
+  are hidden while nothing is up.
+- **No history buffer.** The flight is a known curve (a bent quadratic Bézier with an ease that leaves already moving
+  and settles with zero speed), so each ribbon joint is the curve sampled at the time the head passed that point. A tap
+  that jumps to the landing (`land()`), a held frame (`hold()`) or a stepped capture clock all draw the exact ribbon for
+  that moment. The strip's across-coordinate is interpolated projectively (v·q with q), so the strands stay straight
+  where the ribbon changes width.
+- **Colour:** the effect composes in display space. Its 64×4 hue ramp (`paintStarRamp`, one row per preset) holds the
+  presets' sRGB bytes with no colour space, and three adds no output conversion to a `ShaderMaterial`, so the colours
+  in the presets are what reaches the screen. Both shaders end with the shared soft-shoulder tone curve
+  (`src/render/vfx/tone.js`, `TONE_GLSL`; `grade.js` uses the same chunk, pinned to `KNEE` by a test) and write
+  premultiplied light with alpha = max(rgb), so a light term covers what is behind it by its own brightness: overlaps
+  roll off instead of stacking to white, and the canvas never holds a colour brighter than its alpha.
+- **Presets** (`starTrailPresets.js`, plain data): `prism` for an SSR (white core; pink, lavender and ice edges; a violet
+  halo) and `nightglass` for an LR (a navy rim, a white-gold core, gold strands and crescent, a longer flight and a
+  bigger burst). `accentTint(preset, accent)` mixes a girl's own accent (her mark's) into the halo and strands, first
+  clamped towards pastel and passed through the flash guard's colour helper, so it is never a saturated red.
+- **Tiers** (`STAR_TRAIL_TIERS`): high 32 joints, 3 strands, 10 shards, DPR ≤ 1.5; medium 16 joints, 2 strands, a
+  narrower glow and smaller halo, 6 shards, DPR 1 (Nightglass adds 2 shards on both). Low has no WebGL: step 2 draws a
+  2D fallback on its own canvas above the cards. Measured over whole flights in the lab (estimated fragment area, in
+  screens of the view; the peak is the landing swell):
+
+  | | 844x390 | 1280x720 | 390x844 |
+  |---|---|---|---|
+  | high, Prism / Nightglass | peak 0.20 / 0.22, mean 0.12 / 0.13 | 0.23 / 0.27, 0.14 / 0.16 | 0.20 / 0.22, 0.12 / 0.13 |
+  | medium, Prism / Nightglass | 0.15 / 0.17, 0.09 / 0.10 | 0.18 / 0.21, 0.11 / 0.12 | 0.15 / 0.17, 0.09 / 0.10 |
+
+  The tests cap the peak at 0.42 screens on high and 0.30 on medium.
+- **Reduce Motion:** no flight, ribbon, shards, twinkle or swell. A still star (a little larger), its halo and the
+  crescent fade in where it would land, hold, and fade out; one draw call. The host's landing flash goes through its
+  own flash helper (FAINT at most with Reduce Motion).
+- **Randomness and time:** the shards' angles, spins and sizes come from the stream the host hands in, drawn at
+  launch; time is only the `dt` the host passes. Never `Math.random`, never `performance.now`.
+- **`stats()`:** `calls` (read from `renderer.info` around each of its own draws, so it is right on a shared renderer
+  too), `meshes`, `joints`, `sprites`, `fragArea` (host units², CSS px² for the recruit), `screens` and `peakScreens`.
+- **Lab:** `previews/star-trail.html` on the dev server: the star lands on a recruit card over a night sky; it loops
+  preset × tier × Reduce Motion at 844x390, 1280x720 and 390x844 (`?cycle=1`), with keys or a lil-gui panel (the panel
+  lives in `previews/` only, never in `src`). `?manual=1` plus `window.__lab.seek(t)` steps it at 60 Hz for captures.
+  `node e2e/star-trail-board.mjs --out <dir>` writes the look boards and the numbers above.
+- **Later, each with its own board:** bokeh and speed lines (cut from this step to keep the fragment cost down), a
+  small star pop on the other SSR cards of a 10× pull, then other placements (the awakening moments, an ultimate).
