@@ -440,6 +440,90 @@ The tornado's house look turned into a short burst, built on the toon core. Not 
   and the clip gave crisper shapes than a sprite mask), so no mask file ships. When the splash is wired, add the three
   files to Settings → Licences (`LICENCE_FILES`).
 
+## Electricity (`src/render/vfx/electric.js`, `electricPresets.js`, batch B2; lab only, not wired)
+
+Crackle round bodies, the shocked-enemy crackle, an electric ground decal and two cast hooks, in the house look: the
+bolts are the chain lightning's inked toon strokes (ink, body, white-hot core; crisp edges; erosion into dashes) and the
+ground pieces are hand-written on the toon core. Not in the battle yet: the lab is `previews/electric.html`, and
+`ELECTRIC_GIRLS` names who will use which preset once it is wired. Display only: the sim id does not change.
+
+- **Pieces:**
+  - **aura** (`aura(preset, x, z, { radius, height, y0, size, life, follow })`): short micro-bolts round a body,
+    hugging a capsule (its radius, height and feet; hemispheres at both ends). They start on the body's silhouette as
+    the camera sees it (its left and right edges, `TOP_SHARE` over its top) and run mostly up and down it, so the
+    crackle outlines the body and never covers its face; the side away from the camera is hidden by the body itself.
+    Each bolt is re-struck on its own beat (`restrike` 0.06–0.11 s: every few frames, never every frame) and shows for
+    `duty` of its strikes, so the crackle thins and thickens bolt by bolt instead of the whole aura blinking. A strike's
+    leader races along it (`grow`), holds, then erodes. A charge ring glows on the ground at the feet, broken into a few
+    dashes that turn in steps (`RING_TURN` every `RING_STEP`). `follow` (an object with x and z) moves it with the body.
+  - **shock** (`shock(preset, x, z, { radius, height })`): the same crackle, smaller and short-lived (`shock.life`
+    0.5 s), on an enemy's body after a chain hit: a first burst of bolts at once, then sparser, then gone. No ground ring
+    (it would read as a selection ring under every shocked enemy).
+  - **scorch** (`scorch(preset, x, z, { size })`): the electric ground decal. Worley F2 − F1 cracks (the toon core's B
+    channel, painted once) laid out in polar coordinates, so the cells narrow towards the middle and the cracks radiate;
+    a hard step on the crack edges; a white-hot core in the young cracks that cools in patches to the body colour, then
+    the deep band; a hard-stepped glow round the young cracks (high and medium); over a dark translucent burn. Ink rims
+    every crack and the burn's edge. A crack narrower on screen than `SCORCH_INK_PX` (6) of its rim's pixels draws no rim (it would be all
+    ink: dark specks), and the burn is inked on its outer silhouette only and only while young (`SCORCH_EDGE_INK`), so
+    it erodes from its rim inward into quiet tongues, never a scribble of outlined holes. The cracks race out over the first 0.12 s.
+  - **burst** (`burst(preset, x, z)`): one drum beat's ring of bolts bursting out (`r0` → `r1` tiles over `life`, an
+    ease-out), every other bolt with a spoke shooting out of the ring, re-struck on the beat while it bursts, eroding
+    over its second half; a thin ring of light on the ground under it (never over white: a wide ring over white blooms
+    into a soft halo).
+  - **link** (`link(preset, points, { life, closed })`): bolts arcing from point to point (in a loop when closed),
+    each re-struck on its own beat with a small bow up or down, and little crackles where they join. The points are the
+    caller's objects, read every frame, so the arcs follow what they join.
+- **Cast hooks** (`ELECTRIC_CASTS`, lab presets; the battle's ⚡ casts are not wired to them yet):
+  `cast('raika.drumstorm', x, z)`: her crackle for the boost, a burst ring on every drum beat (`beat` 0.5 s) and a
+  scorch on the first (then every `scorchEvery`). `cast('chika.droneSurge', x, z, { points })`: bolts arcing drone to
+  drone round her ring for the surge and a short crackle on Chika as they launch.
+- **Branching:** our own rules, with ideas from three-stdlib's LightningStrike (MIT, re-implemented: no code taken).
+  `fractalPath` halves a path's segments and pushes each new joint sideways by a share of the segment that shrinks
+  each halving (`ROUGHNESS` 0.58); the last halving alternates sides and slides each joint along its segment (`skew`:
+  long diagonals and short sharp jogs, a drawn zig-zag, never a random walk). A fork leaves from an inner joint, turned
+  0.55–1.1 rad off the parent, shorter and thinner, reaching out off the body (it breaks the silhouette); one
+  generation only. Each bolt's duty (shown for part of its strikes) and a leader that grows and then erodes are the
+  library's subray period and propagation ideas, on our stepped beat.
+- **Presets** (plain data), each in her chain's colours as they are live: `raika` (lightning `storm`: gold, violet
+  ink), `chika` (`tesla`: ice blue, navy ink, a cyan glow band), `tenka` (`arcane`: violet-white, indigo ink), `seiran`
+  (her style's sky chain `#9fd8ff` on a storm-blue glow, indigo ink), `yuzuha` (`sakura`: pink electric, plum ink). The
+  bolts take the chain's ink, body and core exactly; the ground ramp (8 bands: ink, burn, deep, body, glow, core,
+  white) is built on the same hues. No bright colour reaches the flash guard's red share (tests hold it).
+- **Tiers** (`ELECTRIC_TIERS`): high 8 bolts a body, 4 a shock, 2 halvings, 1 fork, 10 bolts a beat ring, 3 halvings
+  an arc, 2 node bolts, the scorch's glow, the cores over white with bloom; medium 6, 3, 2, 1, 8, 3, 1, glow; low 4,
+  2, 1 halving, no forks, 6, 2, none, no glow. The stroke list is capped by the tier (`cap`) and the strokes' room, a
+  whole bolt or none (never an ink-only line). High with bloom: the body × `BODY_UNDER_BLOOM` (under the grade's knee,
+  as the chain's).
+- **Reduce Motion:** no bolts round bodies or in the beat rings: a still glow ring at the feet (`ELECTRIC_REDUCE_ALPHA`,
+  nearly whole, no turning) stands for the crackle, and a still ring for each beat; the arcs are struck once and held
+  (they still follow their points); no flicker; scorches and casts live `TOON_REDUCE.life` × longer; no swirl in the
+  cracks.
+- **Flash safety:** every strike (each bolt's, each beat ring's, each arc's, each scorch) asks `flashGate` once with
+  its size and flicker (`flicker` 0.3: the core dims on alternate strikes). Past the budget the core is drawn at the
+  guard's answer and nothing goes over white. Every piece is small (a beat ring is under 3 tiles across): nothing is
+  full screen. Flashes & shake off (`setFlashes(false)`, on pieces already up too): the guard is not asked, no flicker,
+  nothing over white. Impact frames: `hold(true)` hides both layers.
+- **Draw cost:** two instanced calls at most (the bolts' strokes: its own call standalone, the battle's shared strokes
+  when wired; the ground pieces: one call), 0 when idle. Every record, path and buffer is allocated once at the high
+  tier's sizes (`MAX_AURAS` 12, `MAX_BURSTS` 6, `MAX_LINKS` 2 of up to 8 points, `MAX_SCORCHES` 8, `MAX_CASTS` 4; the
+  oldest record is reused); `update()` writes numbers into them; paths are re-struck on the beat, never per frame.
+- **Randomness:** the stream it is handed (`vrand.fork('electric')` when wired); time from the visual clock.
+- **Cost:** CPU about 70–90 µs a frame on high and medium, 33 µs on low (node, this machine) with seven crackling
+  bodies, a Drumstorm and a Drone Surge up (about 900 strokes on high): mostly the stroke writes. The hot path keeps
+  its numbers in typed scratch arrays (never boxed into helper arguments or closure variables), so a busy frame
+  allocates about what the water's does in the same measurement (`--trace-gc-nvp`), and an idle layer does no work.
+  Headless SwiftShader frame time on the lab board with eleven crackling bodies, a Drumstorm and four scorches up:
+  high 313 → 349 ms, medium 133 → 163, low 101 → 118 (CPU raster: compare runs, nothing absolute about a phone), +2
+  draw calls.
+- **Lab and boards:** `/previews/electric.html` (live loop; scene, preset, tier and Reduce Motion buttons; `?scene=aura|
+  shock|scorch|drumstorm|surge|all`, `?manual=1` and `window.__lab.shot(t)` for stepped stills, `window.__lab.bench()`
+  for the frame time). The shock scene strikes Raika's live chain (lightning.js, `storm`) through three goblins and
+  starts the shock on each as its hop lands. Real chibis (and goblins) for scale; the drones are lab stand-ins.
+  `node e2e/electric-board.mjs --board 1 | 2 | quick --out <jpg>` writes the owner boards.
+- **Credits** (licence texts, with their authors, in `public/licenses/`): the branching ideas from three-stdlib's
+  LightningStrike (MIT, `three-stdlib-MIT.txt`); the Worley cells are the toon core's (`webgl-noise-MIT.txt`). When the
+  electricity is wired, add `three-stdlib-MIT.txt` to Settings → Licences (`LICENCE_FILES`).
+
 ## VFX library: toon strokes, chain lightning and beams (`docs/specs/VFX_LIBRARY.md`)
 
 The owner's plan for a styled look on every attack is `docs/specs/VFX_LIBRARY.md`: the house style, the research notes,
