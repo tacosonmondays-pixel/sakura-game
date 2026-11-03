@@ -203,7 +203,8 @@ async function runViewport(vp) {
     if (pick) {
       await shot('ssr-select');
       // her tile must be the topmost thing under its centre first: Hikari's journal pill (a button that opens the
-      // Journal) can sit over the picker's top row for a couple of seconds after the lobby opens
+      // Journal) used to sit over the picker's top row for a couple of seconds after the lobby opens (it steps aside
+      // for every modal now: e2e/journal-pill.mjs; the wait stays as a guard)
       await page.waitForFunction((id) => {
         const cell = document.querySelector(`[data-testid="sst-${id}"]`);
         if (!cell) return false;
