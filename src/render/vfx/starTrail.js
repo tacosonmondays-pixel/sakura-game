@@ -2,11 +2,11 @@
 // curve and lands: a concave 4-point star with its halo and axis flares, a soft iridescent ribbon behind it, a crescent
 // riding just ahead, then a swell and a ring of glassy shards. Hand-written: no particle library, no image files.
 //
-//   const trail = createStarTrail({ parent, quality, reduceMotion, rand });
+//   const trail = createStarTrail({ parent, quality, reduceMotion, rand, toneInShader });
 //   trail.setView(w, h)                                 // the host's view in its own units (the recruit: CSS px)
 //   trail.launch('prism', [x0, y0], [x1, y1], { onLand, accent })
 //   trail.update(dt)                                    // the host's visual-clock dt, once a frame, before it renders
-//   trail.stats()  →  { calls, meshes, joints, sprites, fragArea, screens, peakScreens, phase, alive }
+//   trail.stats()  →  { calls, meshes, joints, sprites, fragArea, screens, peakScreens, phase, alive, tier }
 //   trail.dispose()
 //
 // Scene-agnostic: everything is drawn in the parent's local XY plane (z = 0), in the host's units, either way up (the
@@ -19,8 +19,10 @@
 //      fwidth) and the tail fade.
 //   2. the sprites: one instanced quad, an SDF per instance: STAR4 (concave, fwidth anti-aliased), FLARE (the star's
 //      axis flares, separate stretched instances so the star's own quad stays small), GLOW (a clamped halo), CRESCENT
-//      (ahead of the head) and SHARD (the landing burst's kites, one glassy edge).
-// Both end with the shared soft-shoulder tone curve (tone.js) and write premultiplied light with alpha = max(rgb)
+//      (ahead of the head), SHARD (the landing burst's kites, one glassy edge) and RING (the landing's thin pulse,
+//      drawn as RING_ARCS arcs, each on a quad that just holds its arc, so the ring costs few fragments).
+// Both end with the shared soft-shoulder tone curve (tone.js; the STAR_TRAIL_TONE define, on unless the host passes
+// toneInShader: false because its own final pass tones the frame) and write premultiplied light with alpha = max(rgb)
 // (blend One, OneMinusSrcAlpha): a light term then covers what is behind it by its own brightness, so the canvas never
 // holds a colour brighter than its alpha (undefined on a premultiplied canvas), and overlaps roll off instead of
 // stacking to white.
@@ -33,11 +35,13 @@ import { TONE_GLSL } from './tone.js';
 import { createVisualRandom, visualSeed } from './random.js';
 import {
   STAR_TRAIL_PRESETS, STAR_TRAIL_TIERS, STAR_TRAIL_CALM, MAX_JOINTS, MAX_SPRITES, MAX_SHARDS, MAX_STRANDS,
-  RAMP_W, RAMP_ROWS, accentTint,
+  RAMP_W, RAMP_ROWS, RING_ARCS, STAR_SPRITES, accentTint,
 } from './starTrailPresets.js';
 
 /** Sprite shapes (the instance's shape id). */
-export const SHAPE = Object.freeze({ STAR4: 0, GLOW: 1, CRESCENT: 2, SHARD: 3, FLARE: 4 });
+export const SHAPE = Object.freeze({ STAR4: 0, GLOW: 1, CRESCENT: 2, SHARD: 3, FLARE: 4, RING: 5 });
+/** The define both shaders tone their light under (createStarTrail's toneInShader, default on). */
+export const TONE_DEFINE = 'STAR_TRAIL_TONE';
 /** The halo quad never grows past this share of the view's short side (fragment budget). */
 export const HALO_CAP = 0.2;
 /** …nor at the top of the landing swell. */
@@ -165,6 +169,7 @@ uniform vec2 uBand;     // the colour band's centre |v| and width
 uniform vec3 uHue;      // turns per second of flight laid, turns across, drift a second
 uniform vec3 uStrand;   // strand colour
 uniform vec4 uStrandP;  // count, strength, half-width (v), wobble
+uniform float uSpread;  // how far the strands fan out (× the strip's half-width)
 uniform vec4 uRim;      // covering edge colour, strength (0: none)
 varying vec4 vData;
 varying float vQ;
@@ -200,18 +205,22 @@ void main() {
   float env = pow(u, 0.6);
   float s = 0.0;
   if (uStrandP.x > 0.5) {
-    float c0 = 0.4 * env + 0.09 * u * sin(14.0 * u - 9.0 * uTime);
+    float c0 = uSpread * (0.4 * env + 0.09 * u * sin(14.0 * u - 9.0 * uTime));
     s = 1.0 - smoothstep(sw, sw + fw, abs(vv - c0));
     s = max(s, 1.0 - smoothstep(sw, sw + fw, abs(vv + c0)));
   }
   if (uStrandP.x > 2.5) {
-    float c2 = 0.26 * u * sin(10.0 * u - 6.5 * uTime + 1.3);
+    float c2 = uSpread * 0.26 * u * sin(10.0 * u - 6.5 * uTime + 1.3);
     s = max(s, 1.0 - smoothstep(sw, sw + fw, abs(vv - c2)));
   }
   col += uStrand * s * uStrandP.y * pow(1.0 - u, 1.2) * smoothstep(0.0, 0.08, u);
   float fade = vData.z * uAlpha * (1.0 - smoothstep(0.55, 1.0, u)) * smoothstep(0.0, 0.035, u);
-  col = vfxTone(col * fade);
-  float a = max(col.r, max(col.g, col.b));
+  col *= fade;
+#ifdef STAR_TRAIL_TONE
+  col = vfxTone(col);
+#endif
+  // (≤ 1 always: with the tone off, an HDR host's light may pass 1 and must not drive the blend's 1 − a negative)
+  float a = min(max(col.r, max(col.g, col.b)), 1.0);
   // the covering rim sits under the light (light over rim, premultiplied)
   float rim = uRim.a * smoothstep(0.42, 0.8, av) * (1.0 - smoothstep(0.82, 1.0, av)) * fade;
   gl_FragColor = vec4(col + uRim.rgb * rim * (1.0 - a), a + rim * (1.0 - a));
@@ -262,11 +271,12 @@ void main() {
     float r2 = dot(p, p);
     light = vC.rgb * exp(-r2 * vB.z) * (1.0 - smoothstep(0.6, 1.0, sqrt(r2)));
   } else if (vShape < 2.5) {
-    // CRESCENT: a disc minus the same disc shifted back: the front sliver, horns trailing; brighter at the front
+    // CRESCENT: a disc minus the same disc shifted back by p1 (× its radius): the front sliver, horns trailing. Brighter
+    // at the front, and the horns fade out before their tips, so at phone size it reads as a fat moon, not a thin ring
     float d = max(length(p) - 0.92, -(length(p + vec2(vB.z, 0.0)) - 0.9));
     float aa = fwidth(d);
     float m = 1.0 - smoothstep(-aa, aa, d);
-    light = vC.rgb * m * (0.55 + 0.45 * smoothstep(-0.3, 0.9, p.x));
+    light = vC.rgb * m * (0.55 + 0.45 * smoothstep(-0.3, 0.9, p.x)) * smoothstep(-0.34, 0.12, p.x);
   } else if (vShape < 3.5) {
     // SHARD: a kite (tip at +x), glass: one face lit, a bright edge on that side
     float x = p.x - 0.35;
@@ -276,12 +286,26 @@ void main() {
     float lit = step(0.0, p.y);
     float edge = smoothstep(-0.28, -0.02, f) * (0.35 + 0.65 * lit);
     light = (vC.rgb * (0.62 + 0.38 * lit) + vec3(edge * vB.w)) * m;
+  } else if (vShape < 4.5) {
+    // FLARE: a thin gaussian line along local x, falling off to its ends, and to nothing at the quad's long edges
+    light = vC.rgb * exp(-p.y * p.y * vB.z) * pow(max(0.0, 1.0 - abs(p.x)), vB.w) * (1.0 - smoothstep(0.7, 1.0, abs(p.y)));
   } else {
-    // FLARE: a thin gaussian line along local x, falling off to its ends
-    light = vC.rgb * exp(-p.y * p.y * vB.z) * pow(max(0.0, 1.0 - abs(p.x)), vB.w);
+    // RING: one arc of the landing ring. Its quad sits on the arc (x along it, y outwards, the ring's centre rc below
+    // the quad's centre); p1 the radius, p2 the band's half-width (host units). A thin line at the radius in a soft
+    // glow, kept to this arc's own share of the circle, so neighbouring arcs meet edge to edge with no doubled seam
+    vec2 l = p * vB.xy;
+    float ro = vB.z + vB.w;
+    vec2 q = vec2(l.x, l.y + ro - vB.y);
+    float sa = vB.x / ro;
+    float inArc = step(sqrt(max(0.0, 1.0 - sa * sa)) * length(q), q.y);
+    float dr = (length(q) - vB.z) / vB.w;
+    light = vC.rgb * (exp(-dr * dr * 20.0) + 0.35 * exp(-dr * dr * 4.0)) * inArc;
   }
-  light = vfxTone(light * vC.a);
-  gl_FragColor = vec4(light, max(light.r, max(light.g, light.b)));
+  light *= vC.a;
+#ifdef STAR_TRAIL_TONE
+  light = vfxTone(light);
+#endif
+  gl_FragColor = vec4(light, min(max(light.r, max(light.g, light.b)), 1.0));
 }`;
 
 /** Display-space RGB 0..1 of a hex colour into a Vector3 (no colour management: the effect works in display space). */
@@ -292,12 +316,19 @@ function setHex(v3, hex) {
 
 /**
  * @param {{ parent: THREE.Object3D, quality?: 'high'|'medium'|'low', reduceMotion?: boolean, rand?: Function,
- *   presets?: object, renderOrder?: number }} o
+ *   presets?: object, renderOrder?: number, toneInShader?: boolean }} o
+ *   toneInShader: true (the default) ends both shaders with the shared tone curve, for a host with no final pass of its
+ *   own (the recruit overlay). A host whose final pass already tones the frame (the battle's GradePass) passes false,
+ *   or the light is toned twice. Such a host also runs in linear light, so its step must decode the ramp and the
+ *   presets' colours to linear too (docs/VFX.md "Star trail").
  */
-export function createStarTrail({ parent, quality = 'high', reduceMotion = false, rand = null, presets = STAR_TRAIL_PRESETS, renderOrder = 0 }) {
+export function createStarTrail({
+  parent, quality = 'high', reduceMotion = false, rand = null, presets = STAR_TRAIL_PRESETS, renderOrder = 0, toneInShader = true,
+}) {
   const ids = Object.keys(presets).slice(0, RAMP_ROWS);
   const rnd = rand || createVisualRandom(visualSeed('starTrail'));
-  let tier = STAR_TRAIL_TIERS[quality] || STAR_TRAIL_TIERS.high;
+  let tierName = STAR_TRAIL_TIERS[quality] ? quality : 'high';
+  let tier = STAR_TRAIL_TIERS[tierName];
   let calmMode = !!reduceMotion;
   let viewW = 844;
   let viewH = 390;
@@ -344,9 +375,10 @@ export function createStarTrail({ parent, quality = 'high', reduceMotion = false
     uCore: { value: new THREE.Vector3(1, 1, 1) }, uBody: { value: new THREE.Vector4(0.2, 0.6, 0.3, 0.9) },
     uBand: { value: new THREE.Vector2(0.36, 0.2) }, uHue: { value: new THREE.Vector3(1.5, 0.4, 0.2) },
     uStrand: { value: new THREE.Vector3(1, 1, 1) }, uStrandP: { value: new THREE.Vector4(0, 0.8, 0.02, 0.08) },
-    uRim: { value: new THREE.Vector4(0, 0, 0, 0) },
+    uSpread: { value: 1 }, uRim: { value: new THREE.Vector4(0, 0, 0, 0) },
   };
-  const ribbonMat = new THREE.ShaderMaterial({ name: 'starTrailRibbon', uniforms: U, vertexShader: RIBBON_VERT, fragmentShader: RIBBON_FRAG, ...blend });
+  const defines = toneInShader ? { [TONE_DEFINE]: '' } : {};
+  const ribbonMat = new THREE.ShaderMaterial({ name: 'starTrailRibbon', uniforms: U, defines, vertexShader: RIBBON_VERT, fragmentShader: RIBBON_FRAG, ...blend });
   const ribbon = new THREE.Mesh(ribbonGeo, ribbonMat);
   ribbon.name = 'starTrailRibbon';
 
@@ -364,7 +396,7 @@ export function createStarTrail({ parent, quality = 'high', reduceMotion = false
   quad.setAttribute('iB', iBattr);
   quad.setAttribute('iC', iCattr);
   quad.instanceCount = 0;
-  const spriteMat = new THREE.ShaderMaterial({ name: 'starTrailSprites', vertexShader: SPRITE_VERT, fragmentShader: SPRITE_FRAG, ...blend });
+  const spriteMat = new THREE.ShaderMaterial({ name: 'starTrailSprites', defines: { ...defines }, vertexShader: SPRITE_VERT, fragmentShader: SPRITE_FRAG, ...blend });
   const sprites = new THREE.Mesh(quad, spriteMat);
   sprites.name = 'starTrailSprites';
 
@@ -387,11 +419,14 @@ export function createStarTrail({ parent, quality = 'high', reduceMotion = false
     on: false, mode: 'flight', id: null, p: null, t: 0, landed: false, onLand: null, size: 1,
     from: [0, 0], to: [0, 0], bend: 0, dur: 1, trail: 0.3, shards: 0,
     halo: new THREE.Vector3(), strand: new THREE.Vector3(), star: new THREE.Vector3(), flare: new THREE.Vector3(), crescent: new THREE.Vector3(),
+    ring: new THREE.Vector3(),
   };
   const shard = new Float32Array(MAX_SHARDS * 8); // angle, reach, spin, size, r, g, b, phase
   const P = [0, 0];
   const D = [0, 0];
   const stat = { fragArea: 0, screens: 0, peakScreens: 0, phase: 'idle', sprites: 0, joints: 0 };
+  // what stats() hands back: one object, filled in place on every call (read it then, don't keep it)
+  const out = { calls: 0, meshes: 0, joints: 0, sprites: 0, fragArea: 0, screens: 0, peakScreens: 0, phase: 'idle', alive: false, tier: tierName };
 
   function setView(w, h) {
     viewW = Math.max(1, w);
@@ -400,11 +435,21 @@ export function createStarTrail({ parent, quality = 'high', reduceMotion = false
   }
 
   function setQuality(q) {
-    tier = STAR_TRAIL_TIERS[q] || STAR_TRAIL_TIERS.high;
+    tierName = STAR_TRAIL_TIERS[q] ? q : 'high';
+    tier = STAR_TRAIL_TIERS[tierName];
   }
 
+  /**
+   * Reduce Motion, from the next launch, and at once for one already up: a flight (or its burst) becomes the calm
+   * still at its landing point, fully faded in (no ribbon, no shards, no ring from here), and `onLand` still runs once.
+   */
   function setReduceMotion(on) {
     calmMode = !!on;
+    if (calmMode && run.on && run.mode !== 'calm') {
+      run.mode = 'calm';
+      run.t = STAR_TRAIL_CALM.fadeIn;
+      U.uHue.value.z = 0;
+    }
   }
 
   function begin(id, from, to, o) {
@@ -431,22 +476,26 @@ export function createStarTrail({ parent, quality = 'high', reduceMotion = false
     setHex(run.star, p.star.color);
     setHex(run.flare, p.star.flare.color);
     setHex(run.crescent, p.crescent.color);
+    if (p.burst.ring) setHex(run.ring, p.burst.ring.color);
     // the ribbon's look for this preset and tier
     const r = p.ribbon;
     const wScale = 0.55 + 0.45 * tier.glow;
     U.uRow.value = (Math.max(0, ids.indexOf(id)) + 0.5) / RAMP_ROWS;
-    setHex(U.uCore.value, r.core);
+    setHex(U.uCore.value, r.core).multiplyScalar(r.coreGain ?? 1);
     U.uBody.value.set(r.coreSigma / wScale, (r.glowSigma * tier.glow) / wScale, r.glow, r.band);
     U.uBand.value.set(r.bandAt / wScale, r.bandWidth / wScale);
     U.uHue.value.set(r.hue[0], r.hue[1], calmMode ? 0 : r.hue[2]);
     U.uStrand.value.copy(run.strand);
     U.uStrandP.value.set(Math.min(tier.strands, MAX_STRANDS), p.strands.alpha, p.strands.width / wScale, r.wobble);
+    U.uSpread.value = p.strands.spread ?? 1;
     if (r.rim) {
       setHex(U.uRim.value, r.rim.color);
       U.uRim.value.w = r.rim.alpha;
     } else U.uRim.value.set(0, 0, 0, 0);
-    // the landing shards, drawn from the seeded stream now (never per frame)
-    const n = Math.min(MAX_SHARDS, tier.shards + (p.burst.extra || 0), Math.max(0, tier.sprites - 6));
+    // the landing shards, drawn from the seeded stream now (never per frame); they get the tier's sprites that the star
+    // and the ring's arcs leave
+    const room = tier.sprites - STAR_SPRITES - (p.burst.ring ? RING_ARCS : 0);
+    const n = Math.min(MAX_SHARDS, tier.shards + (p.burst.extra || 0), Math.max(0, room));
     run.shards = n;
     for (let k = 0; k < n; k++) {
       const c = hexBytes(p.burst.colors[Math.floor(rnd() * p.burst.colors.length) % p.burst.colors.length]);
@@ -539,7 +588,7 @@ export function createStarTrail({ parent, quality = 'high', reduceMotion = false
       const c = p.crescent;
       const ahead = R * c.ahead * Math.max(1, scale * 0.8);
       const cr = R * c.size * crescentK;
-      put(SHAPE.CRESCENT, x + dx * ahead, y + dy * ahead, Math.atan2(dy, dx), cr, cr, 0.22, 0,
+      put(SHAPE.CRESCENT, x + dx * ahead, y + dy * ahead, Math.atan2(dy, dx), cr, cr, c.cut ?? 0.22, 0,
         run.crescent.x, run.crescent.y, run.crescent.z, c.alpha * crescentA);
     }
   }
@@ -677,6 +726,7 @@ export function createStarTrail({ parent, quality = 'high', reduceMotion = false
     const e = easeOutCubic(k);
     const fadeStar = Math.pow(1 - k, 1.5);
     drawStar(x, y, D[0], D[1], R, p.burst.scale + (1.1 - p.burst.scale) * e, fadeStar, p.burst.halo, 1.6 - 0.6 * e, 0, 1, turn);
+    if (p.burst.ring && !calmMode) drawRing(x, y, p.burst.ring, t - T2);
     const reach = p.burst.reach * unit * run.size;
     const sz = p.burst.size * unit * run.size;
     for (let j = 0; j < run.shards; j++) {
@@ -692,6 +742,30 @@ export function createStarTrail({ parent, quality = 'high', reduceMotion = false
         shard[o + 4], shard[o + 5], shard[o + 6], a);
     }
     return finish('shards');
+  }
+
+  /**
+   * The landing ring, `age` seconds after the top of the swell: a thin line expanding from ring.from to ring.to (× the
+   * short side), thinning and fading. RING_ARCS arcs, each on a quad tangent to its arc (local y outwards) sized to
+   * hold just that arc's band: about 0.07 screens of fragments at its widest, against 0.4 for one whole-ring quad.
+   */
+  function drawRing(x, y, ring, age) {
+    const k = age / ring.seconds;
+    if (k >= 1) return;
+    const e = easeOutCubic(k);
+    const r = unit * run.size * (ring.from + (ring.to - ring.from) * e);
+    const b = Math.max(ring.width * unit * run.size * (1 - 0.3 * k), 4);
+    const a = ring.alpha * smooth(0, 0.1, k) * (1 - smooth(0.3, 1, k));
+    const half = Math.PI / RING_ARCS;
+    const ro = r + b;
+    const ri = Math.max(0, r - b) * Math.cos(half);
+    const hx = ro * Math.sin(half);
+    const hy = (ro - ri) / 2;
+    const rc = (ro + ri) / 2;
+    for (let j = 0; j < RING_ARCS; j++) {
+      const th = (j + 0.5) * 2 * half;
+      put(SHAPE.RING, x + Math.cos(th) * rc, y + Math.sin(th) * rc, th - Math.PI / 2, hx, hy, r, b, run.ring.x, run.ring.y, run.ring.z, a);
+    }
   }
 
   function landOnce() {
@@ -720,21 +794,22 @@ export function createStarTrail({ parent, quality = 'high', reduceMotion = false
   /**
    * calls: the draw calls the renderer made for this effect in its last render (renderer.info, read around each
    * mesh's draw); meshes: how many it will draw (0 while idle); fragArea: the estimated area its quads and strip cover
-   * (host units², i.e. CSS px² for the recruit; × DPR² for device fragments); screens: that ÷ the view.
+   * (host units², i.e. CSS px² for the recruit; × DPR² for device fragments); screens: that ÷ the view. The same
+   * object comes back every call, filled in place (no allocation for a HUD that reads it each frame): read it, don't
+   * keep it.
    */
   function stats() {
-    return {
-      calls: frameCalls,
-      meshes: (ribbon.visible ? 1 : 0) + (sprites.visible ? 1 : 0),
-      joints: stat.joints,
-      sprites: stat.sprites,
-      fragArea: stat.fragArea,
-      screens: stat.screens,
-      peakScreens: stat.peakScreens,
-      phase: stat.phase,
-      alive: run.on,
-      tier: Object.keys(STAR_TRAIL_TIERS).find((k) => STAR_TRAIL_TIERS[k] === tier),
-    };
+    out.calls = frameCalls;
+    out.meshes = (ribbon.visible ? 1 : 0) + (sprites.visible ? 1 : 0);
+    out.joints = stat.joints;
+    out.sprites = stat.sprites;
+    out.fragArea = stat.fragArea;
+    out.screens = stat.screens;
+    out.peakScreens = stat.peakScreens;
+    out.phase = stat.phase;
+    out.alive = run.on;
+    out.tier = tierName;
+    return out;
   }
 
   /** Everything this effect made: meshes off the parent, geometry, materials, the ramp. Safe to call twice. */

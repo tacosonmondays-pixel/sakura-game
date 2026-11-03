@@ -1,16 +1,19 @@
 // Star trail VFX (docs/VFX.md "Star trail"): the flight curve and its ease, the ribbon sampled back along it (no
-// history), tier caps, Reduce Motion, buffers sized once, nothing drawn while idle, the painted ramp, the shared tone
-// curve, the fragment budget, the accent tint, and seeded randomness. Display only: nothing here touches the sim.
+// history), tier caps, the crescent and the landing ring, Reduce Motion (at launch and mid-flight), buffers sized once,
+// nothing drawn while idle, the painted ramp, the shared tone curve and its define, the fragment budget, the accent
+// tint, and seeded randomness. Display only: nothing here touches the sim. (No WebGL in node: what the GPU draws is
+// gated by e2e/star-trail-board.mjs on the lab's stills.)
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import {
-  createStarTrail, flightEase, flightPoint, flightTangent, paintStarRamp, SHAPE, HALO_CAP, HALO_SWELL_CAP,
+  createStarTrail, flightEase, flightPoint, flightTangent, paintStarRamp, SHAPE, HALO_CAP, HALO_SWELL_CAP, TONE_DEFINE,
 } from '../../src/render/vfx/starTrail.js';
 import {
   STAR_TRAIL_PRESETS, STAR_TRAIL_TIERS, STAR_TRAIL_CALM, MAX_JOINTS, MAX_SPRITES, MAX_SHARDS, MAX_STRANDS, RAMP_W,
-  RAMP_ROWS, pastelAccent, accentTint,
+  RAMP_ROWS, RING_ARCS, STAR_SPRITES, pastelAccent, accentTint,
 } from '../../src/render/vfx/starTrailPresets.js';
+import { simId } from '../../tools/simId.mjs';
 import { KNEE, WHITE_HOT, TONE_GLSL, toneMap } from '../../src/render/vfx/tone.js';
 import * as grade from '../../src/render/vfx/grade.js';
 import { createVisualRandom } from '../../src/render/vfx/random.js';
@@ -41,6 +44,19 @@ const hexBytes = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 const shapesDrawn = (st) => {
   const out = [];
   for (let i = 0; i < st.stats().sprites; i++) out.push(st.buffers.iA[i * 4 + 3]);
+  return out;
+};
+/** The instances of one shape drawn this frame: { x, y, rot, sx, sy, p1, p2, rgb, a }. */
+const instances = (st, shape) => {
+  const { iA, iB, iC } = st.buffers;
+  const out = [];
+  for (let i = 0; i < st.stats().sprites; i++) {
+    if (iA[i * 4 + 3] !== shape) continue;
+    out.push({
+      x: iA[i * 4], y: iA[i * 4 + 1], rot: iA[i * 4 + 2], sx: iB[i * 4], sy: iB[i * 4 + 1], p1: iB[i * 4 + 2], p2: iB[i * 4 + 3],
+      rgb: [iC[i * 4], iC[i * 4 + 1], iC[i * 4 + 2]], a: iC[i * 4 + 3],
+    });
+  }
   return out;
 };
 
@@ -155,7 +171,7 @@ describe('the ribbon is sampled back along the known curve (no history buffer)',
 describe('tiers', () => {
   it('high, medium, low: joints, strands (≤ 3), shards, sprites and the DPR cap; low has no WebGL at all', () => {
     expect(STAR_TRAIL_TIERS.high).toMatchObject({ webgl: true, joints: 32, strands: 3, shards: 10 });
-    expect(STAR_TRAIL_TIERS.medium).toMatchObject({ webgl: true, joints: 16, strands: 2, shards: 6 });
+    expect(STAR_TRAIL_TIERS.medium).toMatchObject({ webgl: true, joints: 16, strands: 2, shards: 8 });
     expect(STAR_TRAIL_TIERS.low).toMatchObject({ webgl: false, joints: 0, strands: 0, sprites: 0 });
     expect(STAR_TRAIL_TIERS.medium.glow).toBeLessThan(STAR_TRAIL_TIERS.high.glow);
     expect(STAR_TRAIL_TIERS.medium.dpr).toBeLessThan(STAR_TRAIL_TIERS.high.dpr);
@@ -163,6 +179,8 @@ describe('tiers', () => {
       expect(t.joints).toBeLessThanOrEqual(MAX_JOINTS);
       expect(t.strands).toBeLessThanOrEqual(MAX_STRANDS);
       expect(t.sprites).toBeLessThanOrEqual(MAX_SPRITES);
+      // every preset's shards, the star and the ring's arcs fit the tier's sprites
+      if (t.webgl) for (const p of Object.values(STAR_TRAIL_PRESETS)) expect(STAR_SPRITES + RING_ARCS + t.shards + p.burst.extra).toBeLessThanOrEqual(t.sprites);
     }
     expect(MAX_STRANDS).toBe(3);
   });
@@ -263,6 +281,138 @@ describe('Reduce Motion', () => {
     expect(st.stats().meshes).toBe(0); // …and leaves
     expect(st.ribbon.material.uniforms.uHue.value.z).toBe(0); // no hue drift
   });
+
+  it('turned on mid-flight: the flight becomes the calm still on the card at once, with no ribbon, shard or ring after, and onLand still once', () => {
+    for (const [at, id] of [[0.3, 'prism'], [0.5, 'nightglass']]) {
+      const { st } = make('high');
+      const onLand = vi.fn();
+      st.launch(id, FROM, TO, { onLand });
+      run(st, at);
+      expect(st.stats().phase).not.toBe('calm');
+      expect(st.ribbon.visible).toBe(true);
+      expect(onLand).not.toHaveBeenCalled();
+      st.setReduceMotion(true);
+      st.update(1 / 60);
+      expect(st.stats().phase).toBe('calm');
+      expect(st.ribbon.visible).toBe(false);
+      const [star] = instances(st, SHAPE.STAR4);
+      expect([star.x, star.y]).toEqual(TO);
+      expect(star.a).toBeGreaterThan(0.95); // fully in at once, not a second fade-in
+      expect(onLand).toHaveBeenCalledTimes(1);
+      const seen = new Set();
+      let ribbon = false;
+      run(st, STAR_TRAIL_CALM.hold + STAR_TRAIL_CALM.fadeOut + 0.1, 1 / 60, () => {
+        ribbon ||= st.ribbon.visible;
+        for (const k of shapesDrawn(st)) seen.add(k);
+      });
+      expect(ribbon).toBe(false);
+      expect(seen.has(SHAPE.SHARD) || seen.has(SHAPE.RING)).toBe(false);
+      expect(onLand).toHaveBeenCalledTimes(1);
+      expect(st.stats()).toMatchObject({ meshes: 0, alive: false });
+    }
+    // after the landing (in the shards), it goes calm too and onLand does not run again
+    const { st } = make('high');
+    const onLand = vi.fn();
+    st.launch('prism', FROM, TO, { onLand });
+    run(st, STAR_TRAIL_PRESETS.prism.flight.seconds + STAR_TRAIL_PRESETS.prism.burst.swell + 0.05);
+    expect(st.stats().phase).toBe('shards');
+    st.setReduceMotion(true);
+    st.update(1 / 60);
+    expect(st.stats().phase).toBe('calm');
+    expect(shapesDrawn(st).some((k) => k === SHAPE.SHARD || k === SHAPE.RING)).toBe(false);
+    run(st, 2);
+    expect(onLand).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the crescent and the landing ring', () => {
+  it('in flight the crescent is a fat, short moon: the carving disc sits 0.38–0.45 of its radius back, strength 0.65; Prism\'s is a cool white', () => {
+    for (const id of Object.keys(STAR_TRAIL_PRESETS)) {
+      const c = STAR_TRAIL_PRESETS[id].crescent;
+      expect(c.cut).toBeGreaterThanOrEqual(0.38);
+      expect(c.cut).toBeLessThanOrEqual(0.45);
+      expect(c.alpha).toBeCloseTo(0.65, 6);
+      const { st } = make('high');
+      st.launch(id, FROM, TO);
+      run(st, STAR_TRAIL_PRESETS[id].flight.seconds * 0.5);
+      const [cr] = instances(st, SHAPE.CRESCENT);
+      expect(cr.p1).toBeCloseTo(c.cut, 6);
+      expect(cr.a).toBeCloseTo(c.alpha, 3);
+    }
+    expect(STAR_TRAIL_PRESETS.prism.crescent.color).toBe('#f2eeff');
+    const { st } = make('high');
+    expect(st.sprites.material.fragmentShader).toMatch(/CRESCENT[\s\S]*smoothstep\(-0\.34, 0\.12, p\.x\)/); // the horns fade before their tips
+  });
+
+  it('one thin ring pulse at the top of the swell: RING_ARCS arcs in the same sprite call, 0.2 → 0.45 of the short side over 0.25 s, strength ≤ 0.35', () => {
+    for (const q of ['high', 'medium']) {
+      for (const [w, h] of [[844, 390], [390, 844]]) {
+        for (const id of Object.keys(STAR_TRAIL_PRESETS)) {
+          const p = STAR_TRAIL_PRESETS[id];
+          const ring = p.burst.ring;
+          expect(ring).toMatchObject({ from: 0.2, to: 0.45, seconds: 0.25 });
+          expect(ring.alpha).toBeLessThanOrEqual(0.35);
+          const { st } = make(q);
+          st.setView(w, h);
+          const unit = Math.min(w, h);
+          st.launch(id, FROM, TO);
+          const T2 = p.flight.seconds + p.burst.swell;
+          const radii = [];
+          let frames = 0;
+          let t = 0;
+          let area = 0;
+          run(st, total(id) + 0.05, 1 / 60, (s) => {
+            t += 1 / 60;
+            const arcs = instances(st, SHAPE.RING);
+            if (!arcs.length) return;
+            frames++;
+            expect(s.phase).toBe('shards');
+            expect(t).toBeGreaterThan(T2 - 1e-6);
+            expect(t).toBeLessThan(T2 + ring.seconds + 1 / 60);
+            expect(arcs).toHaveLength(RING_ARCS);
+            expect(s.meshes).toBeLessThanOrEqual(2); // the sprite call it is already in, never a third
+            expect(s.sprites).toBeLessThanOrEqual(STAR_TRAIL_TIERS[q].sprites);
+            for (const a of arcs) {
+              expect(a.a).toBeLessThanOrEqual(0.35);
+              expect(a.p1).toBe(arcs[0].p1);
+              // each arc's quad holds its arc's band: radially from the band's inner edge at the arc's ends to its outer
+              // edge at the middle, and as wide as the band's outer edge spans over the arc's share of the circle
+              const d = Math.hypot(a.x - TO[0], a.y - TO[1]);
+              const half = Math.PI / RING_ARCS;
+              expect(d - a.sy).toBeLessThanOrEqual((a.p1 - a.p2) * Math.cos(half) + 1e-2);
+              expect(d + a.sy).toBeGreaterThanOrEqual(a.p1 + a.p2 - 1e-2);
+              expect(a.sx).toBeGreaterThanOrEqual((a.p1 + a.p2) * Math.sin(half) - 1e-2);
+              expect(Math.abs(Math.cos(a.rot + Math.PI / 2) - (a.x - TO[0]) / d)).toBeLessThan(1e-4); // local y points outwards
+            }
+            radii.push(arcs[0].p1 / unit);
+            area = Math.max(area, arcs.reduce((n, a) => n + 4 * a.sx * a.sy, 0) / (w * h));
+          });
+          expect(frames).toBeGreaterThan(10);
+          expect(radii[0]).toBeGreaterThanOrEqual(0.2 - 1e-6);
+          expect(radii[0]).toBeLessThan(0.26);
+          expect(Math.max(...radii)).toBeLessThanOrEqual(0.45 + 1e-6);
+          expect(Math.max(...radii)).toBeGreaterThan(0.43);
+          for (let i = 1; i < radii.length; i++) expect(radii[i]).toBeGreaterThanOrEqual(radii[i - 1]);
+          expect(area).toBeLessThan(0.1); // the arcs' quads at its widest (one whole-ring quad would be ~0.4)
+        }
+      }
+    }
+  });
+
+  it('never with Reduce Motion, and medium now throws 8 shards (Nightglass 10) a little larger', () => {
+    const { st } = make('high', { reduceMotion: true });
+    st.launch('nightglass', FROM, TO);
+    const seen = new Set();
+    run(st, 3, 1 / 60, () => shapesDrawn(st).forEach((k) => seen.add(k)));
+    expect(seen.has(SHAPE.RING)).toBe(false);
+    const b = make('high', { reduceMotion: true }).st;
+    b.burst(TO, 'prism');
+    run(b, 3, 1 / 60, () => shapesDrawn(b).forEach((k) => seen.add(k)));
+    expect(seen.has(SHAPE.RING)).toBe(false);
+    expect(STAR_TRAIL_TIERS.medium.shards).toBe(8);
+    expect(STAR_TRAIL_PRESETS.prism.burst.size).toBeCloseTo(0.048 * 1.15, 3);
+    expect(STAR_TRAIL_PRESETS.nightglass.burst.size).toBeCloseTo(0.052 * 1.15, 3);
+  });
 });
 
 describe('buffers and draw calls', () => {
@@ -289,7 +439,7 @@ describe('buffers and draw calls', () => {
     expect(st.buffers.iA.length).toBe(MAX_SPRITES * 4);
   });
 
-  it('0 calls and no visible mesh while idle; two meshes while a star is up; the count comes from renderer.info', () => {
+  it('0 calls and no visible mesh while idle; two meshes while a star is up; calls read from a fake renderer.info (the real count: the lab and the board)', () => {
     const { st, scene } = make('high');
     st.update(1 / 60);
     expect(st.stats()).toMatchObject({ meshes: 0, calls: 0, alive: false, phase: 'idle' });
@@ -310,6 +460,20 @@ describe('buffers and draw calls', () => {
     run(st, total('prism'));
     expect(st.stats()).toMatchObject({ meshes: 0, calls: 0, alive: false });
     expect(scene.children.filter((m) => m.visible)).toHaveLength(0);
+  });
+
+  it('stats() fills one object in place (no allocation a frame) and names the tier set last', () => {
+    const { st } = make('high');
+    const s0 = st.stats();
+    st.launch('prism', FROM, TO);
+    run(st, 0.2);
+    expect(st.stats()).toBe(s0);
+    expect(s0).toMatchObject({ alive: true, meshes: 2, tier: 'high' });
+    st.setQuality('medium');
+    expect(st.stats().tier).toBe('medium');
+    st.setQuality('nonsense');
+    expect(st.stats().tier).toBe('high');
+    expect(make('low').st.stats().tier).toBe('low');
   });
 
   it('dispose frees the geometry, materials and ramp, takes the meshes off the parent, and is safe twice', () => {
@@ -422,10 +586,16 @@ describe('the shared tone curve (tone.js)', () => {
     toneMap([1.7, 1.1, 0.4]).forEach((v, i) => expect(g[i]).toBeCloseTo(srgb(v), 12));
   });
 
-  it('both star trail shaders end with it', () => {
+  it('both star trail shaders end with it, under a define that is on by default (off for a host whose own pass tones)', () => {
     const { st } = make('high');
     expect(st.ribbon.material.fragmentShader).toContain(TONE_GLSL);
     expect(st.sprites.material.fragmentShader).toContain(TONE_GLSL);
+    for (const m of [st.ribbon.material, st.sprites.material]) {
+      expect(m.defines).toHaveProperty(TONE_DEFINE);
+      expect(m.fragmentShader).toMatch(new RegExp(`#ifdef ${TONE_DEFINE}\\s+(col|light) = vfxTone\\((col|light)\\);\\s+#endif`));
+    }
+    const off = make('high', { toneInShader: false }).st;
+    for (const m of [off.ribbon.material, off.sprites.material]) expect(m.defines).not.toHaveProperty(TONE_DEFINE);
     for (const m of [st.ribbon.material, st.sprites.material]) {
       expect(m.blending).toBe(THREE.CustomBlending);
       expect([m.blendSrc, m.blendDst]).toEqual([THREE.OneFactor, THREE.OneMinusSrcAlphaFactor]);
@@ -450,7 +620,6 @@ describe('seeded, display only', () => {
     const a = shards(3);
     const b = shards(3);
     const c = shards(4);
-    const callers = spy.mock.calls.length;
     expect(a).toBe(b);
     expect(a).not.toBe(c);
     // (three draws object uuids from Math.random while building meshes; a flight itself never does)
@@ -459,10 +628,12 @@ describe('seeded, display only', () => {
     st.launch('prism', FROM, TO);
     run(st, total('prism'));
     expect(spy).not.toHaveBeenCalled();
-    expect(callers).toBeGreaterThanOrEqual(0);
   });
 
-  it('nothing the sim id hashes imports it, and it imports nothing from the game\'s UI, sim or data', () => {
+  it('the sim id hashes none of it (nor tone.js or grade.js), and it imports nothing from the game\'s UI, sim or data', () => {
+    const { files } = simId();
+    expect(files.length).toBeGreaterThan(20); // (the real hashed set, not an empty one)
+    expect(files.filter((f) => /starTrail|(^|\/)tone\.js$|(^|\/)grade\.js$/.test(f))).toEqual([]);
     for (const f of ['src/render/vfx/starTrail.js', 'src/render/vfx/starTrailPresets.js', 'src/render/vfx/tone.js']) {
       const src = readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
       expect(src).not.toMatch(/from '\.\.\/\.\.\/(ui|sim|online|data)\//);

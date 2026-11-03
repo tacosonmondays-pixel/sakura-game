@@ -6,10 +6,12 @@
 // combination: ?preset=prism|nightglass&tier=high|medium|low&rm=1&vp=844x390|1280x720|390x844.
 // Captures: ?manual=1 (the stage fills the window, no animation loop) and drive it from the page:
 //   window.__lab.set({ preset, tier, rm })   window.__lab.seek(seconds) → stats   window.__lab.timeline()
+//   window.__lab.setReduceMotion(on)  (mid-flight, as the game's setting would)
+//   (the stats carry `head`: the star's centre and drawn radius this frame, in CSS px, for the board's pixel gate)
 // The host side is set up as the recruit overlay will be: its own transparent canvas (alpha, premultiplied, no
 // antialias), DPR capped by the tier, an orthographic camera in CSS px (y down), the effect stepped by the lab's clock.
 import * as THREE from 'three';
-import { createStarTrail } from '../src/render/vfx/starTrail.js';
+import { createStarTrail, SHAPE } from '../src/render/vfx/starTrail.js';
 import { STAR_TRAIL_PRESETS, STAR_TRAIL_TIERS, STAR_TRAIL_CALM } from '../src/render/vfx/starTrailPresets.js';
 import { createVisualRandom, visualSeed } from '../src/render/vfx/random.js';
 import { UNIT_MAP } from '../src/data/units.js';
@@ -187,6 +189,14 @@ function render() {
   maxCalls = Math.max(maxCalls, lastCalls);
 }
 
+/** The star this frame (its STAR4 instance): { x, y, r } in CSS px, or null when none is drawn. */
+function head() {
+  const { iA, iB } = trail.buffers;
+  const n = trail.stats().sprites;
+  for (let i = 0; i < n; i++) if (iA[i * 4 + 3] === SHAPE.STAR4) return { x: iA[i * 4], y: iA[i * 4 + 1], r: iB[i * 4] };
+  return null;
+}
+
 function hudText() {
   const s = trail.stats();
   const tier = STAR_TRAIL_TIERS[state.tier];
@@ -236,6 +246,11 @@ const lab = {
   apply,
   replay: restart,
   land: () => trail.land(),
+  setReduceMotion(on) {
+    state.rm = !!on;
+    trail.setReduceMotion(state.rm);
+    return lab.info();
+  },
   set(o = {}) {
     Object.assign(state, o);
     apply();
@@ -257,7 +272,7 @@ const lab = {
   },
   timeline,
   info() {
-    return { ...trail.stats(), rendererCalls: lastCalls, maxCalls, W, H, dpr: renderer.getPixelRatio(), clock, state: { ...state } };
+    return { ...trail.stats(), head: head(), rendererCalls: lastCalls, maxCalls, W, H, dpr: renderer.getPixelRatio(), clock, state: { ...state } };
   },
 };
 window.__lab = lab;
