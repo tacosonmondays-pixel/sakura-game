@@ -1,7 +1,7 @@
 /* Captain's Journal, its unlock toast and the student-screen feature locks (owner: story; STORY_SPEC §3).
    [ui-v2 M7a] The Journal screen itself (#/journal) wears the Ink & Paper kit now: its rules moved to v2-records.css. */
 
-/* journal toast pill (toast.js): over every menu screen, modal and toast (the story player is 300), but
+/* journal toast pill (toast.js): over every menu screen and toast (and it steps aside for modals and sheets: .held below), but
    under a screen change's cover (the cut 360, the corner chip 365, the loader 370: transitions.css), so it
    is never drawn on the loading screen; the rotate reminder (400) and the special fanfare (900) cover it
    too, like every other toast. While a cut or the boot is under way it lets taps through (the cut panel
@@ -15,7 +15,7 @@
 .jn-toast.out { opacity: 0; transform: translate(-50%, -10px); transition: opacity 300ms ease, transform 300ms ease; }
 /* a components.toast shown while the pill is up (e.g. the lobby's "… joined your academy!" toast on the first
    load after an update) moves below the pill (64 px + its 54 px + a gap) instead of under it */
-body:has(.jn-toast:not(.out)) .toast-host { top: calc(128px + var(--safe-top, 0px)); }
+body:has(.jn-toast:not(.out):not(.held)) .toast-host { top: calc(128px + var(--safe-top, 0px)); }
 .jn-toast-face { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; flex: 0 0 auto; background: #ffd1e4; border: 2px solid #fff; line-height: 0; }
 .jn-toast-face .pt-img, .jn-toast-face svg { width: 100%; height: 100%; object-fit: cover; }
 .jn-toast-text { min-width: 0; line-height: 1.25; }
@@ -28,11 +28,11 @@ body:has(.jn-toast:not(.out)) .toast-host { top: calc(128px + var(--safe-top, 0p
     max-width: min(380px, calc(40vw - 24px)); border-radius: 28px; animation-name: jn-toast-in-home; }
   body:has(#app .home) .jn-toast.out { transform: translateY(-10px); }
   /* (and the other toasts, which make way under the pill, go below it there: its top plus its two lines and a gap) */
-  body:has(#app .home):has(.jn-toast:not(.out)) .toast-host { top: calc(236px + var(--safe-top, 0px)); }
+  body:has(#app .home):has(.jn-toast:not(.out):not(.held)) .toast-host { top: calc(236px + var(--safe-top, 0px)); }
 }
 @media (min-aspect-ratio: 1/1) and (max-height: 480px) {
   body:has(#app .home) .jn-toast { left: calc(16px + env(safe-area-inset-left, 0px)); top: calc(120px + var(--safe-top, 0px)); }
-  body:has(#app .home):has(.jn-toast:not(.out)) .toast-host { top: calc(184px + var(--safe-top, 0px)); }
+  body:has(#app .home):has(.jn-toast:not(.out):not(.held)) .toast-host { top: calc(184px + var(--safe-top, 0px)); }
 }
 @media (max-aspect-ratio: 1/1) {
   body:has(#app .home) .jn-toast { top: auto; bottom: calc(312px + env(safe-area-inset-bottom, 0px)); border-radius: 28px;
@@ -40,6 +40,11 @@ body:has(.jn-toast:not(.out)) .toast-host { top: calc(128px + var(--safe-top, 0p
   body:has(#app .home) .jn-toast.out { transform: translateY(-10px); }
 }
 html[data-reduce-motion] .jn-toast { animation: none; }
+/* held (toast.js, pillHold.js): while a modal, sheet, the Menu, the recruit reveal, a story scene or any other layer is
+   over the page the pill steps aside, so it never sits on that layer's top row and takes a tap meant for it; it comes
+   back with the rest of its time once the layer closes. Held, it keeps no room either: the toast-host rules above
+   only move the other toasts down for a pill that shows. */
+.jn-toast.held { visibility: hidden; pointer-events: none; }
 html[data-tx="cut"] .jn-toast, html[data-tx="boot"] .jn-toast { pointer-events: none; }
 
 /* student Equipment / Awakening lock on new saves (student.js storyLockedTab) */
