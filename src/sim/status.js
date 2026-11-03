@@ -1,9 +1,12 @@
 // Status effects on enemies: application (with ward immunity, boss resistance, chance
 // rolls and "keep the stronger values" merging), duration ticking and query helpers.
 
-import { CC_RESIST, SLOW_RESIST, MAX_SLOW, SHRED_MAX_STACKS, HEX_BOSS_CAP } from './constants.js';
+import { CC_RESIST, SLOW_RESIST, MAX_SLOW, SHRED_MAX_STACKS, HEX_BOSS_CAP, CURSE_SPREAD_STEPS } from './constants.js';
+import { CONTROL_TYPES } from './setRules.js';
+import { STEP } from './constants.js';
 
-const STATUS_ELEMENT = { burn: 'fire', poison: 'poison', freeze: 'frost', shock: 'lightning', soak: 'water' };
+// (spore: Midori's Spore Mist, attack shapes S5b: a damage over time of its own key, poison's element for wards)
+const STATUS_ELEMENT = { burn: 'fire', poison: 'poison', spore: 'poison', freeze: 'frost', shock: 'lightning', soak: 'water' };
 // Statuses whose duration bosses/minibosses resist (CC_RESIST). 'ground' is not immobilising.
 // 'hold' (Chigusa's vines, UNIT_GAPS P-10): the enemy cannot move; bosses and flyers are immune.
 const CC_TYPES = { freeze: true, stun: true, shock: true, ground: true, hold: true };
@@ -19,7 +22,9 @@ export function statusElement(type, sourceElement) {
  * @param {object} enemy EnemyRT
  * @param {object} spec StatusSpec ({ type, amount|dps|bonus, duration, chance? })
  * @param {{ rng?: { next(): number }, element?: string|null, attackType?: string, sourceUid?: number|null,
- *   hitDamage?: number, curseDepth?: number }} ctx  hitDamage/curseDepth: curse burst + generation
+ *   hitDamage?: number, curseDepth?: number, controlMul?: number, itBonus?: number }} ctx  hitDamage/curseDepth:
+ *   curse burst + generation; controlMul / itBonus: the applier's Control Strength and You're It (setRules.js
+ *   statusCtxFor; GEAR_UPDATE.md §2.4, §3.4)
  * @returns {'new'|'refresh'|null} null when not applied (chance failed, warded, dead)
  */
 export function applyStatus(enemy, spec, ctx = {}) {
@@ -36,6 +41,8 @@ export function applyStatus(enemy, spec, ctx = {}) {
 
   const tier = enemy.tier || 'normal';
   let duration = spec.duration ?? 1;
+  // Control Strength: her control lasts longer, before boss resistance and the Freeplay CC budget
+  if (CONTROL_TYPES[type] && ctx.controlMul > 1) duration *= ctx.controlMul;
   if (CC_TYPES[type]) {
     duration *= CC_RESIST[tier] ?? 1;
     if (enemy.ccLeft != null) { duration = Math.min(duration, enemy.ccLeft); enemy.ccLeft -= duration; }
@@ -44,7 +51,7 @@ export function applyStatus(enemy, spec, ctx = {}) {
 
   const incoming = { type, duration, left: duration };
   if (type === 'slow') incoming.amount = Math.min(MAX_SLOW, (spec.amount ?? 0.3) * (SLOW_RESIST[tier] ?? 1));
-  if (type === 'burn' || type === 'poison') {
+  if (type === 'burn' || type === 'poison' || type === 'spore') {
     incoming.dps = spec.dps ?? 0;
     if (spec.pct > 0) incoming.pct = spec.pct; // fraction of max HP per second (src/sim/enemies.js)
   }
@@ -52,6 +59,9 @@ export function applyStatus(enemy, spec, ctx = {}) {
   if (type === 'mark' || type === 'vulnerable') incoming.bonus = spec.bonus ?? 0;
   if (ctx.attackType) incoming.attackType = ctx.attackType;
   if (ctx.sourceUid != null) incoming.sourceUid = ctx.sourceUid;
+  // a burn's or poison's %-of-max-HP part keeps its own owner (`pctUid`), so when another girl's stronger flat dps wins
+  // the merge, the part still ticks as hers (credit, brews, links; v0.1.66 audit B-F1)
+  if (incoming.pct > 0 && incoming.sourceUid != null) incoming.pctUid = incoming.sourceUid;
   if (type === 'hex') {
     // a share of max HP per second (UNIT_GAPS P-15); `cap` = what one application may still take
     incoming.pct = spec.pct ?? 0;
@@ -62,8 +72,20 @@ export function applyStatus(enemy, spec, ctx = {}) {
     incoming.burst = spec.burst ?? (spec.burstMul ?? 0) * (ctx.hitDamage ?? 0);
     incoming.radius = spec.radius ?? 1;
     incoming.depth = ctx.curseDepth ?? 0;
+    // rot: a share of the cursing hit a second while it lives (a passed curse carries an absolute rotDps); a
+    // rotting curse also spreads while its enemy lives (src/sim/Sim.js _curseTick), first after a full interval
+    incoming.rotDps = spec.rotDps ?? (spec.rot ?? 0) * (ctx.hitDamage ?? 0);
+    if (incoming.rotDps > 0) {
+      incoming.spreadIn = CURSE_SPREAD_STEPS;
+      // whose rot it is (credit and co-op bounty): a passed curse names it, a hit's is the hitter's
+      incoming.rotUid = spec.rotUid ?? ctx.sourceUid ?? null;
+    }
   }
 
+  // You're It (Freeze Tag): her control landing or refreshing marks the enemy; the stronger bonus wins and the mark
+  // lasts as long as the longer of its own time and this status's (in steps; enemies.js counts it down)
+  // (the longer of the mark's own time and the status's time after the merge: a refresh keeps the longer left)
+  if (ctx.itBonus > 0 && CONTROL_TYPES[type]) markIt(enemy, ctx.itBonus, Math.max(duration, enemy.statuses[type]?.left || 0));
   const cur = enemy.statuses[type];
   if (!cur) {
     if (type === 'shred') incoming.stacks = 1;
@@ -88,6 +110,11 @@ export function applyStatus(enemy, spec, ctx = {}) {
       cur.depth = incoming.depth;
       if (incoming.sourceUid != null) cur.sourceUid = incoming.sourceUid;
     }
+    if (incoming.rotDps > (cur.rotDps ?? 0)) {
+      cur.rotDps = incoming.rotDps;
+      cur.rotUid = incoming.rotUid;
+      if (cur.spreadIn == null) cur.spreadIn = CURSE_SPREAD_STEPS;
+    }
     cur.radius = Math.max(cur.radius, incoming.radius);
     cur.duration = Math.max(cur.duration ?? 0, duration);
     cur.left = Math.max(cur.left, duration);
@@ -98,7 +125,13 @@ export function applyStatus(enemy, spec, ctx = {}) {
       if (incoming[k] >= (cur[k] ?? 0)) {
         cur[k] = incoming[k];
         if (incoming.attackType) cur.attackType = incoming.attackType;
-        if (incoming.sourceUid != null) cur.sourceUid = incoming.sourceUid;
+        // (the pct part names its own owner; the rest of the status is credited to sourceUid as before)
+        if (k === 'pct' && cur.dps > 0 && incoming.dps < cur.dps) {
+          if (incoming.sourceUid != null) cur.pctUid = incoming.sourceUid;
+        } else if (incoming.sourceUid != null) {
+          cur.sourceUid = incoming.sourceUid;
+          if (k === 'pct') cur.pctUid = incoming.sourceUid;
+        }
       }
     }
   }
@@ -106,6 +139,17 @@ export function applyStatus(enemy, spec, ctx = {}) {
   cur.left = Math.max(cur.left, duration);
   if (type === 'shred') cur.stacks = Math.min(SHRED_MAX_STACKS, (cur.stacks || 1) + 1);
   return 'refresh';
+}
+
+/** You're It's record on an enemy: `{ bonus, left }` (left in fixed steps), created only when first set. */
+function markIt(enemy, bonus, duration) {
+  const steps = Math.ceil(duration / STEP - 1e-9);
+  const it = enemy.it;
+  if (!it) enemy.it = { bonus, left: steps };
+  else {
+    if (bonus > it.bonus) it.bonus = bonus;
+    if (steps > it.left) it.left = steps;
+  }
 }
 
 /** Removes a status if present. */

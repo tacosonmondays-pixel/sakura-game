@@ -31,7 +31,8 @@ import { navigate } from '../router.js';
 import { createRng } from '../../core/rng.js';
 import { formatNumber } from '../../core/util.js';
 import { BACKPACK_TABS, ITEMS, ITEM_CATEGORIES, getItem, compareItemsByRarity } from '../../data/items.js';
-import { ITEM_RARITIES, ITEM_RARITY_ORDER, GEAR_SLOTS, MATERIAL_FAMILIES } from '../../data/types.js';
+import { ITEM_RARITIES, ITEM_RARITY_ORDER, MATERIAL_FAMILIES } from '../../data/types.js';
+import { SHOWN_SLOTS, slotName } from '../../data/gearSlots.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { itemCount } from '../../systems/inventory.js';
 import { workbenchReady } from '../../systems/workbench.js';
@@ -39,13 +40,16 @@ import { gearList, salvageGear, salvageRewards, openGearBox, GEAR_BAG_MAX, OPEN_
 import { gearIcon, uiIcon, itemIcon } from '../../art/icons.js';
 import { applyGearFilter, activeGearFilters, GEAR_SORTS } from '../../systems/gearFilter.js';
 import { salvageBlock, salvagePreview, salvageMany } from '../../systems/salvage.js';
+import { loadoutUseText } from '../../systems/teams.js';
 import { gearFilterBar, gearFilterFor, loadGearFilter, saveGearFilter } from '../gearFilterBar.js';
 import { gearTile } from '../gearTile.js';
 import { openItemSheet } from '../itemSheet.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { isUR } from '../rarity.js';
 import { boxSummary, SUMMARY_ABOVE } from '../gearSummary.js';
-import { gearCard, gearActions, pickGearFor, rainbowBoxModal } from '../gearUr.js';
+import { gearCard, pickGearFor, rainbowBoxModal, setBoxModal, openSetBoxesNow } from '../gearUr.js';
+import { setBoxOpenable, SET_OPEN_BATCH_MAX } from '../../systems/gearSets.js';
+import { GEAR_SETS } from '../../data/gearSets.js';
 import { openPieceSheet } from '../girlGear.js';
 import '../styles/achievements.css'; // the gear summary
 
@@ -191,8 +195,8 @@ function groupItems(ids) {
   return [...groups.values()].sort((a, b) => a.order - b.order);
 }
 
-/** The gear tools a piece is picked for (Seed, Needle, Armband). */
-const GEAR_TOOLS = ['gearAwaken', 'gearStitch', 'gearClub'];
+/** The gear tools a piece is picked for (Seed, Needle, Armband, pins, Nightglass Lens). */
+const GEAR_TOOLS = ['gearAwaken', 'gearStitch', 'gearClub', 'gearPin', 'gearLimit'];
 
 /** A gear box that can be opened now (the Supplies dot and GEAR's tab dot). */
 function boxReady(profile) {
@@ -251,6 +255,14 @@ function openGearModal(gear, rerender) {
   return openPieceSheet(gear, { onChange: rerender });
 }
 
+/** A random Set Box's Open buttons: one batch per tap, a fast double tap opens nothing twice (600 ms, as setBoxModal). */
+let setBoxBusy = 0;
+const guardSetBox = (fn) => () => {
+  if (Date.now() - setBoxBusy < 600) return;
+  setBoxBusy = Date.now();
+  fn();
+};
+
 /** Open `n` boxes; `after` redraws whatever is open (the Supplies sheet, the grid). */
 function openBoxes(itemId, n, after) {
   const res = openGearBox(store.profile, itemId, createRng(Date.now() ^ Math.floor(performance.now() * 1000)), n);
@@ -268,6 +280,16 @@ function openBoxes(itemId, n, after) {
     actions: [{ label: 'Nice!', kind: 'yellow', testid: 'box-open-ok' }],
   });
   after();
+}
+
+/**
+ * The Supplies line of a Set Box (owner, Oct 31: say which set it opens): "Opens 5 Freeze Tag pieces", or the choice
+ * a pick box gives, then how its main stats are set (a random box rolls them, a preset box lets you choose).
+ */
+export function boxLine(it) {
+  if (!it?.pickSet) return null;
+  const what = it.set && GEAR_SETS[it.set] ? `Opens 5 ${GEAR_SETS[it.set].name} pieces` : 'Pick a set: opens its 5 pieces';
+  return `${what} · ${it.setKind === 'random' ? 'main stats rolled' : 'you choose the main stats'}`;
 }
 
 /** The Supplies sheet (§6.4): the gear boxes (Open, Open ×10, Open all) and the gear tools, one line each. */
@@ -288,7 +310,37 @@ function openSupplies(rerender) {
       // the Rainbow Gear Box opens through a slot picker into rainbow (UR) gear (ASCENSION.md §C.8): one at a time,
       // never in Open all (gearUr.js rainbowBoxModal → systems/gear.js openRainbowBox); its moment needs the screen
       if (b.pickSlot) {
-        return row(b, { testid: `box-${b.id}`, line: 'Pick charm, ribbon or shoes', acts: [inkBtn('Open', { testid: 'rainbow-box-open', onClick: () => { sheet?.close(); rainbowBoxModal(rerender); } })] });
+        return row(b, { testid: `box-${b.id}`, line: 'Pick a set and a slot', acts: [inkBtn('Open', { testid: 'rainbow-box-open', onClick: () => { sheet?.close(); rainbowBoxModal(rerender); } })] });
+      }
+      // a Set Box (SET_BOXES_V2.md §5): a random set's own box opens straight away, one or many (Open · Open ×10 ·
+      // Open all, at most SET_OPEN_BATCH_MAX a tap); a random choose-box asks for the set, a preset box for the set and
+      // the main stats (gearUr.js setBoxModal); either way openSetBox gives only that set's pieces
+      if (b.pickSet) {
+        // ×N: as many as the bag has room for, at most 10 (hidden under 2; the label is the count it opens: review r1 I1)
+        const many = Math.min(10, n, Math.max(1, setBoxOpenable(profile, b.id)));
+        if (b.setKind === 'random' && b.set) {
+          const allN = setBoxOpenable(profile, b.id, SET_OPEN_BATCH_MAX);
+          const open = (k) => guardSetBox(() => openSetBoxesNow(b.id, k, { onDone: after, summary: boxSummary }));
+          return row(b, {
+            testid: `box-${b.id}`,
+            line: boxLine(b),
+            acts: [
+              inkBtn('Open', { testid: `set-box-open-${b.id}`, onClick: open(1) }),
+              many > 1 ? secondaryBtn(`Open ×${many}`, { testid: `set-box-open10-${b.id}`, onClick: open(many) }) : null,
+              // only when one tap opens more than ×N (bag room counted), labelled with what it opens (delta review L2)
+              allN > many ? secondaryBtn(allN === n ? 'Open all' : `Open ${allN}`, { testid: `set-box-open-all-${b.id}`, title: allN === n ? `Open all ${n}` : null, onClick: open(allN) }) : null,
+            ].filter(Boolean),
+          });
+        }
+        const line = boxLine(b);
+        return row(b, {
+          testid: `box-${b.id}`,
+          line,
+          acts: [
+            inkBtn('Open', { testid: `set-box-open-${b.id}`, onClick: () => { sheet?.close(); setBoxModal(b.id, rerender, { summary: boxSummary }); } }),
+            many > 1 ? secondaryBtn(`Open ×${many}`, { testid: `set-box-open10-${b.id}`, onClick: () => { sheet?.close(); setBoxModal(b.id, rerender, { count: many, summary: boxSummary }); } }) : null,
+          ].filter(Boolean),
+        });
       }
       return row(b, {
         testid: `box-${b.id}`,
@@ -328,7 +380,7 @@ function oneLine(text) {
 function openGearFilter(rerender) {
   const profile = store.profile;
   const bodyEl = h('div.bp-fsheet.bp-gfsheet');
-  const slotOpts = [{ id: null, label: 'All' }, ...Object.entries(GEAR_SLOTS).map(([id, s]) => ({ id, label: s.name, icon: gearIcon(id, 'rare') }))];
+  const slotOpts = [{ id: null, label: 'All' }, ...SHOWN_SLOTS.map((id) => ({ id, label: slotName(id), icon: gearIcon(id, 'rare') }))];
   const changed = () => { draw(); rerender(); };
   const draw = () => {
     const slotGear = gearList(profile, { slot: state.gearSlot });
@@ -375,7 +427,7 @@ function renderGear(tools, host, rerender) {
   const pickBar = pick ? h('div.mb-salvage-bar.bp-svbar', { 'data-testid': 'salvage-bar' }) : null;
   const refreshPick = () => {
     for (const [uid, el] of tiles) markPicked(el, pick.has(uid));
-    const pickable = gear.filter((g) => !salvageBlock(g));
+    const pickable = gear.filter((g) => !salvageBlock(g, profile));
     const all = pickable.length > 0 && pickable.every((g) => pick.has(g.uid));
     fillIn(pickTools,
       h('span.bp-hint', 'Tap gear to pick it'),
@@ -398,9 +450,11 @@ function renderGear(tools, host, rerender) {
   };
   const onTile = (g) => {
     if (!pick) return openGearModal(g, rerender);
-    const why = salvageBlock(g);
+    const why = salvageBlock(g, profile);
     if (why) {
-      toast(why === 'locked' ? 'Locked gear is protected. Unlock it first to salvage it.' : `Equipped by ${UNIT_MAP[g.equippedBy]?.name || 'a student'}. Unequip it first to salvage it.`, 'bad');
+      toast(why === 'locked' ? 'Locked gear is protected. Unlock it first to salvage it.'
+        : why === 'loadout' ? `${loadoutUseText(profile, g.uid)} uses this piece. Salvage it from her page or take it out of the loadout first.`
+          : `Equipped by ${UNIT_MAP[g.equippedBy]?.name || 'a student'}. Unequip it first to salvage it.`, 'bad');
       return;
     }
     if (pick.has(g.uid)) pick.delete(g.uid);
@@ -415,7 +469,7 @@ function renderGear(tools, host, rerender) {
       // salvage mode shows the main stat value (the owner's default: the value only where you pick)
       const tile = gearTile(g, { mainIcon: true, wearer: true, value: !!pick, cls: 'mb-gear.bp-gtile', onClick: () => onTile(g) });
       if (pick) {
-        if (salvageBlock(g)) {
+        if (salvageBlock(g, profile)) {
           tile.classList.add('blocked');
           if (g.locked) tile.append(h('span.bp-lockb', { 'aria-hidden': 'true' }, ico('lock')));
         } else tiles.set(g.uid, tile);
@@ -429,7 +483,7 @@ function renderGear(tools, host, rerender) {
     put(tools, filterBtn, pickTools, h('span.bp-gap'),
       toolBtn('Done', { icon: 'check', testid: 'salvage-mode', onClick: () => { state.pick = null; rerender(); } }));
   } else {
-    const canSalvage = slotGear.some((g) => !salvageBlock(g));
+    const canSalvage = slotGear.some((g) => !salvageBlock(g, profile));
     const fsort = loadGearFilter('backpack').sort;
     put(tools,
       toolBtn('Supplies', { icon: 'box', testid: 'supplies-open', dot: boxReady(profile), onClick: () => openSupplies(rerender), cls: 'bp-supplies-btn' }),

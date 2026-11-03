@@ -14,6 +14,7 @@
 //            --events <kind>@<frame>,… (ult: the hero's ultimate fires; bosskill: the boss falls) —
 //            each one is shot on the frame it lands and --event-shots frames after (default 0,2,6,16)
 //            --dpr-phone 3 --dpr-desktop 1 --skip-perf --prod (test dist/; run `npm run build` first)
+//            --hp <n> (every staged enemy's HP multiplier instead of the scene's own)
 //            --repeat-config 1280x720:high (which config --repeat stages again; default the first)
 //            --resume (keep the configs an earlier run into the same --out finished; redo the rest)
 //
@@ -53,11 +54,16 @@ const VIEWPORTS = opt('viewports', '844x390,1280x720').split(',').filter(Boolean
 const QUALITIES = opt('qualities', 'high,medium,low').split(',').filter(Boolean);
 const MAP_ID = opt('map', 'sakura_court');
 const MOMENTS = opt('frames', '120,180').split(',').map(Number).filter((n) => n > 0).sort((a, b) => a - b);
-// big moments: [kind, frame it lands on] — ult (the hero's ultimate) or bosskill (the boss falls)
+// big moments: [kind, frame it lands on] — ult (the hero's ultimate), bosskill (the boss falls), starmine (Akane casts
+// Starmine Barrage: its fire tornado), tornado-<preset> (a display-only tornado from renderer.tornadoDemo on the
+// crowd: fire, sakura, vortex), chain-<preset> (styled chain lightning from the girl nearest the crowd through up to six
+// enemies: storm, tesla, arcane, sakura) or beam-<preset> (a styled beam from that girl to an enemy about three tiles
+// away: laser, moon, holy, storm) or shapes (a styled slash on the enemy nearest the crowd's middle and a shockwave
+// ring round it)
 const EVENTS = opt('events', '').split(',').filter(Boolean).map((e) => {
   const [kind, at] = e.split('@');
   return { kind, at: Number(at) };
-}).filter((e) => (e.kind === 'ult' || e.kind === 'bosskill') && e.at > 1).sort((a, b) => a.at - b.at);
+}).filter((e) => (e.kind === 'ult' || e.kind === 'bosskill' || e.kind === 'starmine' || (/^(tornado|chain|beam)-/.test(e.kind) || e.kind === 'shapes')) && e.at > 1).sort((a, b) => a.at - b.at);
 const EVENT_SHOTS = opt('event-shots', '0,2,6,16').split(',').map(Number).filter((n) => n >= 0);
 /** Every frame shot: [frame, label] (label = the event it shows, or ''). */
 const SHOTS = [...MOMENTS.map((f) => [f, '']), ...EVENTS.flatMap((e) => EVENT_SHOTS.map((o) => [e.at + o, e.kind]))]
@@ -73,6 +79,8 @@ const REPEAT_CONFIG = opt('repeat-config', null);
 const RESUME = flag('resume');
 const SKIP_PERF = flag('skip-perf');
 const PROD = flag('prod');
+/** Enemy HP multiplier (the Sandbox girls are at their true max now: a tougher crowd keeps the board busy). */
+const HP_MUL = Number(opt('hp', '0')) || 0;
 const T = 240000;
 const SHOT_T = 180000;
 const VERBOSE = flag('verbose');
@@ -265,7 +273,7 @@ async function stageBattle(scene) {
       const roadIdx = (n++) % roads.length;
       const road = roads[roadIdx];
       const f = count > 1 ? f0 + ((f1 - f0) * k) / (count - 1) : f0;
-      const e = sim.spawnEnemy(id, { pathIndex: roadIdx, dist: f * road.len, hpMul });
+      const e = sim.spawnEnemy(id, { pathIndex: roadIdx, dist: f * road.len, hpMul: scene.hpMul || hpMul });
       if (!e) out.warnings.push(`spawn ${id} failed`);
     }
   }
@@ -342,7 +350,7 @@ async function captureOne(browser, base, { vp, quality, tag, perf }) {
     const pre = await page.evaluate(() => window.__vfxCap.frames);
     say(tag, 'battle mounted; staging');
     if (pre) result.warnings = [`${pre} frame(s) ran before staging`];
-    const staged = await page.evaluate(stageBattle, SCENE);
+    const staged = await page.evaluate(stageBattle, { ...SCENE, hpMul: HP_MUL });
     result.scene = { map: SCENE.map, stage: await page.evaluate(() => window.__battle.sim.stageId), ...staged };
     // let any model fetch the staging started finish before the first frame (no late swap-ins)
     await page.waitForTimeout(1500);
@@ -375,6 +383,81 @@ async function captureOne(browser, base, { vp, quality, tag, perf }) {
             h.ultUnlocked = true;
             h.ultCooldown = 0;
             return { ok: !!sim.activateUlt(), effect: h.def?.hero?.ult?.name ?? null };
+          }
+          if (kind === 'starmine') {
+            const t = sim.towers.find((x) => x.unitId === 'akane' || x.def?.id === 'akane');
+            if (!t) return { ok: false, why: 'no akane' };
+            if (t.abil) t.abil.cd = 0; // ready now (a staged capture: the cooldown is not what is shown)
+            const r = sim.castAbility(t.uid, {});
+            return { ok: !!r?.ok, why: r?.reason ?? null };
+          }
+          if (kind.startsWith('tornado-')) {
+            // on the thickest part of the crowd (the live enemies' median spot)
+            const es = sim.enemies.filter((e) => !e.dead && !e.flying);
+            const med = (k) => es.map((e) => e[k]).sort((p, q) => p - q)[Math.floor(es.length / 2)] ?? sim.map.width / 2;
+            const x = med('x');
+            const y = med('y');
+            const rec = window.__battle.renderer.tornadoDemo(kind.slice(8), x, y, { seconds: 2.5, size: 1.2 });
+            return { ok: !!rec, x, y };
+          }
+          if (kind === 'shapes') {
+            const es = sim.enemies.filter((e) => !e.dead && !e.flying && !e.hidden);
+            if (!es.length) return { ok: false, why: 'no enemies' };
+            const med = (k) => es.map((e) => e[k]).sort((p, q) => p - q)[Math.floor(es.length / 2)];
+            // on a real enemy: the one nearest the crowd's median spot (the median x and y alone can be off the road)
+            const mx = med('x');
+            const my = med('y');
+            const e = es.slice().sort((a, b) => Math.hypot(a.x - mx, a.y - my) - Math.hypot(b.x - mx, b.y - my))[0];
+            const S = window.__battle.renderer.shapes;
+            S.slash(e.x, 0.4, e.y, 0.5, '#ff5d7a', { size: 1 });
+            S.shock(e.x, e.y, 0.3, 1.6, '#5ab8ff');
+            const p = window.__battle.renderer.worldToScreen?.(e.x, e.y, 0.4);
+            return { ok: true, x: e.x, y: e.y, screen: p ? [Math.round(p.x), Math.round(p.y)] : null };
+          }
+          if (kind.startsWith('chain-') || kind.startsWith('beam-')) {
+            const R = window.__battle.renderer;
+            const towers = sim.towers.filter((x) => !x.dead);
+            const es = sim.enemies.filter((e) => !e.dead && !e.flying && !e.hidden);
+            if (!towers.length || !es.length) return { ok: false, why: 'no girls or enemies' };
+            // the girl nearest the crowd (the live enemies' median spot)
+            const med = (k) => es.map((e) => e[k]).sort((p, q) => p - q)[Math.floor(es.length / 2)];
+            const mx = med('x');
+            const my = med('y');
+            const t = towers.slice().sort((a, b) => Math.hypot(a.x - mx, a.y - my) - Math.hypot(b.x - mx, b.y - my))[0];
+            if (kind.startsWith('beam-')) {
+              const preset = kind.slice(5);
+              const tgt = es.slice().sort((a, b) => Math.abs(Math.hypot(a.x - t.x, a.y - t.y) - 3) - Math.abs(Math.hypot(b.x - t.x, b.y - t.y) - 3))[0];
+              const rec = R.beamDemo(preset, [t.x, 0.95, t.y], [tgt.x, 0.35, tgt.y], { width: 0.24, zig: preset === 'storm' ? 6 : null });
+              // (where it is on screen, CSS px: the boards crop round it)
+              const a = R.worldToScreen?.(t.x, t.y, 0.95);
+              const b = R.worldToScreen?.(tgt.x, tgt.y, 0.35);
+              return { ok: !!rec, girl: t.unitId ?? null, screen: a && b ? [Math.round(a.x), Math.round(a.y), Math.round(b.x), Math.round(b.y)] : null };
+            }
+            // a chain: nearest neighbours from the girl, up to six hops of at most four tiles
+            const pts = [[t.x, 0.95, t.y]];
+            const used = new Set();
+            let cx = t.x;
+            let cy = t.y;
+            for (let i = 0; i < 6; i++) {
+              let best = null;
+              let bd = 1e9;
+              for (const e of es) {
+                if (used.has(e.uid)) continue;
+                const d = Math.hypot(e.x - cx, e.y - cy);
+                if (d < bd) {
+                  bd = d;
+                  best = e;
+                }
+              }
+              if (!best || bd > 4) break;
+              used.add(best.uid);
+              pts.push([best.x, 0.35, best.y]);
+              cx = best.x;
+              cy = best.y;
+            }
+            const rec = pts.length > 1 ? R.lightningDemo(kind.slice(6), pts, {}) : null;
+            const scr = pts.map(([x, y, z]) => R.worldToScreen?.(x, z, y)).filter(Boolean).map((p) => [Math.round(p.x), Math.round(p.y)]);
+            return { ok: !!rec, hops: pts.length - 1, girl: t.unitId ?? null, screen: scr };
           }
           const boss = sim.enemies.find((e) => !e.dead && e.tier === 'boss');
           if (!boss) return { ok: false, why: 'no boss' };

@@ -1,5 +1,6 @@
 """Gear tools (category dice): Fortune Dice, Lock Pin, Prism Dice, Rainbow Seed, Starlight Needle,
-Club Armband."""
+Club Armband, and the gear update's Tie Pin (a gold tie bar), Collar Pin (a round pink collar stud with a gold centre)
+and Nightglass Lens (a navy lens in a white-gold rim with a star in it)."""
 import math
 
 from mathutils import Vector
@@ -185,8 +186,84 @@ def club_band():
     return dict(kind='standing', yaw=10, elev=34, roll=-10)
 
 
+def tie_pin():
+    """Tie Pin: a chunky gold tie bar (a long bevelled bar with a rounded end) over its slimmer back clip, a sakura
+    stamped at the left end and a small pink gem at the right."""
+    gold = dict(C.GOLD_TRIM, sheen=0.3)
+    clip = P.slab(P.rrect2(2.0, 0.16, 0.08, 6), 0.08, 0.03, 2, 'backclip')
+    P.xf(clip, loc=(0.05, 0.1, -0.2))
+    P.paint(clip, C.over(C.GOLD_TRIM, base=C.GOLD_TRIM['shadow'], light=C.GOLD_TRIM['base']), line=2.0)
+    bend = P.tube(P.smooth_path([(-0.95, 0.1, -0.2), (-1.12, 0.05, -0.1), (-1.08, 0.0, 0.05)], 12), 0.07, 10, name='bend')
+    P.paint(bend, C.GOLD_TRIM, line=2.0)
+    bar = P.slab(P.rrect2(2.3, 0.36, (0.18, 0.06, 0.06, 0.18), 6), 0.14, 0.05, 3, 'tiebar')
+    P.paint(bar, gold, line=2.6)
+    groove = P.slab(P.rrect2(1.5, 0.06, 0.03, 4), 0.02, 0.008, 1, 'groove')
+    P.xf(groove, loc=(0.12, -0.08, 0.0))
+    P.paint(groove, C.over(C.GOLD_TRIM, base=C.GOLD_TRIM['shadow']), line=0.0)
+    st = P.slab(P.blossom2(0.13, inner=0.42, notch=0.17), 0.035, 0.012, 2, 'stamp')
+    P.xf(st, loc=(-0.88, -0.09, 0.0))
+    P.paint(st, C.CREAM, line=1.0, lift=0.02)
+    g = P.cabochon(0.1, 0.06)
+    P.xf(g, rot=(90, 0, 0), loc=(0.95, -0.09, 0.0))
+    P.paint(g, C.PINK_GEM, line=1.1)
+    P.glint((-0.55, -0.12, 0.17), 12, edge=True)
+    return dict(kind='flat', roll=-18.0, turn=16.0, tip=14.0)
+
+
+def collar_pin():
+    """Collar Pin: a round pink collar stud, a domed enamel cap on a gold rim, a gold centre boss, its post behind."""
+    post = P.tube([(0.0, 0.2, 0.0), (0.0, 0.62, 0.0)], 0.07, 12, name='post')
+    P.paint(post, C.GOLD_TRIM, line=1.8)
+    back = P.slab(P.circle2(0.3, 40), 0.06, 0.02, 2, 'backdisc')
+    P.xf(back, loc=(0.0, 0.62, 0.0))
+    P.paint(back, C.GOLD_TRIM, line=1.8)
+    rim = P.slab(P.circle2(0.66, 64), 0.16, 0.06, 3, 'studrim')
+    P.xf(rim, loc=(0.0, 0.1, 0.0))
+    P.paint(rim, dict(C.GOLD_TRIM, sheen=0.2), line=2.6)
+    cap = P.sphere(0.56, 48, 20, 'cap', scale=(1.0, 0.4, 1.0))
+    P.xf(cap, loc=(0.0, 0.02, 0.0))
+    pink = C.paint('#ff8fc0', light='#ffc4de', shadow='#e85f9c', ink='#6e1a3c', spec=0.9, spec_at=0.985, sheen=0.25)
+    P.paint(cap, pink, line=2.0)
+    for k in range(6):                                  # six little petals pressed round the centre
+        a = math.radians(90 + 60 * k)
+        pt = P.slab(P.leaf2(0.12, 0.2, 20), 0.03, 0.01, 1, 'petal')
+        P.xf(pt, rot=(0, -60 * k, 0), loc=(math.cos(a) * 0.3, -0.2, math.sin(a) * 0.3))
+        P.paint(pt, C.over(pink, base=pink['light'], shadow=pink['base']), line=0.0)
+    boss = P.cabochon(0.17, 0.1)
+    P.xf(boss, rot=(90, 0, 0), loc=(0.0, -0.21, 0.0))
+    P.paint(boss, dict(C.GOLD_TRIM, spec=1.0), line=1.4)
+    P.glint((-0.3, -0.25, 0.3), 11)
+    return dict(kind='flat', roll=0.0, turn=26.0, tip=20.0)
+
+
+def lens_nightglass():
+    """Nightglass Lens: a round navy lens in a thick white-gold rim with a small loop at the top, a pale star and two
+    specks of starlight in the glass, a crisp glint on the rim (the LR Limit Break item: Nightglass navy)."""
+    wgold = C.paint('#fbe9bd', light='#fffaea', shadow='#e2c27f', ink='#6e4c12', spec=1.0, spec_at=0.985, rim=0.6)
+    rim = P.ring_slab(P.circle2(0.8, 72), P.circle2(0.6, 72), 0.2, bevel=0.06, inner_bevel=0.03, name='lensrim')
+    P.paint(rim, dict(wgold, sheen=0.3), line=2.6)
+    navy = C.paint('#1d2a5c', light='#3a4f96', shadow='#0e1930', ink='#0a1024', deep='#0a1230', spec=1.0, spec_at=0.975,
+                   sheen=0.45)
+    glass = P.sphere(0.62, 48, 20, 'glass', scale=(1.0, 0.22, 1.0))
+    P.xf(glass, loc=(0.0, 0.0, 0.0))
+    P.paint(glass, navy, line=1.4)
+    st = P.slab(P.poly_round(P.star2(4, 0.24, 0.08), 0.02, 2), 0.03, 0.01, 1, 'nightstar')
+    P.xf(st, loc=(0.14, -0.15, -0.1))
+    P.paint(st, C.paint('#eef3ff', light='#ffffff', shadow='#b9c8ef', ink='#1d2a5c', glow=0.3), line=0.0)
+    for x, z, r in ((-0.26, 0.18, 0.045), (-0.1, -0.32, 0.035)):
+        d = P.sphere(r, 12, 6, 'speck')
+        P.xf(d, loc=(x, -0.14, z))
+        P.paint(d, C.paint('#ffe9a8', light='#ffffff', shadow='#e2c27f', ink='#6e4c12', glow=0.4), line=0.0)
+    loop = P.torus(0.12, 0.045, 24, 8, 'lensloop')
+    P.xf(loop, rot=(0, 90, 0), loc=(0.0, 0.0, 0.92))
+    P.paint(loop, wgold, line=1.6)
+    P.glint((-0.5, -0.12, 0.5), 13, edge=True)
+    return dict(kind='flat', roll=-14.0, turn=16.0, tip=14.0)
+
+
 def build(row):
     k = row['key']
     table = dict(needle_star=needle_star, dice_reroll=dice_reroll, lock_pin=lock_pin, dice_prism=dice_prism,
-                 seed_rainbow=seed_rainbow, club_band=club_band)
+                 seed_rainbow=seed_rainbow, club_band=club_band, tie_pin=tie_pin, collar_pin=collar_pin,
+                 lens_nightglass=lens_nightglass)
     return table[k]()

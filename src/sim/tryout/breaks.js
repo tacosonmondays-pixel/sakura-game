@@ -187,7 +187,9 @@ function relocateGirl(sim, t, x, y) {
   }
   // a mirror or checkpoint aim is clamped to her reach from the new spot
   const mode = aimMode(t);
-  if (t.aim && (mode === 'mirror' || mode === 'checkpoint')) sim.setAim(t.uid, t.aim.x, t.aim.y);
+  if (t.aim && mode === 'checkpoint') sim.setAim(t.uid, t.aim.x, t.aim.y);
+  // (Iroha: each mirror she placed, slot by slot; src/sim/mirrors.js)
+  if (mode === 'mirror' && t.mirrorAim) t.mirrorAim.forEach((a, k) => a && sim.setAim(t.uid, a.x, a.y, k));
   // Chika's Hold and Patrol points outside her signal range: back to Hover
   if (hasRoamingDrones(t) && t.flight && (t.flight.mode === 'hold' || t.flight.mode === 'patrol')) {
     const r = signalRange(t);

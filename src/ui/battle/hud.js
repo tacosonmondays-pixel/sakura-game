@@ -72,7 +72,7 @@ export function createHud(ctx) {
     h('div.bt-hud-right', ctx.modes?.pill || null, stageLabel, speedBtn),
   );
 
-  let last = { lives: null, cash: null, wave: null, speed: null, state: null, inf: null };
+  let last = { lives: null, cash: null, real: null, held: 0, wave: null, speed: null, state: null, inf: null };
   function update() {
     paintChip();
     // Sandbox with unlimited lives: the heart reads ∞
@@ -91,9 +91,20 @@ export function createHud(ctx) {
       livesBox.classList.toggle('bt-low', sim.lives <= sim.maxLives * 0.25);
       last.lives = sim.lives;
     }
-    const cash = Math.floor(sim.cash);
+    // co-op: the coins my orders in flight will spend are already off the shown balance (coopPending.js),
+    // so a buy reads at the tap, not half a second later; the gain flash is for coins really earned
+    const held = ctx.coopPending?.reserved() || 0;
+    const real = Math.floor(sim.cash);
+    const cash = Math.max(0, Math.floor(sim.cash - held));
+    if (held !== last.held) {
+      last.held = held;
+      cashBox.classList.toggle('bt-held', held > 0);
+      cashBox.title = held > 0 ? `Battle coins (${fmtNum(held, 'money')} on its way to your orders)` : 'Battle coins';
+    }
+    const gained = last.real != null && real > last.real;
+    last.real = real;
     if (cash !== last.cash) {
-      if (last.cash != null && cash > last.cash) {
+      if (last.cash != null && cash > last.cash && gained) {
         cashBox.classList.remove('bt-gain');
         void cashBox.offsetWidth;
         cashBox.classList.add('bt-gain');

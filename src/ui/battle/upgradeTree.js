@@ -81,7 +81,7 @@ export function treeKeyAction(e, { coop = false, typing = false } = {}) {
   return null;
 }
 
-export function treeArgs(sim, target, { coop = null } = {}) {
+export function treeArgs(sim, target, { coop = null, spendable = null } = {}) {
   const t = target.uid != null ? sim.getTower(target.uid) : null;
   if (t) {
     const ally = !!coop && !coop.isMine(t.uid);
@@ -92,7 +92,8 @@ export function treeArgs(sim, target, { coop = null } = {}) {
       mode: ally ? 'ally' : 'live',
       tiers: [...t.tiers],
       costOf: liveCostOf(sim, t),
-      cash: ally ? null : sim.cash,
+      // (co-op: less the coins my orders in flight hold, ctx.spendable — review r2 R2-2)
+      cash: ally ? null : spendable ? spendable() : sim.cash,
       auraRange: sim.towerStats(t.uid)?.aura?.range || 0,
       heroLevel: t.isHero ? t.level : null,
       passiveActive: !!t.unitStats?.awakenPassive,
@@ -160,7 +161,7 @@ export function createUpgradeTree(ctx) {
     // (never in the coached first battle: a right-click / Android long-press contextmenu or `i`
     // on a card would pause it behind the tree and hide Hikari's coach)
     if (destroyed || ctx.tutorial || ctx.ended || !next) return;
-    const args = treeArgs(sim, resolveTarget(next), { coop: ctx.coop });
+    const args = treeArgs(sim, resolveTarget(next), { coop: ctx.coop, spendable: ctx.spendable });
     if (!args) return;
     target = resolveTarget(next);
     selected = null;
@@ -230,7 +231,7 @@ export function createUpgradeTree(ctx) {
       target = { unitId };
       notice = 'She left the field — showing her full tree.';
       selected = null;
-      const args = treeArgs(sim, target, { coop: ctx.coop });
+      const args = treeArgs(sim, target, { coop: ctx.coop, spendable: ctx.spendable });
       if (!args) {
         close();
         return;
@@ -240,7 +241,7 @@ export function createUpgradeTree(ctx) {
       render();
       return;
     }
-    const args = treeArgs(sim, target, { coop: ctx.coop });
+    const args = treeArgs(sim, target, { coop: ctx.coop, spendable: ctx.spendable });
     if (!args) return;
     const next = buildTreeModel(args);
     const s = treeSignature(next);

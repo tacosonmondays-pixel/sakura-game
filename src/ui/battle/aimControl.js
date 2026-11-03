@@ -18,7 +18,7 @@ import { abilityDef, abilityReach, abilityOrigin } from '../../sim/abilities.js'
 
 const WHAT = {
   mortar: (n) => `Tap where ${n}'s shells should land`,
-  mirror: (n) => `Tap where ${n}'s mirror panel should stand`,
+  mirror: (n) => `Tap where ${n}'s mirror should stand`,
   ult: (n) => `Tap where ${n}'s dragon should enter the road`,
   checkpoint: (n) => `Tap the road where ${n} should set up her checkpoint`,
   banner: (n) => `Tap where ${n} should plant a council banner (up to 5 tiles away)`,
@@ -60,9 +60,18 @@ export function aimCandidates(sim, casterUid) {
   return sim.towers.filter((o) => !o.removed && o.uid !== casterUid).map((o) => o.uid);
 }
 
+/**
+ * The banner for placing Iroha's mirror `slot` (0-based) of `n` (pure). `all`: PLACE walks them in order.
+ */
+export function mirrorAimText(girl, slot, n, { all = false } = {}) {
+  return all ? `Mirror ${slot + 1} of ${n}: tap where it should stand` : `Tap where ${girl}'s mirror ${slot + 1} should stand`;
+}
+
 export function createAimControl(ctx) {
   const { sim } = ctx;
   let picking = null; // uid
+  let slot = -1; // Iroha: the mirror being placed (-1: not a mirror girl)
+  let all = false; // Iroha's PLACE: each tap places the next mirror
   let abil = null; // { uid, id, kind: 'girl'|'point', name }
   const text = h('span');
   const banner = h('div.bt-dr-banner', { 'data-testid': 'aim-banner', role: 'status' }, text,
@@ -87,6 +96,10 @@ export function createAimControl(ctx) {
     }
     if (picking == null) return;
     const t = sim.getTower(picking);
+    if (slot >= 0 && t?.mirrors) {
+      text.textContent = mirrorAimText(t.def.name, slot, t.mirrors.length, { all });
+      return;
+    }
     text.textContent = (WHAT[aimMode(t)] || WHAT.mortar)(t?.def.name || 'her');
   }
 
@@ -96,17 +109,22 @@ export function createAimControl(ctx) {
     return false;
   }
 
-  function send(uid, x, y) {
-    const ok = ctx.act?.aim ? ctx.act.aim(uid, x, y) : x == null ? sim.clearAim(uid) : sim.setAim(uid, x, y);
+  function send(uid, x, y, k = null) {
+    const ok = ctx.act?.aim ? ctx.act.aim(uid, x, y, k) : x == null ? sim.clearAim(uid) : sim.setAim(uid, x, y, k);
     if (!ok) ctx.feed?.push('She cannot aim there right now.', 'warn', { key: 'aim-bad', ms: 1400 });
     ctx.panel?.update?.();
     return ok;
   }
 
-  /** Panel "Set aim": the next board tap aims her (tapping it again cancels). */
-  function start(uid) {
-    if (ctx.ended || !mine(uid) || !aimMode(sim.getTower(uid))) return;
-    if (picking === uid) {
+  /**
+   * Panel "Set aim": the next board tap aims her (tapping it again cancels). Iroha: `o.slot` the mirror the tap places;
+   * `o.all` (PLACE) walks on to the next mirror after each tap until the last.
+   */
+  function start(uid, o = {}) {
+    const t = sim.getTower(uid);
+    if (ctx.ended || !mine(uid) || !aimMode(t)) return;
+    const k = t.mirrors && Number.isInteger(o.slot) ? o.slot : -1;
+    if (picking === uid && slot === k) {
       cancel();
       return;
     }
@@ -115,6 +133,9 @@ export function createAimControl(ctx) {
     ctx.cancelPick?.();
     if (ctx.flight?.active) ctx.flight.cancel();
     picking = uid;
+    slot = k;
+    all = k >= 0 && !!o.all;
+    if (k >= 0) ctx.renderer?.setMirrorPick?.(uid, k);
     show();
   }
 
@@ -159,7 +180,10 @@ export function createAimControl(ctx) {
       ctx.renderer?.setAbilityReach?.(null);
       ctx.shell?.classList.remove('bt-picking');
     }
+    if (slot >= 0) ctx.renderer?.setMirrorPick?.(null);
     picking = null;
+    slot = -1;
+    all = false;
     abil = null;
     show();
   }
@@ -206,6 +230,20 @@ export function createAimControl(ctx) {
       return true;
     }
     const uid = picking;
+    const t = sim.getTower(uid);
+    if (slot >= 0 && t?.mirrors) {
+      // Iroha: this mirror there; PLACE walks on to the next one (the drawer redraws with the new spot)
+      const k = slot;
+      const more = all && k + 1 < t.mirrors.length;
+      send(uid, p.x, p.y, k);
+      if (more) {
+        slot = k + 1;
+        ctx.renderer?.setMirrorPick?.(uid, slot);
+        show();
+      } else cancel();
+      ctx.panel?.update?.();
+      return true;
+    }
     cancel();
     send(uid, p.x, p.y);
     return true;
@@ -216,6 +254,8 @@ export function createAimControl(ctx) {
     get active() { return picking != null || !!abil; },
     /** The girl whose aim point the panel's Set aim is picking (not an ability aim). */
     get uid() { return picking; },
+    /** Iroha: the mirror being placed (-1: none). */
+    get slot() { return slot; },
     /** The ability being aimed, or null. */
     get abilityId() { return abil ? abil.id : null; },
     destroy() {

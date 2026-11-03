@@ -10,7 +10,7 @@ import { lookAt } from '../flair.js';
 import { SEG_CORE, SEG_HOLD } from '../patterns/segments.js';
 import { ripple } from '../patterns/bursts.js';
 import { Spotter } from '../patterns/spotter.js';
-import { hand, victims } from './util.js';
+import { hand, victims, tipUp } from './util.js';
 import { CORE, DECOR } from '../context.js';
 
 export const shiro = {
@@ -27,7 +27,7 @@ export const shiro = {
     const h = hand(ctx, t);
     const mx = h.x;
     const my = h.y;
-    const mh = h.h + 0.08;
+    const mh = h.h + tipUp(h, 0.08);
     const col = ctx.col(silver ? '#e8eef8' : '#ffe8a8');
     // base cue sized for a phone: a tracer that holds ≈ 0.1 s, a bright muzzle flash and a
     // glint on the enemy the sim hit; wider with each Execution tier
@@ -88,9 +88,9 @@ export const shiro = {
         const h = hand(ctx, t);
         const k = 1 - cd / 0.35;
         const pulse = 0.6 + 0.4 * Math.sin(ctx.time * 30);
-        ctx.quad(ctx.b.bbA, CORE, h.x, h.h + 0.1, h.y, 0.3 * (0.6 + k) * pulse, 0.3 * (0.6 + k) * pulse, ctx.R.star, ctx.col('#ffffff'), 0.9, ctx.time * 3);
+        ctx.quad(ctx.b.bbA, CORE, h.x, h.h + tipUp(h, 0.1), h.y, 0.3 * (0.6 + k) * pulse, 0.3 * (0.6 + k) * pulse, ctx.R.star, ctx.col('#ffffff'), 0.9, ctx.time * 3);
         const red = p1 >= 3;
-        ctx.line(ctx.b.bbA, CORE, h.x, h.h + 0.08, h.y, e.x, ctx.enemyH(e), e.z, red ? 0.035 : 0.025, ctx.col(red ? '#ff4d6d' : '#d8f6ff'), (red ? 0.55 : 0.3) * k);
+        ctx.line(ctx.b.bbA, CORE, h.x, h.h + tipUp(h, 0.08), h.y, e.x, ctx.enemyH(e), e.z, red ? 0.035 : 0.025, ctx.col(red ? '#ff4d6d' : '#d8f6ff'), (red ? 0.55 : 0.3) * k);
         if (red) ctx.quad(ctx.b.bbA, CORE, e.x, ctx.enemyH(e), e.z, 0.14, 0.14, ctx.R.glow, ctx.col('#ff4d6d'), 0.9);
       }
     }

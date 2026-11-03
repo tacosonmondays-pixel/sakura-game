@@ -6,11 +6,17 @@ import { GEAR_STATS } from './types.js';
 import { ABILITIES, abilityRuns, abilityAtTier, skillAtLevel } from './abilities.js';
 import { NOT_HASTED_KINDS } from '../sim/gearRules.js';
 
-/** Every gear stat: today's eight (same keys, ranges and slots) + Pierce (ribbons) + Aura Power (shoes). */
+/**
+ * Every gear stat: today's eight (same keys, ranges and slots) + Pierce (ribbons) + Aura Power (shoes), and the gear
+ * update's three support stats (docs/specs/GEAR_UPDATE.md §2.3), which are main stats only (Hair Clip, Necklace).
+ */
 export const GEAR_STAT_DEFS = Object.freeze({
   ...GEAR_STATS,
   piercePct: { name: 'Pierce', pct: true, base: [0.08, 0.16] },
   auraPct: { name: 'Aura Power', pct: true, base: [0.02, 0.04] },
+  auraRangePct: { name: 'Aura Radius', pct: true, base: [0.02, 0.04] },
+  buffDurPct: { name: 'Buff Duration', pct: true, base: [0.03, 0.07] },
+  controlPct: { name: 'Control Strength', pct: true, base: [0.03, 0.07] },
 });
 export const GEAR_STAT_KEYS = Object.freeze(Object.keys(GEAR_STAT_DEFS));
 /** Today's eight keys: what a piece without a club rolls from (its odds never change). */
@@ -20,24 +26,36 @@ export const BASE_STAT_KEYS = Object.freeze(Object.keys(GEAR_STATS));
 export const STAT_LABELS = Object.freeze(Object.fromEntries(GEAR_STAT_KEYS.map((k) => [k, GEAR_STAT_DEFS[k].name])));
 /** Short tooltips for the stat names a child may not know. */
 export const STAT_HINTS = Object.freeze({
-  piercePct: 'Hits more enemies: shots go through one more, blasts and traps grow, sweeps hit more, lightning jumps further.',
+  piercePct: 'Hits more enemies: shots go through one more, blasts and traps grow, sweeps hit more, lightning jumps further. Shots, sweeps and lightning use up to 200%. Only blasts and traps use more: a girl with none turns the rest into ATK, and on a path without them it does nothing.',
   auraPct: 'Makes her aura stronger.',
   ultHaste: 'Speeds up hero ults (and, at half strength, every girl\'s ⚡ ability, not team rallies or debuffs).',
+  auraRangePct: 'Her aura reaches further.',
+  buffDurPct: 'Her timed buffs last longer.',
+  controlPct: 'Her slows, freezes, stuns and holds last longer, and her push-backs push further.',
 });
 
 /** @returns {string} the card name of a gear stat */
 export const statName = (stat) => STAT_LABELS[stat] || stat;
 
-/** A new stat rolls only on club pieces, and only in its slot (never a main stat). */
-export const NEW_STAT_SLOT = Object.freeze({ piercePct: 'ribbon', auraPct: 'shoes' });
+/**
+ * A club-only substat rolls only on club pieces, and only in its slots: Pierce on ribbons and hair clips, Aura Power
+ * on shoes and necklaces (Aura Power is also a Hair Clip main stat).
+ */
+export const NEW_STAT_SLOT = Object.freeze({ piercePct: Object.freeze(['ribbon', 'hair']), auraPct: Object.freeze(['shoes', 'necklace']) });
+/** True when a club-only substat may sit on a piece of this slot. */
+export const newStatFits = (stat, slot) => !NEW_STAT_SLOT[stat] || NEW_STAT_SLOT[stat].includes(slot);
+/** Support stats that are main stats only (never a substat line). */
+export const MAIN_ONLY_STATS = Object.freeze(['auraRangePct', 'buffDurPct', 'controlPct']);
+/** Every stat a substat line may hold. */
+export const SUB_STAT_KEYS = Object.freeze(GEAR_STAT_KEYS.filter((k) => !MAIN_ONLY_STATS.includes(k)));
 
 /**
  * The substat pool of a piece: a piece without a club keeps today's eight; a club piece adds its slot's
- * new stat (ribbons Pierce, shoes Aura Power).
+ * club-only stat (ribbons and hair clips Pierce, shoes and necklaces Aura Power).
  */
 export function subPool(slot, club) {
   if (!club) return BASE_STAT_KEYS;
-  return GEAR_STAT_KEYS.filter((k) => !NEW_STAT_SLOT[k] || NEW_STAT_SLOT[k] === slot);
+  return SUB_STAT_KEYS.filter((k) => newStatFits(k, slot));
 }
 
 /**
@@ -45,12 +63,43 @@ export function subPool(slot, club) {
  * Haste were live before; Crit DMG +200 %, Range +50 %, Pierce +150 % and Aura Power +15 % are new.
  * The part of a stat above its cap fills in as ATK (Every Line Counts).
  */
-export const BATTLE_CAPS = Object.freeze({ critChance: 0.75, costCut: 0.25, ultHaste: 0.5, critDmg: 2.0, rangePct: 0.5, piercePct: 1.5, auraPct: 0.15 });
+export const BATTLE_CAPS = Object.freeze({
+  critChance: 0.75, costCut: 0.25, ultHaste: 0.5, critDmg: 2.0, rangePct: 0.5, piercePct: 1.5,
+  // the gear update (GEAR_UPDATE.md §2.3): Aura Power 15 % → 25 % (never weaker: AURA_FILL_FROM), the three support
+  // stats, and Armor Pierce 40 (today's honest max is 34.8)
+  auraPct: 0.25, auraRangePct: 0.3, buffDurPct: 0.4, controlPct: 0.5, armorPen: 40,
+});
+/**
+ * Aura Power above this fills in as before the cap moved to 25 % (GS §B.1 rule 2), so the part above 15 % both counts
+ * as Aura Power (up to the cap) and keeps filling in: Umeko's and Miko's aura radius fill never shrinks (G3).
+ */
+export const AURA_FILL_FROM = 0.15;
+/**
+ * Each set's 5-piece set cap lifts its signature stat's gear cap to the battle's own ceiling (GEAR_UPDATE.md §3.2;
+ * review r2 L14: the part above a ceiling fills in like any capped stat and shows MAX): Geometry crit (200 %, super
+ * crits) and Crit DMG; Spirit Squad Aura Power; Freeze Tag Control Strength (×4 in battle); Power Bank Skill Haste
+ * for her ⚡ ability (half of it, ≤ 0.75; her hero ult keeps 50 %); Party Popper Pierce for her blasts (≤ 500 %;
+ * her shots keep 150 %).
+ */
+export const SET_CAP_STATS = Object.freeze({
+  geometry: Object.freeze({ critChance: 2, critDmg: 10 }),
+  spirit: Object.freeze({ auraPct: 3 }),
+  freezetag: Object.freeze({ controlPct: 3 }),
+  powerbank: Object.freeze({ ultHaste: 1.5 }),
+  popper: Object.freeze({ piercePct: 5 }),
+});
 /** Gear-stat key of each cap (the same keys). */
 export const CAPPED_STATS = Object.freeze(Object.keys(BATTLE_CAPS));
 
 /** Every Line Counts: the soft limit on fill-in ATK, and the aura girls' own bucket (from the battle update). */
 export const FILL_SOFT_M = 0.12;
+/** The soft limit by pieces worn (GEAR_UPDATE.md §8.3 lever 3): 12 % up to three, 16 % at four, 20 % at five. */
+export const FILL_SOFT_BY_PIECES = Object.freeze([0.12, 0.12, 0.12, 0.12, 0.16, 0.2]);
+/**
+ * Gear ATK's share of her burns and poisons and its cap, by pieces worn (§8.3 lever 2): half and ×1.25 up to three
+ * (today), three quarters and ×1.6 at four, all of it and ×2.0 at five.
+ */
+export const DOT_BY_PIECES = Object.freeze([[0.5, 1.25], [0.5, 1.25], [0.5, 1.25], [0.5, 1.25], [0.75, 1.6], [1, 2]]);
 export const AURA_FILL_M = 0.05;
 /** Half an ATK line's worth. */
 export const FILL_WORTH = 0.5;
@@ -176,6 +225,21 @@ export const GEAR_FIT = Object.freeze(Object.fromEntries(Object.entries(KIT_FIT)
 ])));
 
 /**
+ * The gear update's support stats (GEAR_UPDATE.md §2.4) are real only where her kit has what they reach: Aura Radius
+ * where her Aura Power is real; Buff Duration for a timed buff with gaps or a buff counted in shots (rally-kind ⚡
+ * abilities, hero skill buffs, Chika's overclock, Wakaba's drinks; never Midori's brews, which are continuous); Control
+ * Strength for a control status that is not re-applied every tick (or a push-back). A data test re-derives both lists
+ * from the kits (tests/data/gearSupportFit.test.js). A worn 4+ Spirit Squad or Freeze Tag set makes the matching stat
+ * real (gear.js gearFillIn).
+ */
+export const BUFF_DUR_REAL = Object.freeze(['hikari', 'luna', 'miko', 'umeko', 'chika', 'noa', 'wakaba', 'ouka']);
+export const CONTROL_REAL = Object.freeze([
+  'hikari', 'luna', 'nami', 'aoi', 'rei', 'yuki', 'akane', 'sango', 'kage', 'umeko', 'shiro', 'midori', 'suzu', 'raika', 'hotaru',
+  'kaede', 'chika', 'tenka', 'kanna', 'yoriko', 'seiran', 'fuu', 'hana', 'ruri', 'noa', 'iroha', 'ena', 'azami', 'yuzuha', 'chigusa',
+  'marumi', 'kohaku_tsubaki', 'kogane', 'norika',
+]);
+
+/**
  * Stats that fill in for her right now (her stars and Potential decide the `until` rows).
  * Unknown girls (new ones without a row yet) fill nothing.
  * @param {string} unitId
@@ -191,6 +255,10 @@ export function fillStats(unitId, { awaken = 0, potential = 1 } = {}) {
     if (u && ((u.awaken != null && awaken >= u.awaken) || (u.potential != null && potential >= u.potential))) continue;
     out.add(s);
   }
+  // the support stats (main stats of the Hair Clip and the Necklace)
+  if (out.has('auraPct')) out.add('auraRangePct');
+  if (!BUFF_DUR_REAL.includes(unitId)) out.add('buffDurPct');
+  if (!CONTROL_REAL.includes(unitId)) out.add('controlPct');
   return out;
 }
 

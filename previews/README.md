@@ -1,6 +1,7 @@
 Dev-only preview pages (not part of the game build). Each area may add `previews/<area>.html` + `previews/<area>.js`
 to look at its work in isolation, then screenshot it with `node e2e/shot.mjs /previews/<area>.html out.png`.
 
+- `attack-shapes.html` — the attack shapes owner board (docs/specs/ATTACK_SHAPES.md §7.1): ten animated mock-ups on a sample road, stepped at 60 Hz with the sim's direction table (`src/sim/dirs.js`); `?speed=0.5`, `?shot=1` (one column), `?reel=1&manual=1` (`window.__advance(n)`, `window.__pose()`). `node e2e/attack-shapes-board.mjs <dir>` writes the board images and the video (`docs/review/attack-shapes/`).
 - `attacks.html` — attack FX gallery (every girl side by side) and focus view (one girl, any build); see docs/ATTACK_FX.md.
 - `campus.html` — the Gate Arc campus look at night (`THEMES.campus`, src/render/city/campusProps.js) on two fixture boards from `campusMaps.js` (never in MAPS or STAGES): `?map=court|track&blackout=1&cycle=1&quality=…&cam=shelter&grey=1&clean=1&frame=battle|full&bands=1`; the "Lights out" button (or `window.__lights(on)`) sends the `ruleState` event that drives blackout dimming; `window.__terrainStats(q)` for the phone budget.
 - `city.html` — the Gate Arc city look (`THEMES.city`, src/render/city/) on two fixture boards from `cityMaps.js` (never in MAPS or STAGES): `?map=downtown|canal&quality=…&cam=rift|shelter&grey=1&clean=1&frame=battle|full&bands=1` (framed like the battle by default: between its HUD and tower bar, `bands=1` draws them), plus `window.__terrainStats(q)` for the phone budget.

@@ -69,7 +69,26 @@ import { BUILD_ID, SIM_ID, APP_VERSION } from '../../core/buildInfo.js';
 // 13: the academy flair release (co-op update #10, set once for it): the last five tower ultimates in battle (Kage's
 //    Shadow Doubles, Suzu's Bell Carpet and Chika's Drone Surge as deploys, Fuu's Backdraft Fan as a move, Iroha's
 //    Mirror Shift with its mirror and reflected shots); a client on 12 resolves the same loadout to different battles.
-export const COOP_PROTOCOL = 13;
+// 14: the battle + gear release v0.1.66 (co-op update #11, set once for it): the attack shapes S1–S5 (wheels, held
+//    streams and sweeps, ground shapes, links, and S5's six), balance round 5 (the LR rows, the duo's map-wide laser,
+//    Freeplay's boss bands past wave 200), Ena's spreading curse, Iroha's mirror network, and the gear update's five-piece
+//    sets and LR gear (set passives, Control Strength, Buff Duration, super crits); a client on 13 resolves the same
+//    loadout to different battles.
+// 15: co-op feel (input lag): a stall raises the input delay of the side being waited for (beats carry `st`, the
+//    ticks the sender waited), an order is stamped after the horizon actually sent (not one only computed), and
+//    Lockstep.nudge() ends the idle saver when the player starts an order; a client on 14 raises its own delay on a
+//    stall and stamps orders after unsent promises, so the two would wait on each other differently.
+// 16: the duo's LR refraction build (fix/duo-p2t5-lr-bar): Kohaku & Tsubaki's LR tier-5 Refraction row 2.0 → 2.1
+//    (the LR bar on set gear); a client on 15 resolves the same loadout to a different battle.
+// 17: Suzu and Azami on bosses (fix/suzu-azami-boss): their bells and strips go under a boss in range, a bell a boss
+//    sets off rides on it and rings, a boss on a strip is struck again until its hits run out, Azami's boss row ×4.4;
+//    a client on 16 resolves the same battle differently.
+//    Also in 17, merged in release v0.1.69:
+//    co-op sharing (docs/specs/COOP_SHARING.md): the gift / lend / back / give commands, the Sim's controller
+//    (t.ctrl: a lent or handed-out girl's coins and ability bookkeeping are her controller's), the leaver's grace and
+//    hand-out on the 'gone' / 'join' markers, and the co-op checkpoint v 2; a client on 16 knows none of the commands
+//    and never hands a leaver's girls out, so the two battles part at the first gift, lend or 20 s after a drop.
+export const COOP_PROTOCOL = 17;
 export { BUILD_ID };
 
 /** FNV-1a over a string, as 8 hex digits. */

@@ -16,6 +16,8 @@
 // number staggered by uid; no rng (a towel hit can only crit through her stats, which have none).
 
 import { isEligible } from './combat.js';
+import { allocDealt } from './shapes.js';
+import { buffDur } from './setRules.js';
 import { STEP, TOWEL_EVERY, MAX_LIVES_RESTORED } from './constants.js';
 import { refreshEffective, bestTarget } from './towers.js';
 
@@ -30,7 +32,8 @@ export function drinkTarget(sim, t, range = t.eff.range) {
     const dx = o.x - t.x;
     const dy = o.y - t.y;
     if (dx * dx + dy * dy > r2) continue;
-    if (!best || o.damageDealt > best.damageDealt || (o.damageDealt === best.damageDealt && o.uid < best.uid)) best = o;
+    // (attack shapes S5 rule 6: ranked without her shape damage, src/sim/buffs.js allocDealt)
+    if (!best || allocDealt(o) > allocDealt(best) || (allocDealt(o) === allocDealt(best) && o.uid < best.uid)) best = o;
   }
   return best;
 }
@@ -42,7 +45,8 @@ export function hydrate(sim, t, o, { permanent = false } = {}) {
   const d = t.stats.drink;
   const h = {
     src: t.uid,
-    shots: permanent || d.permanent ? -1 : d.shots,
+    // (Buff Duration: a drink counted in shots gets floor(shots × her Buff Duration), GEAR_UPDATE.md §2.4)
+    shots: permanent || d.permanent ? -1 : Math.floor(d.shots * buffDur(t.unitStats) + 1e-9),
     dmgMul: 1 + d.dmg,
     rateMul: 1 + d.rate,
     rangeMul: 1 + d.range,

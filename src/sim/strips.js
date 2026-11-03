@@ -21,7 +21,58 @@ import { isEligible } from './combat.js';
 import { samplePath } from './path.js';
 import {
   ROAD_OBJECTS_PER_PLAYER, ROAD_OBJECTS_PER_SIM, STRIP_SPOT_STEP, STRIP_SPACING, STRIP_AIM_RADIUS, STRIP_OPENING_MUL,
+  STRIP_BOSS_EVERY, BOSS_TRAPS,
 } from './constants.js';
+
+/** A boss or miniboss? */
+export function isBossTier(e) {
+  return e.tier === 'boss' || e.tier === 'miniboss';
+}
+
+/**
+ * The boss or miniboss within her range that her road objects can reach (`spec`: her trap spec), the one nearest the
+ * exit (ties: lower uid); null with none. Placements only: a scan of the enemies.
+ */
+export function bossInReach(sim, t, spec) {
+  const r2 = t.eff.range * t.eff.range;
+  let best = null;
+  let rem = Infinity;
+  for (const e of sim.enemies) {
+    if (e.dead || !isBossTier(e) || !isEligible(e, spec)) continue;
+    const dx = e.x - t.x;
+    const dy = e.y - t.y;
+    if (dx * dx + dy * dy > r2) continue;
+    const path = sim.pathData[e.pathIndex];
+    const left = path ? path.length - e.dist : 0;
+    if (left < rem || (left === rem && best && e.uid < best.uid)) {
+      best = e;
+      rem = left;
+    }
+  }
+  return best;
+}
+
+/**
+ * Of road `spots` ({ x, y, pathIndex, remaining }), the one nearest boss `e` on its road at or ahead of it (a spot it
+ * still walks onto) for which `free(s)` holds; null with none.
+ */
+export function spotForBoss(sim, spots, e, free) {
+  const path = sim.pathData[e.pathIndex];
+  const left = path ? path.length - e.dist : 0;
+  let best = null;
+  let bd = Infinity;
+  for (const s of spots) {
+    if (s.pathIndex !== e.pathIndex || s.remaining > left + STRIP_SPOT_STEP / 2) continue;
+    const dx = s.x - e.x;
+    const dy = s.y - e.y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < bd && free(s)) {
+      best = s;
+      bd = d2;
+    }
+  }
+  return best;
+}
 
 /** Visible road samples within `reach` of (x, y) (every path), nearest the exit first (ties: lane, then distance). */
 export function roadSpots(sim, x, y, reach) {
@@ -54,11 +105,11 @@ function spotsOf(sim, t) {
   return list;
 }
 
-/** No live trap or strip closer than STRIP_SPACING to (x, y). */
+/** No live trap or strip closer than STRIP_SPACING to (x, y) (a bell riding on a boss is not on the road). */
 function spotFree(sim, x, y) {
   const s2 = STRIP_SPACING * STRIP_SPACING;
   for (const tr of sim.traps) {
-    if (tr.dead) continue;
+    if (tr.dead || tr.boss) continue;
     const dx = tr.x - x;
     const dy = tr.y - y;
     if (dx * dx + dy * dy < s2) return false;
@@ -69,7 +120,7 @@ function spotFree(sim, x, y) {
 function removeTrapAt(sim, i) {
   const tr = sim.traps[i];
   tr.dead = true;
-  if (!tr.extra && tr.owner) tr.owner.trapCount = Math.max(0, tr.owner.trapCount - 1);
+  if (!tr.extra && !tr.under && tr.owner) tr.owner.trapCount = Math.max(0, tr.owner.trapCount - 1);
   sim.traps.splice(i, 1);
   sim._emit('trapExpired', { uid: tr.uid, x: tr.x, y: tr.y, ownerUid: tr.ownerUid, evicted: true });
 }
@@ -100,20 +151,20 @@ function makeRoom(sim, owner) {
 
 /**
  * Lays one strip of hers at (x, y). `o.extra`: a Spike Rain strip (outside her cap, its own hits,
- * lifetime and arming time).
+ * lifetime and arming time). `o.under`: a strip laid for a boss (outside her cap; layStrip).
  */
 export function addStrip(sim, t, x, y, o = {}) {
   const st = t.stats.strip;
   makeRoom(sim, t.owner ?? 0);
   const tr = {
-    uid: sim._nextUid(), x, y, ownerUid: t.uid, owner: t, strip: true, extra: !!o.extra,
+    uid: sim._nextUid(), x, y, ownerUid: t.uid, owner: t, strip: true, extra: !!o.extra, under: !!o.under,
     armed: false, armLeft: o.arm ?? t.stats.trap.armTime,
     hits: o.hits ?? st.hits,
     ttl: o.ttl ?? (st.forever ? -1 : st.ttl),
     hitUids: [],
   };
   sim.traps.push(tr);
-  if (!tr.extra) t.trapCount++;
+  if (!tr.extra && !tr.under) t.trapCount++;
   sim._emit('trapPlaced', { uid: tr.uid, x, y, ownerUid: t.uid, strip: true, extra: tr.extra });
   return tr;
 }
@@ -153,15 +204,38 @@ function nextSpot(sim, t, spots) {
   return firstFree(sim, spots);
 }
 
+/** Her strips laid for `boss` still waiting at or under it (within a tile of it, hits left). */
+function underCount(sim, t, boss) {
+  let n = 0;
+  for (const tr of sim.traps) {
+    if (tr.dead || !tr.under || tr.owner !== t || tr.hits <= 0) continue;
+    const dx = tr.x - boss.x;
+    const dy = tr.y - boss.y;
+    if (dx * dx + dy * dy <= 1) n++;
+  }
+  return n;
+}
+
 /** The 'strip' behaviour: lays a strip (two in Spread with Double Shift) while a wave runs. */
 export function layStrip(sim, t) {
   const st = t.stats.strip;
   const trap = t.stats.trap;
-  if (!st || !trap || sim.state !== 'wave' || t.trapCount >= trap.max) return false;
+  if (!st || !trap || sim.state !== 'wave') return false;
   const spots = spotsOf(sim, t);
   if (!spots.length) return false;
-  const n = st.pair && t.targetMode === 'last' && !(st.aim && t.aim) ? 2 : 1;
+  // a boss in her range: she also lays one under it (the free spot nearest it, at or ahead of it), outside her cap,
+  // while fewer than BOSS_TRAPS of hers wait there; her road strips as ever
   let laid = 0;
+  const boss = t.trapSpec ? bossInReach(sim, t, t.trapSpec) : null;
+  if (boss && underCount(sim, t, boss) < BOSS_TRAPS) {
+    const s = spotForBoss(sim, spots, boss, (p) => spotFree(sim, p.x, p.y));
+    if (s) {
+      const tr = addStrip(sim, t, s.x, s.y, { under: true });
+      t.facing = Math.atan2(tr.x - t.x, tr.y - t.y);
+      laid++;
+    }
+  }
+  const n = st.pair && t.targetMode === 'last' && !(st.aim && t.aim) ? 2 : 1;
   for (let k = 0; k < n && t.trapCount < trap.max; k++) {
     const s = nextSpot(sim, t, spots);
     if (!s) break;
@@ -249,8 +323,10 @@ export function stripStep(sim, tr, dt) {
   STRIP_HITS.length = 0;
   STRIP_SCALE.length = 0;
   const budget = tr.hits;
+  // a strip laid for a boss strikes it again every STRIP_BOSS_EVERY steps while it stands on it
+  const rehit = tr.bossCd > 0 ? --tr.bossCd > 0 : false;
   sim.grid.each(tr.x, tr.y, spec.triggerRadius, (e) => {
-    if (tr.hitUids.includes(e.uid)) return false;
+    if (tr.hitUids.includes(e.uid) && (rehit || !tr.under || !isBossTier(e))) return false;
     let scale = 0;
     if (isEligible(e, spec)) scale = 1;
     else if (air && isEligible(e, air)) scale = share;
@@ -262,7 +338,8 @@ export function stripStep(sim, tr, dt) {
   const n = STRIP_HITS.length;
   for (let i = 0; i < n; i++) {
     const e = STRIP_HITS[i];
-    tr.hitUids.push(e.uid);
+    if (!tr.hitUids.includes(e.uid)) tr.hitUids.push(e.uid);
+    if (tr.under && isBossTier(e)) tr.bossCd = STRIP_BOSS_EVERY;
     tr.hits--;
     if (!e.dead) sim._hit(e, owner, STRIP_SCALE[i] === 1 ? spec : air, STRIP_SCALE[i]);
   }
@@ -275,8 +352,8 @@ export function stripStep(sim, tr, dt) {
 }
 
 /**
- * Wave clear (Sim._checkWaveEnd): Spike Rain strips and every strip without Sticky Tar end; a carried
- * strip forgets who it hit. Suzu's traps are untouched. @returns {boolean} whether anything changed
+ * Wave clear (Sim._checkWaveEnd): Spike Rain strips, the bells and strips set for a boss and every strip without
+ * Sticky Tar end; a carried strip forgets who it hit. Suzu's road bells are untouched. @returns {boolean} whether anything changed
  */
 export function endStripWave(sim) {
   let any = false;
@@ -284,18 +361,24 @@ export function endStripWave(sim) {
   const list = sim.traps;
   for (let i = 0; i < list.length; i++) {
     const tr = list[i];
+    // a bell or strip set for a boss (layStrip, towers.js bossTrap) ends with the wave, riding or not
+    if (tr.under) {
+      tr.dead = true;
+      any = true;
+      continue;
+    }
     if (!tr.strip) {
       list[n++] = tr;
       continue;
     }
     any = true;
-    if (!tr.extra && tr.owner.stats.strip?.carry) {
+    if (!tr.extra && !tr.under && tr.owner.stats.strip?.carry) {
       tr.hitUids.length = 0;
       list[n++] = tr;
       continue;
     }
     tr.dead = true;
-    if (!tr.extra) tr.owner.trapCount = Math.max(0, tr.owner.trapCount - 1);
+    if (!tr.extra && !tr.under) tr.owner.trapCount = Math.max(0, tr.owner.trapCount - 1);
   }
   list.length = n;
   return any;

@@ -14,6 +14,7 @@ import { STAGE_MAP } from '../../data/stages.js';
 import { DIFFICULTIES } from '../../data/types.js';
 import { store } from '../../core/store.js';
 import { setSelfId, loadTags, recordTagMarks } from '../../online/tags.js';
+import { lineSticker } from '../../online/stickerWire.js';
 
 const REFRESH_MS = 5 * 60 * 1000;
 const PENDING_KEY = 'ss-social-pending-invites';
@@ -402,7 +403,7 @@ async function show(p) {
     });
   } else if (p.kind === 'dm') {
     showSocialToast({
-      kind: 'dm', avatar: m.avatar, ms: 6000, testid: 'dm-toast', title: m.name, text: m.body,
+      kind: 'dm', avatar: m.avatar, ms: 6000, testid: 'dm-toast', title: m.name, text: dmToastText(m.body),
       actions: [{ label: 'Reply', kind: 'primary', testid: 'dm-toast-reply', onClick: () => leaveTo('messages', { id: m.threadId }) }],
     });
   } else if (p.kind === 'friend') {
@@ -478,4 +479,10 @@ export function takePendingInvites(room) {
 /** Test hook (e2e / unit): the hub's private state. */
 export function _hubState() {
   return state;
+}
+
+/** [stickers] a DM pop-up's line: a sticker line reads "Sticker: Hi!" (never its raw token), anything else as sent. */
+export function dmToastText(body) {
+  const s = lineSticker(body);
+  return s ? `Sticker: ${s.label}` : body;
 }

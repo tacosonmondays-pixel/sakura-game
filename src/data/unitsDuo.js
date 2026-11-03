@@ -10,7 +10,7 @@
 // cadet uniform); the battle model stands both chibis on one base (src/models/duo.js). Prices sit inside the live windows (DUO_LR §1.3).
 // Oct 29 buff (owner: "make her wayyyy stronger"): her base +25% (shells 15, beam 6.25, shard share 0.5) and
 // each path's tier 5 fitted to beat the best Kage by about a quarter on the balance rulers (docs/specs/DUO_LR.md
-// §6); Grand Spectrum and the LR form run her beams to the map edge (src/sim/duo.js).
+// §6–§7); from Prism Corridor tier 3, and in the LR form, her beams run across the whole map (src/sim/duo.js).
 
 import { S, stats, tier, path, GACHA_ONLY } from './unitKit.js';
 
@@ -46,7 +46,7 @@ const KOHAKU_TSUBAKI = {
   quote: 'You mark the spot, I\'ll bend the light. Starfall!',
   tips: [
     'Tsubaki\'s shells reach the whole map but only hit the ground; Kohaku\'s constant beam guards the sky close to them.',
-    'Kohaku\'s beam stays on while an enemy is in reach and pierces the enemies lined up behind it: line it up along a straight.',
+    'Kohaku\'s beam stays on while an enemy is in reach and pierces the enemies lined up behind it: line it up along a straight. From Prism Corridor tier 3 her light crosses the whole map.',
     'Every 4th shell splits into shards of light that hit flyers too: give them an aim point where the road bunches up.',
     '⚡ Refraction tier 3 teaches Prismfall: a barrage of split shells on her aim point, or on the densest crowd anywhere.',
   ],
@@ -70,9 +70,9 @@ const KOHAKU_TSUBAKI = {
     path('corridor', 'Prism Corridor', 'Kohaku\'s beam: flyers and armour', [
       tier('Polished Lens', 170, 'Kohaku\'s beam pierces 1 more enemy.', { duo: { beamPierce: 1 } }),
       tier('Long Focus', 380, 'Kohaku\'s beam reaches 0.3 tiles further.', { duo: { beamRange: 0.3 } }),
-      tier('Prism Corridor', 1250, 'Kohaku holds 1 more constant beam, on another enemy; beams ignore 2 armour and deal ×1.3 vs flyers.', { duo: { beams: 1, beamPen: 2, beamAir: 1.3 } }),
+      tier('Prism Corridor', 1250, 'Kohaku holds 1 more constant beam, on another enemy; beams ignore 2 armour and deal ×1.3 vs flyers. Her beams now cross the whole map, edge to edge through her prism: a beam with no enemy in her reach locks on anywhere, and enemies past her short beam take 8% of a hit (25% in her LR form).', { duo: { beams: 1, beamPen: 2, beamAir: 1.3, edge: 1 } }),
       tier('Resonant Light', 4000, 'Her beam grows stronger the longer it holds the same enemy (up to +60%).', { duo: { rampPer: 0.08, rampMax: 0.6 } }),
-      tier('Grand Spectrum', 24000, '+2 constant beams, +16 beam damage, beams pierce 8, beam ×11.7, shells ×6.4, ×11.5 vs bosses; each beam runs on through its enemy to the edge of the map, hitting everything on that line for 3% past her reach, and silences for 1s on lock-on and every 2s it holds.', { damageMul: 6.4, bossMul: 11.5, duo: { beams: 2, beamDmg: 16, beamPierce: 3, beamSilence: 1, edge: 1, beamMul: 11.7 } }),
+      tier('Grand Spectrum', 24000, '+2 constant beams, +16 beam damage, beams pierce 8, beam ×11.7, shells ×6.4, ×11.5 vs bosses; each beam silences everything on its map-wide line for 1s on lock-on and every 2s it holds.', { damageMul: 6.4, bossMul: 11.5, duo: { beams: 2, beamDmg: 16, beamPierce: 3, beamSilence: 1, edge: 1, beamMul: 11.7 } }),
     ]),
     path('refraction', 'Refraction', 'The two together: more shells split into light', [
       tier('Cut Facets', 160, 'Every 3rd shell splits.', { duo: { every: 3 } }),

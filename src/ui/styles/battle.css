@@ -58,6 +58,8 @@
 .bt-lives.bt-hit { animation: bt-shake 0.4s; }
 .bt-cash { min-width: 96px; }
 .bt-cash.bt-gain .bt-stat-val { animation: bt-pop 0.3s var(--bt-ease); }
+/* co-op: coins already spoken for by orders on their way are off the balance (dotted until they land) */
+.bt-cash.bt-held .bt-stat-val { text-decoration: underline dotted; text-underline-offset: 3px; }
 .bt-cash.bt-poor-flash { animation: bt-shake 0.4s; background: #fff2c2; }
 @keyframes bt-pop { 40% { transform: scale(1.18); color: #c58a00; } }
 @keyframes bt-shake { 20% { translate: -4px 0; } 40% { translate: 4px 0; } 60% { translate: -3px 0; } 80% { translate: 2px 0; } }
@@ -411,6 +413,14 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 }
 .bt-panel .bt-ally-note { margin: 0; padding: 6px 8px; border-radius: 2px; font: 500 var(--fs-body)/1.3 var(--font); color: var(--on-plate); background: var(--dw-fill); border-left: 3px solid var(--ally, #ff8fab); }
 .bt-panel .bt-ally-note .bt-ico-sm { display: inline-flex; width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; color: var(--on-plate-dim); }
+/* co-op sharing (docs/specs/COOP_SHARING.md §3.5): lend her / lent to … · Take back / lent by … · Give back */
+.bt-panel .bt-share { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; padding: 4px 6px 4px 8px; border-radius: 2px; background: var(--dw-fill); border-left: 3px solid var(--ctrl, #4cc9f0); font: 500 var(--fs-body)/1.25 var(--font); color: var(--on-plate); }
+.bt-panel .bt-share .bt-ico-sm { display: inline-flex; width: 14px; height: 14px; flex: none; color: var(--on-plate-dim); }
+.bt-panel .bt-share-line { flex: 1 1 auto; min-width: 0; }
+.bt-panel .bt-share-btn { flex: none; min-height: var(--tap-dense); padding: 0 10px; border: 0; border-radius: var(--radius-plate); background: linear-gradient(180deg, #fff38a, var(--yellow)); color: var(--plate); font: italic 900 var(--fs-body)/1 var(--font-head); cursor: pointer; }
+.bt-panel .bt-share-btn.armed { box-shadow: 0 0 0 2px var(--on-plate); }
+.bt-panel .bt-share-btn:disabled { background: var(--dw-fill); color: var(--on-plate-dim); box-shadow: inset 0 0 0 1px var(--dw-line-hi); cursor: default; }
+.bt-panel .bt-share-btn small { font: 600 var(--fs-label)/1 var(--font); font-style: normal; }
 /* the scroll cue (phones hide thin scrollbars): a fade at the foot of the body and a ▾, while content sits below */
 .bt-panel-foot { position: relative; z-index: 2; } /* (over the stat row's layer: the cue and Sell's hit area stay on top) */
 .bt-scroll-cue {
@@ -442,6 +452,11 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 .bt-tchip:disabled { cursor: default; color: var(--on-plate-dim); opacity: 1; }
 .bt-tchip.on:disabled { color: var(--plate); }
 .bt-tchip-more { min-width: var(--tap-dense); color: var(--blue-on-plate); }
+/* Iroha's mirrors (docs/specs/IROHA_MIRRORS.md §8): a numbered chip per mirror, square at the dense tap size; a mirror
+   her player placed carries a small ink dot under its number */
+.bt-mirrors .bt-tchip { min-width: var(--tap-dense); position: relative; }
+.bt-tchip.bt-mirror-placed::before { content: ''; position: absolute; left: 50%; bottom: 3px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: currentColor; }
+.bt-mirrors .bt-dw-k { white-space: nowrap; }
 .bt-tchip-more-ico { display: inline-flex; width: 18px; height: 4px; line-height: 0; }
 .bt-tchip-more-ico svg { width: 100%; height: 100%; display: block; }
 .bt-tchip:active:not(:disabled) { transform: scale(0.96); }
@@ -465,7 +480,7 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 /* ---- path rows: the coloured edge, italic name, tier pips, "T3 · TIER NAME", the price button */
 .bt-paths { display: flex; flex-direction: column; }
 .bt-path {
-  --path: #ff5d7a;
+  --path: #ff6b8b; /* set per row from drawerView PATH_COLORS (one set with the board pips) */
   display: grid; grid-template-columns: 4px minmax(0, 1fr) auto; grid-template-areas: 'edge main act' 'edge extra extra'; column-gap: 9px; row-gap: 4px;
   align-items: center; padding: 6px 0; border-bottom: 1px solid var(--dw-line);
 }
@@ -524,6 +539,12 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   background: var(--dw-fill); color: var(--on-plate-dim); box-shadow: inset 0 0 0 1px var(--dw-line-hi);
 }
 .bt-buy:disabled { cursor: default; opacity: 1; }
+/* co-op: an upgrade ordered and on its way (the input delay; src/ui/battle/coopPending.js) */
+.bt-buy.pending { background: linear-gradient(180deg, #fff9c9, #ffe98a); color: var(--plate); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18); }
+.bt-buy-spin { width: 12px; height: 12px; flex: none; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: bt-buy-spin 0.7s linear infinite; }
+@keyframes bt-buy-spin { to { transform: skewX(calc(var(--skew) * -1)) rotate(360deg); } }
+html[data-reduce-motion] .bt-buy-spin { animation: none; border-right-color: currentColor; opacity: 0.6; }
+@media (prefers-reduced-motion: reduce) { .bt-buy-spin { animation: none; border-right-color: currentColor; opacity: 0.6; } }
 .bt-dw-price { grid-area: act; display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0 8px; border-radius: var(--radius-plate); font: 700 var(--fs-num-s)/1 var(--font-num); font-variant-numeric: tabular-nums; }
 .bt-buy-coin { width: 16px; height: 16px; display: inline-flex; line-height: 0; flex: none; }
 .bt-buy-coin svg, .bt-buy-coin img { width: 100%; height: 100%; }
@@ -800,6 +821,7 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   .bt-panel .bt-abrow.s-later:not(.open) .bt-abrow-line { flex: none; margin: 0; font: 500 var(--fs-label)/1.2 var(--font); text-align: right; }
   /* the ally note: its short phone line (drawerView.allyNoteText) on one line, so her three rows stay in view */
   .bt-panel .bt-ally-note { padding: 3px 6px; font-size: var(--fs-label); line-height: 1.25; }
+  .bt-panel .bt-share { margin-top: 4px; padding: 2px 4px 2px 6px; font-size: var(--fs-label); }
   .bt-panel .bt-ally-note .bt-ico-sm { width: 13px; height: 13px; margin-right: 3px; }
   /* (36 px with or without Sell: an ally's footer has none, and MORE's 30 px hit area stays inside it) */
   .bt-panel-foot { min-height: calc(36px + var(--safe-bottom)); padding: 3px 8px calc(3px + var(--safe-bottom)); }
@@ -992,6 +1014,12 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   /* feed: two one-line toasts docked top-right (the left edge is where most entrances are) */
   .bt-feed { left: auto; right: 10px; top: calc(var(--bt-hud-h) + var(--safe-top) + 6px); width: min(350px, 42%); gap: 4px; align-items: stretch; }
   .bt-has-boss .bt-feed { top: calc(var(--bt-hud-h) + var(--safe-top) + 64px); }
+  /* co-op: the CO-OP strip (online.css .ol-coop-hud, 44 px down, about 36 px tall) sits under the HUD here: the toasts
+     start below it, never over its names, coins and gift button (review r1 L3) */
+  .bt-coop .bt-feed { top: calc(84px + var(--safe-top)); }
+  /* (…and under its state line, "Waiting for ally…" / "Ally left — …", which hangs below the strip here: online.css) */
+  .bt-coop.bt-coop-state .bt-feed { top: calc(112px + var(--safe-top)); }
+  .bt-coop.bt-has-boss .bt-feed { top: calc(var(--bt-hud-h) + var(--safe-top) + 64px + 40px); }
   .bt-toast-ico { width: 14px; height: 14px; }
   .bt-banner { padding: 6px 44px 7px; }
   .bt-banner-title { font-size: 1.35rem; }

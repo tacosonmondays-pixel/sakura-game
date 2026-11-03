@@ -19,9 +19,9 @@ import {
 // (re-reviewed for the six returning towers' 90 tiers, roster wave: their gather, flyer bonus and
 // familiar / mirror reach tags read Enemies / Her / Her)
 const COMBOS = {
-  self: 232, // (+13: Azami, +13: Kinu, +2: Wakaba, +10: Yuzuha, +3: Chigusa, +12: Marumi; +11: Tenka; +14: Kohaku & Tsubaki)
-  'enemies* + self': 35,
-  'enemies + self': 52, // (Marumi's Concussion: its stun and her blast share, rework Oct 21, tuned in v0.1.41; +1: the duo's Thousand Star Bombardment stun)
+  self: 231, // (+13: Azami, +13: Kinu, +2: Wakaba, +10: Yuzuha, +3: Chigusa, +12: Marumi; +11: Tenka; +14: Kohaku & Tsubaki; -1: Kage's Blade Cyclone)
+  'enemies* + self': 34, // (-1: Yuki's Shatter Point turns into Rising Spikes, attack shapes S3)
+  'enemies + self': 50, // (Marumi's Concussion: its stun and her blast share, rework Oct 21, tuned in v0.1.41; +1: the duo's Thousand Star Bombardment stun; -1: Akane's Phoenix Feather turns into the Hearth Stream; -1: Fuu's Typhoon Fans turns into the Homecoming Throw)
   allies: 58, // (+12: Wakaba, +1: Yuzuha, +15: Ouka)
   enemies: 32, // (+4: Tenka; -1: the v0.1.41 Marumi / Kaede reworks)
   coins: 8,
@@ -29,14 +29,16 @@ const COMBOS = {
   'allies + coins + enemies': 1,
   'allies + self': 10,
   'allies + enemies + self': 6,
-  'allies + enemies*': 6,
+  'allies + enemies*': 4, // (-2: Umeko's Moonlit Beacon and Sea of Lanterns sweep, attack shapes S2)
   'enemies*': 7,
-  'allies + enemies* + self': 4,
-  'self+X': 3,
+  'allies + enemies* + self': 5, // (+1: Umeko's Sea of Lanterns sweep)
+  'allies + enemies* + self+X': 1, // (Umeko's Moonlit Beacon turns into the Searchlight Sweep, attack shapes S2)
+  'self+X': 4, // (+1: Kage's Blade Rain turns into the Blade Cyclone, attack shapes S1)
   'allies + coins': 2,
-  'coins + self': 2,
-  'enemies + self+X': 3,
-  'enemies* + self+X': 1,
+  'coins + self': 1,
+  'coins + self+X': 1, // (Momo's Jackpot turns into the Coin Wheel, attack shapes S1)
+  'enemies + self+X': 5, // (+1: Akane's Phoenix Feather turns into the Hearth Stream, attack shapes S2; +1: Fuu's Typhoon Fans turns into the Homecoming Throw, S4)
+  'enemies* + self+X': 2, // (+1: Yuki's Shatter Point turns into Rising Spikes, attack shapes S3)
   'allies + enemies': 2,
 };
 

@@ -14,6 +14,8 @@
 import { BATTLE } from '../data/types.js';
 import { HERO_XP_STEPS, HERO_LEVEL_PRICES, HERO_XP, HERO_MOVE } from '../data/heroTracks.js';
 import { ULT_INITIAL_CHARGE, KNOCKBACK_RESIST, DEFAULT_UNIT_STATS, HERO_MOVE_CD_MIN, HERO_MOVE_DOWNTIME_MIN } from './constants.js';
+import { buffDur, statusCtxFor, pushMul } from './setRules.js';
+import { SKILL_HASTE_CAP, ULT_HASTE_MAX } from './gearRules.js';
 import { normalizeBase } from './mods.js';
 import { applyStatus } from './status.js';
 import { syncStatusFlags, placeOnPath } from './enemies.js';
@@ -110,7 +112,12 @@ export function ultCooldown(hero) {
   let cd = ult.cooldown ?? 60;
   for (const k of ult.ranks || []) if (hero.level >= k.level && k.cooldownMul > 0) cd *= k.cooldownMul;
   const pot = hero.stats?.ult?.haste || 0;
-  const haste = Math.min(0.5, Math.max(0, pot > 0 ? (hero.unitStats?.ultHaste || 0) + pot : hero.unitStats?.ultHaste || 0));
+  const gear = hero.unitStats?.ultHaste || 0;
+  // (LR gear's raised cap: her own gear haste above 50 % — only LR caps reach it — lifts the ceiling to ULT_HASTE_MAX,
+  // and her Potential's haste stacks on top of it (M3 review r1 #4: 0.55 gear + 0.2 Potential = 0.75); without that,
+  // the 50 % cap over gear and Potential together, exactly as before)
+  const cap = gear > SKILL_HASTE_CAP ? ULT_HASTE_MAX : SKILL_HASTE_CAP;
+  const haste = Math.min(cap, Math.max(0, pot > 0 ? gear + pot : gear));
   return cd * (1 - haste);
 }
 
@@ -402,7 +409,7 @@ export function activateUlt(sim) {
   if (sim.state === 'won' || sim.state === 'lost') return false;
   const effect = ultEffect(h);
   const scale = ultDamageScale(h);
-  const ctx = { rng: sim.rng, element: h.eff.element, attackType: effect.attackType || h.eff.attackType, sourceUid: h.uid };
+  const ctx = statusCtxFor({ rng: sim.rng, element: h.eff.element, attackType: effect.attackType || h.eff.attackType }, h);
   const victims = sim.enemies.filter((e) => !e.dead && !e.hidden); // tunnels shelter enemies from ults too
   let ux = h.x; // where the ult lands (event position)
   let uy = h.y;
@@ -439,13 +446,13 @@ export function activateUlt(sim) {
     }
     const rb = effect.rateBuff ?? 0.25;
     // the caster's uid (the buff icons tint the ultimate by her; nothing reads the view getter)
-    sim.addGlobalRateBuff(rb > 1 ? rb : 1 + rb, effect.buffDuration ?? effect.duration ?? 6, h.uid);
+    sim.addGlobalRateBuff(rb > 1 ? rb : 1 + rb, (effect.buffDuration ?? effect.duration ?? 6) * buffDur(h.unitStats), h.uid);
   } else if (effect.type === 'tide') {
     const spec = ultSpec(h, effect, (effect.damage || 0) * scale);
     for (const e of victims) {
       sim._hit(e, h, spec, 1);
       if (e.dead) continue;
-      if (effect.pushback) pushBack(e, effect.pushback, sim.pathData[e.pathIndex]);
+      if (effect.pushback) pushBack(e, effect.pushback * pushMul(h.unitStats), sim.pathData[e.pathIndex]);
       if (effect.slow) applyStatus(e, { type: 'slow', amount: effect.slow, duration: effect.duration ?? 3 }, ctx);
     }
   } else if (effect.type === 'runner') {

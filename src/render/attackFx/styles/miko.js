@@ -10,7 +10,7 @@ import { lookAt } from '../flair.js';
 import { confetti, flash, ripple } from '../patterns/bursts.js';
 import { SEG_CORE } from '../patterns/segments.js';
 import { drawRingFamiliars } from '../patterns/patrol.js';
-import { hand } from './util.js';
+import { hand, tipUp } from './util.js';
 import { CORE, DECOR, FAMILIAR } from '../context.js';
 
 const HOLY = '#ffe066';
@@ -32,14 +32,14 @@ export const miko = {
   onAttack(ev, tw, t, ctx) {
     if (ev.kind === 'beam' || !ctx.cap('muzzle')) return;
     const h = hand(ctx, t);
-    ctx.spr(ctx.b.bbA, CORE, ctx.R.glow, h.x, h.h + 0.1, h.y, 0.28, 0.1, 0.1, ctx.col('#fff6d0'), 1);
+    ctx.spr(ctx.b.bbA, CORE, ctx.R.glow, h.x, h.h + tipUp(h, 0.1), h.y, 0.28, 0.1, 0.1, ctx.col('#fff6d0'), 1);
   },
 
   origin(p, t, idx, n, rec, ctx) {
     const h = hand(ctx, t);
     rec.mx = h.x;
     rec.my = h.y;
-    rec.mz = h.h + 0.1;
+    rec.mz = h.h + tipUp(h, 0.1);
     rec.bend = 0.25;
     return true;
   },
@@ -75,8 +75,12 @@ export const miko = {
   onBeam(ev, tw, t, ctx) {
     mirrorPos(ctx, t, MIR);
     const [ex, ey] = ev.to;
-    ctx.segs.add(MIR.x, MIR.h, MIR.y, ex, 0.35, ey, Math.max(0.2, (ev.width || 0.2) * 1.6), ctx.col(HOLY), 0.2, SEG_CORE);
-    flash(ctx, MIR.x, MIR.h, MIR.y, 0.6, ctx.col('#fff6d0'), 0.12);
+    // the styled holy ray (src/render/vfx/beams.js) when the renderer has it: its own muzzle flare replaces the mirror's
+    // flash (one flash at the mirror, not two); the mirror's turning star stays (her cue); nothing back: the old ray
+    if (!(ctx.beams && ctx.beams.fire([MIR.x, MIR.h, MIR.y], [ex, 0.35, ey], { preset: 'holy', width: ev.width || 0.2 }))) {
+      ctx.segs.add(MIR.x, MIR.h, MIR.y, ex, 0.35, ey, Math.max(0.2, (ev.width || 0.2) * 1.6), ctx.col(HOLY), 0.2, SEG_CORE);
+      flash(ctx, MIR.x, MIR.h, MIR.y, 0.6, ctx.col('#fff6d0'), 0.12);
+    }
     const p = ctx.spr(ctx.b.bbA, DECOR, ctx.R.star, MIR.x, MIR.h, MIR.y, 0.4, 0.1, 0.2, ctx.col('#ffffff'), 1);
     if (p) p.vrot = 6;
     return true;

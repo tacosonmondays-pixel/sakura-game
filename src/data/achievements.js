@@ -18,7 +18,7 @@
 //   title   the profile title the claim grants: { text, tier: std|gold|prism }; the title id IS the achievement id
 //   hidden  a secret: "???" and `hint` until it is met
 //   since   the release whose counter it reads ("Counts from v0.1.N")
-//   wave    launch | social | codex | tryout | later | act2: rows ship hidden until their feature does (ACHIEVEMENT_WAVES)
+//   wave    launch | social | codex | tryout | gear | later | act2: rows ship hidden until their feature does (ACHIEVEMENT_WAVES)
 //   needs   stage ids that must all exist in this build (STAGE_MAP) before the row is live: the Gate Arc's Act II
 //           rows (wave act2) light up chapter by chapter as their stages ship, never before (docs/CAMPAIGN.md "Act II")
 
@@ -33,7 +33,8 @@ export const ACH_V2_LIVE = true;
  */
 // tryout: Tryout Day's 15 rows (docs/specs/TRYOUT_DAY.md §10.2 and §20.5; 480 gems, counted apart from the 28-day chart). Ids,
 // rewards and goals freeze when the mode ships; their counters are 'ty:*' in missions.counters (src/systems/tryoutRewards.js).
-export const ACHIEVEMENT_WAVES = Object.freeze({ launch: true, social: true, codex: true, tryout: true, later: false, act2: true });
+// gear: the gear update's LR rows (GEAR_UPDATE.md §4.6), live with LR gear
+export const ACHIEVEMENT_WAVES = Object.freeze({ launch: true, social: true, codex: true, tryout: true, gear: true, later: false, act2: true });
 
 /** The release that starts the new counters (§1.7): new-counter rows read "Counts from v0.1.N". */
 export const COUNTERS_SINCE = '0.1.30';
@@ -212,6 +213,10 @@ export const ACHIEVEMENTS = [
   N('gear', 'a_plus10_1', 'Polished to a Shine', 'Enhance a piece of gear to +10.', 'gearMaxEver', 'any', 1, 2, [g(50), O(), it('dice_reroll', 2)], 'launch', { series: 'plus10' }),
   N('gear', 'a_plus10_10', 'Master Polisher', 'Enhance 10 pieces of gear to +10.', 'gearMaxEver', 'any', 10, 3, [g(100), O(2)], 'launch', { series: 'plus10' }),
   N('gear', 'a_leg_plus10', 'Celestial Craftwork', 'Enhance a Legendary piece of gear to +10.', 'gearMaxEver', 'legendary', 1, 4, [g(200), R(), it('dice_prism')], 'launch', { honor: hr(24, 'Master Crafter Ribbon', 'shiny', 'wrench'), title: tt('Master Crafter', 'gold') }),
+  // LR gear (GEAR_UPDATE.md §4.6, wave `gear`): one Nightglass Lens each, once, no gems (tier 0); counters from
+  // src/systems/gear.js (MARK.lrEver / lrForm)
+  N('gear', 'a_lr_first', 'First Nightglass', 'Awaken a rainbow UR piece into Nightglass LR gear.', 'counter', 'ach:lrEver', 1, 0, [it('lens_nightglass')], 'gear'),
+  N('gear', 'a_lr_form', 'Nightglass Form', 'Wake an LR Set Form: five LR pieces of one set on one student.', 'counter', 'ach:lrForm', 1, 0, [it('lens_nightglass')], 'gear'),
   N('gear', 'a_salvage_100', 'Tidy Workshop', 'Salvage 100 pieces of gear.', 'counter', 'salvage', 100, 0, [it('lock_pin'), it('dice_reroll', 3)], 'launch', { grind: true, since: COUNTERS_SINCE }),
   // Bestiary
   N('bestiary', 'a_family_1', 'Family Portrait', 'Discover every member of one enemy family.', 'familiesFound', null, 1, 1, [g(20), S()], 'launch', { series: 'family' }),
@@ -236,11 +241,11 @@ export const ACHIEVEMENTS = [
   N('academy', 'a_ach_75', 'Hall of Fame', 'Claim 75 achievements.', 'achievementsClaimed', null, 75, 4, [g(100), R()], 'launch', { series: 'ach', honor: hr(26, 'Hall of Fame Ribbon', 'shiny', 'trophy'), title: tt('Hall of Famer', 'gold') }),
   // Secrets (hint until met; never a special ribbon)
   N('secret', 'a_first_petals', 'Where It All Began', 'Earn all four medals on stage 1-1.', 'stageMedals', '1-1', 4, 0, [it('book_superRare', 2)], 'launch', { honor: hr(11, 'First Petal Ribbon', 'plain', 'bud'), hidden: true, hint: 'Go back to the very first stage…' }),
-  N('secret', 'a_close_call', 'By a Petal', "Win a battle with exactly 1 life left (one-life battles don't count).", 'counter', 'ach:closeCall', 1, 0, [O()], 'launch', { title: tt('Cool Under Pressure'), hidden: true, hint: 'Cutting it close is fine… once.', since: COUNTERS_SINCE }),
+  N('secret', 'a_close_call', 'By a Petal', "Win a battle with exactly 1 life left (one-life battles don't count).", 'counter', 'ach:closeCall', 1, 0, [O()], 'launch', { title: tt('Cool Under Pressure'), honor: hr(38, 'Last Bell Ribbon', 'plain', 'bell'), hidden: true, hint: 'Cutting it close is fine… once.', since: COUNTERS_SINCE }),
   N('secret', 'a_room_view', 'Room with a View', 'Pick a lobby background for one of your girls.', 'lobbyBgs', null, 1, 0, [it('coins', 5000)], 'launch', { hidden: true, hint: 'The lobby could use a new look…' }),
-  N('secret', 'a_gold_rush', 'Gold Rush', 'Defeat 500 Gold Slimes.', 'enemyKills', 'slime_gold', 500, 0, [it('coins', 50000)], 'launch', { hidden: true, hint: 'Some slimes sparkle more than others.' }),
-  N('secret', 'a_not_fooled', 'Not Fooled!', 'Defeat 100 Mimic Slimes.', 'enemyKills', 'slime_mimic', 100, 0, [O()], 'launch', { hidden: true, hint: 'That slime looks a little too familiar…' }),
-  N('secret', 'a_mirror_mirror', 'Mirror, Mirror', 'Defeat the Mirror Queen 25 times.', 'enemyKills', 'fae_queen', 25, 0, [O(), it('dice_prism')], 'launch', { hidden: true, hint: 'Who is the bravest of them all?' }),
+  N('secret', 'a_gold_rush', 'Gold Rush', 'Defeat 500 Gold Slimes.', 'enemyKills', 'slime_gold', 500, 0, [it('coins', 50000)], 'launch', { honor: hr(39, 'Lucky Coin Ribbon', 'plain', 'coin'), hidden: true, hint: 'Some slimes sparkle more than others.' }),
+  N('secret', 'a_not_fooled', 'Not Fooled!', 'Defeat 100 Mimic Slimes.', 'enemyKills', 'slime_mimic', 100, 0, [O()], 'launch', { honor: hr(40, 'Keen Eye Ribbon', 'plain', 'lens'), hidden: true, hint: 'That slime looks a little too familiar…' }),
+  N('secret', 'a_mirror_mirror', 'Mirror, Mirror', 'Defeat the Mirror Queen 25 times.', 'enemyKills', 'fae_queen', 25, 0, [O(), it('dice_prism')], 'launch', { honor: hr(41, 'Looking-Glass Ribbon', 'plain', 'mirror'), title: tt('Bravest of Them All'), hidden: true, hint: 'Who is the bravest of them all?' }),
   // Codex (ship with the Codex modes)
   N('codex', 'a_mr_1', 'Trying Something New', 'Earn your first mode ribbon.', 'ribbonsTotal', null, 1, 1, [g(20), it('dice_reroll')], 'codex', { series: 'mr' }),
   N('codex', 'a_mr_100', 'Mode Explorer', 'Earn 100 mode ribbons.', 'ribbonsTotal', null, 100, 3, [g(100), R()], 'codex', { series: 'mr' }),

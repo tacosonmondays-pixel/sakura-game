@@ -96,6 +96,25 @@ function socialRows() {
   return box;
 }
 
+/** [stickers] Show stickers from other players (co-op, chat and messages); one's own always show. */
+function stickerRow() {
+  const s = store.profile.settings;
+  const on = s.showStickers !== false;
+  const b = h(`button.ma-toggle${on ? '.on' : ''}`, {
+    role: 'switch', 'aria-checked': on ? 'true' : 'false', 'data-testid': 'set-showStickers',
+    onclick: () => {
+      const next = !b.classList.contains('on');
+      b.classList.toggle('on', next);
+      b.setAttribute('aria-checked', next ? 'true' : 'false');
+      s.showStickers = next;
+      store.commit('settings');
+    },
+  }, h('span.ma-toggle-knob'));
+  return h('div.ma-set-row',
+    h('div.ma-set-text', h('div.ma-set-label', 'Show stickers from other players'), h('div.ma-set-desc', 'In co-op battles, chat and messages. You can also mute one co-op partner from the sticker button.')),
+    h('div.ma-set-control', b));
+}
+
 /**
  * @param {{ redraw: () => void, importText: (text: string, status: HTMLElement, redraw: () => void) => Promise<boolean> }} opts
  */
@@ -192,6 +211,7 @@ export function onlineSection({ redraw, importText }) {
       h('div.ma-set-text', h('div.ma-set-label', 'Online name'), h('div.ma-set-desc', 'Shown in chat, clans and co-op.')),
       h('div.ma-set-control.ol-settings-row', nameEl, button(storedName() ? 'Change' : 'Set', { kind: 'ghost', small: true, testid: 'online-rename', onClick: rename }))),
     socialRows(),
+    stickerRow(),
     // [friend support] Lend my Support Student to · which girl: only once the server's friend-support SQL is live, as
     // stage prep's Support row (before it, nobody can borrow or lend, so the rows would promise nothing)
     isFriendshipLive() ? supportRows() : null,

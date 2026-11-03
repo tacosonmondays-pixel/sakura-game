@@ -8,6 +8,10 @@
 //
 //   node --import ./tools/simLoader.mjs tools/abilityBench.mjs [girls…] [--targets crowd,boss,mixed]
 //        [--preset strong|L25] [--seed 9] [--time 120] [--hp 1e9,1e9] [--json] [--out tools/baselines/abilities-a1.jsonl]
+//        [--tiers 5-0-2,2-0-5 | --levels 24,25]
+//
+// --tiers / --levels: these builds instead of her ⚡ path's tier 3 and 5 (a tower's path tiers, the paths at 2 or less
+// bought first; a hero's levels), for any girl, ⚡ or not (the attack shapes' crowd and boss on the same column).
 //
 // --hp crowd,boss: the targets' HP (default 1e9 both, the spec's). A share-of-max-HP burn or poison
 // (pct) meets 1e9 HP as absurd numbers; --hp 5e4,3e7 (bench.mjs's late-Freeplay HP) keeps them real.
@@ -36,7 +40,7 @@ import { xpToReach, gainHeroXp } from '../src/sim/hero.js';
 import { abilityPathOf } from '../src/sim/abilities.js';
 
 const args = process.argv.slice(2);
-const VALUED = ['--targets', '--preset', '--seed', '--time', '--out', '--stage', '--hp', '--girl', '--vs', '--curve-time', '--max-coins'];
+const VALUED = ['--targets', '--preset', '--seed', '--time', '--out', '--stage', '--hp', '--girl', '--vs', '--curve-time', '--max-coins', '--tiers', '--levels'];
 const opt = (k, d) => (args.includes(`--${k}`) ? args[args.indexOf(`--${k}`) + 1] : d);
 const names = args.filter((a, i) => !a.startsWith('--') && !VALUED.includes(args[i - 1]));
 const GIRL = opt('girl', null);
@@ -93,7 +97,12 @@ function run(unitId, build, target, auto) {
   if (!spot) return { error: 'no spot' };
   const t = sim.placeTower(unitId, spot.x, spot.y);
   if (hero) gainHeroXp(sim, t, xpToReach(u.hero, build), 'restore');
-  else {
+  else if (typeof build === 'string') {
+    // --tiers: the paths at 2 or less first, then the main path
+    const tt = build.split('-').map(Number);
+    const order = [0, 1, 2].sort((a, b) => tt[a] - tt[b]);
+    for (const p of order) for (let i = 0; i < tt[p]; i++) sim.upgradeTower(t.uid, p);
+  } else {
     const p = abilityPathOf(u);
     for (let i = 0; i < 2; i++) sim.upgradeTower(t.uid, CROSS[p]);
     for (let i = 0; i < build; i++) sim.upgradeTower(t.uid, p);
@@ -165,9 +174,10 @@ const r2 = (x) => Math.round(x * 100) / 100;
 for (const id of girls) {
   const u = d.units[id];
   const skill = skillOf(u);
-  if (!skill) continue;
-  const builds = u.kind === 'hero' ? [skill.unlockLevel, ...(skill.ranks || []).map((r) => r.level)] : [3, 5];
-  const targets = opt('targets', null)?.split(',') || ['crowd', 'boss', ...(NEEDS_MIXED(skill) ? ['mixed'] : [])];
+  const fixed = u.kind === 'hero' ? opt('levels', null)?.split(',').map(Number) : opt('tiers', null)?.split(',');
+  if (!skill && !fixed) continue;
+  const builds = fixed || (u.kind === 'hero' ? [skill.unlockLevel, ...(skill.ranks || []).map((r) => r.level)] : [3, 5]);
+  const targets = opt('targets', null)?.split(',') || ['crowd', 'boss', ...(skill && NEEDS_MIXED(skill) ? ['mixed'] : [])];
   for (const build of builds) {
     for (const target of targets) {
       const t0 = Date.now();
@@ -178,7 +188,7 @@ for (const id of girls) {
         continue;
       }
       const row = {
-        unitId: id, id: skill.id, kind: skill.kind, build: u.kind === 'hero' ? `Lv${build}` : `T${build}`, tiers: on.tiers, target,
+        unitId: id, id: skill?.id ?? null, kind: skill?.kind ?? null, build: u.kind === 'hero' ? `Lv${build}` : typeof build === 'string' ? build : `T${build}`, tiers: on.tiers, target,
         dmgOff: Math.round(off.dmg), dmgOn: Math.round(on.dmg), gain: off.dmg > 0 ? r2(on.dmg / off.dmg) : null,
         partnerGain: off.partner > 0 ? r2(on.partner / off.partner) : null,
         casts: on.casts, coins: on.coins - off.coins, heldOff: r2(off.held), heldOn: r2(on.held),

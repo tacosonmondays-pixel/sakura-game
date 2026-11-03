@@ -12,7 +12,8 @@ import { claimMail } from '../../src/systems/mail.js';
 const EV = EVENT_MAP['halloween-2026'];
 const T = (iso) => Date.parse(iso);
 const MID = T('2026-10-25T18:00:00Z');
-const XMID = T('2026-11-04T18:00:00Z');
+const END = T('2026-11-16T01:00:00Z'); // Sun Nov 15, 7 PM CST (extended two weeks, owner Oct 30)
+const XMID = T('2026-11-18T18:00:00Z'); // Wed Nov 18: the exchange days (until Nov 22, 7 PM CST)
 const AFTER = T('2026-12-01T18:00:00Z');
 function joined() {
   const p = createProfile();
@@ -24,7 +25,9 @@ describe('eventHomeButton', () => {
   it('with the event live it opens the event page; out of season, Happening Now', () => {
     const p = joined();
     expect(eventHomeButton(p, MID)).toMatchObject({ route: 'event', id: 'halloween-2026', phase: 'active' });
-    expect(eventHomeButton(p, MID).msLeft).toBe(T('2026-11-02T01:00:00Z') - MID);
+    expect(eventHomeButton(p, MID).msLeft).toBe(END - MID);
+    expect(eventHomeButton(p, END - 60000)).toMatchObject({ route: 'event', phase: 'active', msLeft: 60000 }); // Nov 15, 6:59 PM
+    expect(eventHomeButton(p, END)).toMatchObject({ route: 'event', phase: 'exchange', msLeft: T('2026-11-23T01:00:00Z') - END });
     expect(eventHomeButton(p, XMID)).toMatchObject({ route: 'event', id: 'halloween-2026', phase: 'exchange' });
     expect(eventHomeButton(p, AFTER)).toEqual({ route: 'rewards', id: null, phase: null, msLeft: null, dot: false });
   });

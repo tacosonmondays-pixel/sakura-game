@@ -9,7 +9,7 @@ import { lookAt } from '../flair.js';
 import { figure8 } from '../patterns/patrol.js';
 import { Spotter } from '../patterns/spotter.js';
 import { SEG_GROW } from '../patterns/segments.js';
-import { hand } from './util.js';
+import { hand, tipUp } from './util.js';
 import { CORE, DECOR, FAMILIAR } from '../context.js';
 
 const F8 = { x: 0, y: 0, dx: 0, dy: 0 };
@@ -26,8 +26,8 @@ export const aoi = {
     if (!ctx.cap('muzzle')) return;
     const h = hand(ctx, t);
     // bow-release flash: big enough to read at phone scale (≈ 15 CSS px), the string snaps white
-    ctx.spr(ctx.b.bbA, CORE, ctx.R.glow, h.x, h.h + 0.05, h.y, 0.44, 0.16, 0.12, ctx.col('#ffffff'), 1);
-    const p = ctx.spr(ctx.b.bbA, CORE, ctx.R.beam, h.x, h.h + 0.05, h.y, 0.52, 0.5, 0.1, ctx.col('#ffffff'), 0.95);
+    ctx.spr(ctx.b.bbA, CORE, ctx.R.glow, h.x, h.h + tipUp(h, 0.05), h.y, 0.44, 0.16, 0.12, ctx.col('#ffffff'), 1);
+    const p = ctx.spr(ctx.b.bbA, CORE, ctx.R.beam, h.x, h.h + tipUp(h, 0.05), h.y, 0.52, 0.5, 0.1, ctx.col('#ffffff'), 0.95);
     if (p) {
       p.asp = 0.15;
       p.rot = Math.PI / 2;
@@ -42,11 +42,12 @@ export const aoi = {
     const h = hand(ctx, t);
     rec.mx = h.x;
     rec.my = h.y;
-    rec.mz = h.h + 0.05;
+    rec.mz = h.h + tipUp(h, 0.05);
     return true;
   },
 
   view(p, rec, _t, v, ctx) {
+    v.ownTrail = true; // (her own trail: the styled ribbon skips her shots)
     const lk = rec.tw.look;
     // the fletch streak is her base cue: long and bright enough to follow on a phone, longer
     // with each Piercing accent tier, a comet tail from T3

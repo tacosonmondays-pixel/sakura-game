@@ -3,7 +3,7 @@
 // flings (they leave the doll where it is drawn, never her feet, and draw no line back to anyone), and the sim's
 // hit gets a short lilac slash (a thin white edge, in front of the enemy), apart from the strings. Without the doll's figure (files loading, an
 // error) the needles leave her hand. Her Dream Detour ultimate keeps the renderer's tide look.
-import { ripple } from '../patterns/bursts.js';
+import { ripple, toonSlash } from '../patterns/bursts.js';
 import { hand } from './util.js';
 import { CORE, DECOR } from '../context.js';
 
@@ -48,6 +48,7 @@ export const yoriko = {
 
   // a needle: a thin bright pin along its flight with a tiny glint at the point (no thread back to the doll)
   view(p, rec, _t, v, ctx) {
+    v.ownTrail = true; // (her own trail: the styled ribbon skips her shots)
     const vl = Math.hypot(p.vx || 0, p.vy || 0) || 1;
     const ux = (p.vx || 0) / vl;
     const uy = (p.vy || 0) / vl;
@@ -65,7 +66,7 @@ export const yoriko = {
     const s = crit ? 0.48 : 0.4;
     // the lilac cut in normal blend only: any additive layer on it (an edge, a flash) summed it to white over the
     // enemy's own white hit flash
-    const a = ctx.spr(ctx.b.bbN, CORE, ctx.R.slash, sx, 0.42, sy, s, s * 1.15, 0.14, ctx.col(SLASH), 0.95);
+    const a = toonSlash(ctx, sx, 0.42, sy, s * 1.15, ctx.col(SLASH), 0.7) ? null : ctx.spr(ctx.b.bbN, CORE, ctx.R.slash, sx, 0.42, sy, s, s * 1.15, 0.14, ctx.col(SLASH), 0.95);
     if (a) {
       a.asp = 2.2;
       a.rot = 0.7;

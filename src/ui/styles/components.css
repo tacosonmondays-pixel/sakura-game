@@ -465,6 +465,8 @@ button.ui-gtile:active { transform: scale(0.96); }
 .ui-bdg.inprog > span { transform: skewX(calc(-1 * var(--skew))); font: italic 900 var(--fs-label)/1 var(--font-head); white-space: nowrap; }
 /* yellow NEW and Open! stickers (the M0 sticker: ink letters, a 2 px ink line, a hard drop) */
 .ui-bdg.new, .ui-bdg.open { padding: 3px 7px; }
+/* [build coach] the Main girl's tile in every list (components.js girlTile): an ink sticker */
+.ui-bdg.gt-main { padding: 3px 7px; background: var(--plate); color: var(--on-plate); }
 /* navy "New" tab flag */
 .ui-bdg.newtab {
   display: inline-flex; align-items: center; height: 20px; padding: 0 8px;

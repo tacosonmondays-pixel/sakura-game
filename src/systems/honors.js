@@ -1,6 +1,6 @@
 // Honor Ribbons and titles owned (owner: systems; docs/specs/ACHIEVEMENTS.md §2, §3.1, §6.1). Ownership is NEVER
 // stored: it is derived from the achievement claims (missions.achievements[id] === true), which every build keeps
-// word for word. So a past claimer owns the ribbons and titles added to shipped rows the moment this build loads,
+// word for word (a ribbon a Mailbox letter gave also reads its 'hgift:' counter mark: profileHonors.ribbonGifted). So a past claimer owns the ribbons and titles added to shipped rows the moment this build loads,
 // nothing can be dropped by an older cached tab, and nothing can pay twice.
 //
 // Stable interface for the Sensei Profile (feature/profile):
@@ -18,6 +18,8 @@ import { ACHIEVEMENT_MAP, achievementLive, NO_COSMETIC } from '../data/achieveme
 import { HONOR_RIBBONS, TITLES } from '../data/honors.js';
 import { markedTags, isTagTitle } from '../data/playerTags.js';
 import { ALL_EVENTS } from '../data/events/index.js';
+import { ribbonGifted } from './profileHonors.js';
+import { isSecretLocked } from './missions.js';
 
 export { ribbonArt, titlePlate } from '../ui/honorFx.js';
 
@@ -56,9 +58,18 @@ export function titlesFromText(ids) {
   return tags ? TITLES_FROM_TAGS : TITLES_FROM;
 }
 
-/** Ribbon ids owned (claimed, known and live in this build), in case order. */
+/** Ribbon ids owned (claimed or gifted by a letter, known and live in this build), in case order. */
 export function ownedRibbons(profile) {
-  return HONOR_RIBBONS.filter((h) => claimed(profile, h.id)).map((h) => h.id);
+  return HONOR_RIBBONS.filter((h) => claimed(profile, h.id) || ribbonGifted(profile, h.id)).map((h) => h.id);
+}
+
+/**
+ * What the Case's "Earned" line adds for an owned ribbon: 'title' when the achievement was claimed and carries a
+ * title, 'gift' when a Mailbox letter gave the ribbon only (its title is still unearned), otherwise null.
+ */
+export function ribbonEarnedNote(profile, id) {
+  if (claimed(profile, id)) return ACHIEVEMENT_MAP[id]?.title ? 'title' : null;
+  return ribbonGifted(profile, id) ? 'gift' : null;
 }
 
 /** The two freeplay titles: from the 'fpm:' marks every build keeps, or the older progress.freeplay strings. */
@@ -145,7 +156,8 @@ const PLATE_LABEL = { prism: 'Prism · rarest', gold: 'Gold', standard: 'Standar
  * Title picker data (Edit Profile → Title, the Achievements tab's Titles sheet): the visible titles grouped by plate
  * (every live title + the tag titles this player owns), owned first inside each group, each with its "How:" line.
  * @returns {{ plate: 'prism'|'gold'|'standard', label: string, owned: number, total: number,
- *   titles: { id, name, plate, owned: boolean, how: string, source: string }[] }[]}
+ *   titles: { id, name, plate, owned: boolean, how: string, source: string, secret: boolean }[] }[]}
+ *   secret: a secret achievement's title not found yet (isSecretLocked): name and source read "???", how its hint
  */
 export function titleGroups(profile) {
   const owned = new Set(ownedTitles(profile));
@@ -153,8 +165,9 @@ export function titleGroups(profile) {
   return ['prism', 'gold', 'standard'].map((plate) => {
     const titles = visible.filter((t) => t.plate === plate).map((t) => {
       const a = ACHIEVEMENT_MAP[t.id];
-      const how = t.how || (a ? (a.hidden && !owned.has(t.id) ? `Secret achievement: ${a.hint}` : `${a.name}: ${a.desc}`) : `${t.source}.`);
-      return { id: t.id, name: t.name, plate, owned: owned.has(t.id), how, source: t.source };
+      const secret = !owned.has(t.id) && isSecretLocked(profile, t.id);
+      const how = t.how || (a ? (secret ? `Secret achievement: ${a.hint}` : `${a.name}: ${a.desc}`) : `${t.source}.`);
+      return { id: t.id, name: secret ? '???' : t.name, plate, owned: owned.has(t.id), how, source: secret ? '???' : t.source, secret };
     }).sort((x, y) => Number(y.owned) - Number(x.owned));
     return { plate, label: PLATE_LABEL[plate], owned: titles.filter((t) => t.owned).length, total: titles.length, titles };
   });

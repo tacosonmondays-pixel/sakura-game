@@ -14,11 +14,12 @@
 import { h } from './dom.js';
 import { ico } from './kit.js';
 import { fmtNum } from './format.js';
-import { GEAR_SLOTS, ITEM_RARITIES } from '../data/types.js';
+import { ITEM_RARITIES } from '../data/types.js';
+import { GEAR_SLOT_DEFS } from '../data/gearSlots.js';
 import { GEAR_STAT_DEFS, statName } from '../data/gearStats.js';
 import { CLUBS } from '../data/clubs.js';
 import { UNIT_MAP } from '../data/units.js';
-import { isUrLook, awakenReady, gearLines } from '../systems/gear.js';
+import { isUrLook, isLrGear, awakenReady, gearLines } from '../systems/gear.js';
 import { gearIcon } from '../art/icons.js';
 import { portraitHTML } from '../art/portraits.js';
 import { urRing } from './rarity.js';
@@ -28,11 +29,13 @@ import { pickMarks } from './pickMarks.js';
 export const STAT_GLYPH = Object.freeze({
   atkPct: 'sword', ratePct: 'ff2', rangePct: 'mark', critChance: 'crosshair', critDmg: 'blast', armorPen: 'armorPen',
   costCut: 'coin', ultHaste: 'hourglass', piercePct: 'pierce', auraPct: 'ring',
+  auraRangePct: 'ruleSun', buffDurPct: 'buff', controlPct: 'freeze',
 });
 /** Caps labels for strips and chips (the stat's card name stays in titles and Details). */
 export const STAT_SHORT = Object.freeze({
   atkPct: 'ATK', ratePct: 'RATE', rangePct: 'RANGE', critChance: 'CRIT', critDmg: 'CRIT DMG', armorPen: 'ARMOR PEN',
   costCut: 'COST', ultHaste: 'HASTE', piercePct: 'PIERCE', auraPct: 'AURA',
+  auraRangePct: 'AURA RADIUS', buffDurPct: 'BUFF TIME', controlPct: 'CONTROL',
 });
 /** Rarity → frame class (§5.6): Common and Rare flat, Super Rare tinted, Mythic glow, Legendary metal, UR rainbow. */
 export const GEAR_FRAME = Object.freeze({ common: 'common', rare: 'rare', superRare: 'superRare', mythic: 'mythic', legendary: 'legendary', ur: 'ur' });
@@ -60,7 +63,7 @@ export const statFact = (stat, value) => `${statName(stat)} ${statValue(stat, va
  */
 export function gearTileView(g, { slot = null, mainIcon = false, value = false, wearer = false, isNew = false, selected = false, testid = null } = {}) {
   const s = g?.slot || slot;
-  const slotName = GEAR_SLOTS[s]?.name || s || 'Gear';
+  const slotName = GEAR_SLOT_DEFS[s]?.name || s || 'Gear';
   if (!g) {
     return { empty: true, slot: s, slotName, testid, frame: null, step: 0, ur: false, level: null, main: null, tl: null, tr: null, bl: null, club: null, wearer: null, locked: false, selected, aria: `${slotName}: empty` };
   }
@@ -78,7 +81,8 @@ export function gearTileView(g, { slot = null, mainIcon = false, value = false, 
   const bl = who ? 'wearer' : club && tl !== 'club' ? 'club' : null;
   const tr = mainIcon ? 'main' : g.locked ? 'lock' : null;
   const level = g.level > 0 ? `+${g.level}` : null;
-  const rarityName = ur ? 'UR' : ITEM_RARITIES[g.rarity]?.name || g.rarity;
+  // (Nightglass LR pieces read LR, never UR: audit D L3)
+  const rarityName = isLrGear(g) ? 'LR' : ur ? 'UR' : ITEM_RARITIES[g.rarity]?.name || g.rarity;
   const bits = [`${slotName}: ${g.name}`, `${rarityName}${g.level ? ` +${g.level}` : ''}`, main.fact];
   if (club) bits.push(club.name);
   if (status === 'ready') bits.push('can awaken');
@@ -111,7 +115,7 @@ export function gearTile(g, o = {}) {
   };
   if (v.selected) props['aria-pressed'] = 'true';
   return h(`${tag}.${cls}.ui-fr.${v.frame}${v.ur ? '.is-ur' : ''}`, props,
-    h('span.ui-gtile-ic', { 'aria-hidden': 'true', html: gearIcon(v.slot, g.rarity, { ur: v.ur }) }),
+    h('span.ui-gtile-ic', { 'aria-hidden': 'true', html: gearIcon(v.slot, g.rarity, { ur: v.ur, set: g.set }) }),
     corner('tl', v.tl), corner('tr', v.tr), corner('bl', v.bl),
     v.level ? h('span.ui-gtile-lv.num', { 'aria-hidden': 'true' }, v.level) : null,
     v.ur ? urRing() : null,

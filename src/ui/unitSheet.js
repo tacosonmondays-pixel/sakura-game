@@ -9,7 +9,7 @@ import { h, clear } from './dom.js';
 import { store } from '../core/store.js';
 import { navigate } from './router.js';
 import { UNIT_MAP } from '../data/units.js';
-import { GEAR_SLOTS } from '../data/types.js';
+import { SHOWN_SLOTS } from '../data/gearSlots.js';
 import { applyUrFrame } from './rarity.js';
 import { portraitHTML } from '../art/portraits.js';
 import { glyphSVG } from '../art/icons/glyphs.js';
@@ -145,7 +145,7 @@ export function openUnitSheet(unitId, { tab = 'info', allowFullPage = true, orig
     return h('div.gs-glance', { 'data-testid': 'unit-sheet-glance' },
       statStrip(headlineStats(unit, prof), { onMore: more, testid: 'unit-sheet-strip', moreTestid: 'unit-sheet-more' }),
       st
-        ? h('div.gs-slots', { 'data-testid': 'unit-sheet-slots' }, Object.keys(GEAR_SLOTS).map((slot) => gearTile(st.gear?.[slot] ? prof.gear?.[st.gear[slot]] || null : null, { slot, testid: `unit-sheet-slot-${slot}` })))
+        ? h('div.gs-slots', { 'data-testid': 'unit-sheet-slots' }, SHOWN_SLOTS.map((slot) => gearTile(st.gear?.[slot] ? prof.gear?.[st.gear[slot]] || null : null, { slot, testid: `unit-sheet-slot-${slot}` })))
         : h('p.gs-locked', ico('lock'), owner ? 'Not in their roster.' : `${howShort(unit)} · ${roleSentence(unit)}`),
       // the strip's ULT cell already says when it unlocks (facts once): here only her ult's name
       ult ? h('div.gs-ult', h('span.gp-ult-badge', 'ULT'), h('b', ult.name)) : null);

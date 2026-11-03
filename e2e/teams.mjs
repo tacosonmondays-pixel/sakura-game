@@ -1,0 +1,270 @@
+// Teams and gear loadouts (docs/specs/GEAR_UPDATE.md §7, §11.1; milestone M1) at 844 x 390, 1280 x 720 and
+// 390 x 844: the team chips on Formation (switch, Rename, Copy, the loadout letter on a squad tile), Loadout A · B · C
+// on the girl page (add, switch, the takes list before a switch that moves a piece from a classmate, Undo), the Team
+// chip beside Start on Stage Prep (no scroll) and its picker, and the co-op hub's "You bring Team 1" line. No
+// horizontal overflow anywhere.
+// Usage: node e2e/teams.mjs [--shots dir]
+import { createServer } from 'vite';
+import { mkdirSync } from 'node:fs';
+import { launchChromium } from './browser.mjs';
+
+const args = process.argv.slice(2);
+const SHOTS = args.includes('--shots') ? args[args.indexOf('--shots') + 1] : null;
+if (SHOTS) mkdirSync(SHOTS, { recursive: true });
+const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
+await server.listen();
+const base = `http://127.0.0.1:${server.httpServer.address().port}/`;
+const { browser } = await launchChromium();
+const fails = [];
+const check = (c, m) => { console.log(`  ${c ? 'ok  ' : 'FAIL'} ${m}`); if (!c) fails.push(m); };
+
+async function noOverflow(page, W, label) {
+  const sw = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth));
+  check(sw <= W + 1, `${label}: no horizontal overflow (${sw} <= ${W})`);
+}
+
+try {
+  for (const [W, H] of [[844, 390], [1280, 720], [390, 844]]) {
+    const touch = W < 1000;
+    const tag = `${W}x${H}`;
+    const page = await browser.newPage({ viewport: { width: W, height: H }, hasTouch: touch, isMobile: touch, reducedMotion: 'reduce' });
+    const errs = [];
+    page.on('pageerror', (e) => errs.push(e.message));
+    const tap = async (sel) => {
+      const loc = typeof sel === 'string' ? page.locator(sel).first() : sel;
+      await loc.scrollIntoViewIfNeeded({ timeout: 15000 }).catch(() => {});
+      await (touch ? loc.tap({ timeout: 15000 }) : loc.click({ timeout: 15000 }));
+      await page.waitForTimeout(200);
+    };
+    const go = async (hash, sel) => {
+      await page.evaluate((x) => { location.hash = x; }, hash);
+      await page.waitForSelector(sel, { timeout: 20000 });
+      await page.waitForTimeout(300);
+    };
+    await page.goto(`${base}?online=local&onboarding=0#/lobby`, { waitUntil: 'load' });
+    await page.evaluate(() => { localStorage.clear(); });
+    await page.goto(`${base}?online=local&onboarding=0#/lobby`, { waitUntil: 'load' });
+    const later = await page.waitForSelector('[data-testid="beta-gift-later"]', { timeout: 15000 }).catch(() => null);
+    if (later) { await later.click({ force: true }); await page.waitForSelector('.bg-gift-modal', { state: 'detached', timeout: 10000 }).catch(() => {}); }
+    const seeded = await page.evaluate(async () => {
+      const { store } = window.__sakura;
+      const gear = await import('/src/systems/gear.js');
+      const { grantUnit } = await import('/src/systems/unlocks.js');
+      const { createRng } = await import('/src/core/rng.js');
+      const p = store.profile;
+      for (const id of ['kage', 'yuki', 'momo']) grantUnit(p, id, Date.now());
+      // every menu open (a story save gates gear and some hubs)
+      if (p.story) p.story.legacy = true;
+      const rng = createRng(5);
+      const c1 = gear.addGear(p, gear.rollGear(rng, { slot: 'charm', rarity: 'mythic', level: 4 }));
+      const c2 = gear.addGear(p, gear.rollGear(rng, { slot: 'charm', rarity: 'epic', level: 2 }));
+      const r1 = gear.addGear(p, gear.rollGear(rng, { slot: 'ribbon', rarity: 'legendary', level: 6 }));
+      gear.equipGear(p, 'kage', c1);
+      gear.equipGear(p, 'kage', r1);
+      gear.equipGear(p, 'aoi', c2);
+      p.formation = { hero: 'hikari', towers: ['aoi', 'kage'] };
+      store.commit('test');
+      store.saveNow?.();
+      return { c1, c2, r1 };
+    });
+
+    // ----- Formation: the team chips -----
+    await go('#/formation', '[data-testid="team-bar"]');
+    check(await page.locator('[data-testid="team-bar"] .tb-chip').count() === 5, `${tag} Formation: 5 team chips`);
+    check(await page.locator('[data-testid="team-1"]').getAttribute('aria-pressed') === 'true', `${tag} Team 1 is in use`);
+    const chipBox = await page.locator('[data-testid="team-1"]').boundingBox();
+    check(chipBox && chipBox.height >= 44, `${tag} team chip is a 44 px target (${chipBox && Math.round(chipBox.height)})`);
+    for (const id of ['team-rename', 'team-copy']) {
+      const b = await page.locator(`[data-testid="${id}"]`).boundingBox();
+      check(b && b.height >= 44, `${tag} ${id} is 44 px tall (${b && Math.round(b.height)})`);
+    }
+    await noOverflow(page, W, `${tag} Formation`);
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/formation-${tag}.png` });
+    // Team 2: empty; add a girl; back to Team 1 keeps both squads
+    await tap('[data-testid="team-2"]');
+    check(await page.locator('[data-testid="team-2"]').getAttribute('aria-pressed') === 'true', `${tag} Team 2 switched on`);
+    const f2 = await page.evaluate(() => window.__sakura.store.profile.formation);
+    check(!f2.hero && !f2.towers.length, `${tag} Team 2 starts empty`);
+    await tap('[data-testid="pick-kind-tower"]');
+    await tap(page.locator('.mb-pick-grid .mb-pick button, .mb-pick-grid .mb-pick [role="button"], .mb-pick-grid .mb-pick > *').first());
+    const f2b = await page.evaluate(() => window.__sakura.store.profile.formation);
+    check(f2b.towers.length === 1, `${tag} a girl joins Team 2 (${f2b.towers.join(',')})`);
+    await tap('[data-testid="team-1"]');
+    const f1 = await page.evaluate(() => window.__sakura.store.profile.formation);
+    check(f1.hero === 'hikari' && f1.towers.join() === 'aoi,kage', `${tag} back on Team 1: its squad (${f1.hero} ${f1.towers.join(',')})`);
+    // Rename (after the switch's Undo notice has gone: on an upright phone it lies over the bar)
+    await page.waitForSelector('.tb-toast-host', { state: 'detached', timeout: 8000 }).catch(() => {});
+    await tap('[data-testid="team-rename"]');
+    await page.fill('[data-testid="team-rename-in"]', 'Bosses');
+    await tap('[data-testid="team-rename-ok"]');
+    check((await page.locator('[data-testid="team-name"]').innerText()).trim() === 'Bosses', `${tag} Rename: "Bosses"`);
+    // Copy goes to the first empty team (Team 3: Team 2 has a girl)
+    await tap('[data-testid="team-copy"]');
+    const copied = await page.evaluate(() => window.__sakura.store.profile.teams.list[2]);
+    check(copied.hero === 'hikari' && copied.towers.join() === 'aoi,kage', `${tag} Copy → Team 3`);
+
+    // ----- the girl page: Loadout A · B · C -----
+    await go('#/student?id=kage&tab=gear', '[data-testid="loadouts"]');
+    check(await page.locator('[data-testid="loadout-A"]').getAttribute('aria-pressed') === 'true', `${tag} Kage wears Loadout A`);
+    await noOverflow(page, W, `${tag} girl page`);
+    await tap('[data-testid="loadout-B"]');
+    const k1 = await page.evaluate(() => { const u = window.__sakura.store.profile.units.kage; return { n: u.presets.length, preset: u.preset }; });
+    check(k1.n === 2 && k1.preset === 1, `${tag} Add Loadout B: a copy, worn (${k1.n} loadouts, on ${k1.preset})`);
+    check(await page.locator('[data-testid="team-undo"]').count() >= 1, `${tag} the notice offers Undo`);
+    // B takes Aoi's charm: the list first, then Switch, then Undo
+    await page.evaluate(async ({ c2 }) => {
+      const { store } = window.__sakura;
+      const gear = await import('/src/systems/gear.js');
+      const teams = await import('/src/systems/teams.js');
+      const p = store.profile;
+      gear.equipGear(p, 'kage', c2);
+      teams.usePreset(p, 'kage', 0);
+      gear.equipGear(p, 'aoi', c2);
+      store.commit('teams');
+    }, seeded);
+    await go('#/formation', '[data-testid="team-bar"]');
+    // the squad tile shows no letter on A; Team 1 remembers Kage on A now
+    await go('#/student?id=kage&tab=gear', '[data-testid="loadouts"]');
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/loadouts-${tag}.png` });
+    await tap('[data-testid="loadout-B"]');
+    await page.waitForSelector('[data-testid="takes-list"]', { timeout: 5000 }).catch(() => null);
+    const takes = await page.locator('[data-testid="takes-list"]').innerText().catch(() => '');
+    check(/Takes .+ from Aoi/.test(takes), `${tag} the takes list says "${takes.split('\n')[0]}"`);
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/takes-${tag}.png` });
+    await tap('[data-testid="takes-ok"]');
+    const after = await page.evaluate(({ c2 }) => window.__sakura.store.profile.gear[c2].equippedBy, seeded);
+    check(after === 'kage', `${tag} Switch: Kage wears Aoi's charm`);
+    await tap(page.locator('[data-testid="team-undo"]').last());
+    const undone = await page.evaluate(({ c2 }) => ({ by: window.__sakura.store.profile.gear[c2].equippedBy, preset: window.__sakura.store.profile.units.kage.preset }), seeded);
+    check(undone.by === 'aoi' && undone.preset === 0, `${tag} Undo: back to Aoi, Kage on A`);
+    // Kage on B in Team 1: the squad tile carries the letter
+    await tap('[data-testid="loadout-B"]');
+    await page.waitForSelector('[data-testid="takes-ok"]', { timeout: 5000 }).catch(() => null);
+    if (await page.locator('[data-testid="takes-ok"]').count()) await tap('[data-testid="takes-ok"]');
+    await go('#/formation', '[data-testid="team-bar"]');
+    check(await page.locator('.fm-squad [data-testid="squad-loadout"]').count() === 1, `${tag} Formation: Kage's tile shows "B"`);
+    // Aoi lent her charm to Kage's Loadout B: her page says so and takes it back (review r2 L3)
+    await go('#/student?id=aoi&tab=gear', '[data-testid="loadouts"]');
+    check(/lent to Kage/i.test(await page.locator('[data-testid="loadout-lent"]').innerText().catch(() => '')), `${tag} Aoi's page: "lent to Kage"`);
+    const tb = await page.locator('[data-testid="loadout-take-back"]').boundingBox();
+    check(tb && tb.height >= 44, `${tag} Take back is 44 px tall`);
+    await tap('[data-testid="loadout-take-back"]');
+    if (await page.locator('.modal-overlay:not(.closing) [data-testid="takes-ok"]').count()) await tap('.modal-overlay:not(.closing) [data-testid="takes-ok"]');
+    const back = await page.evaluate(({ c2 }) => window.__sakura.store.profile.gear[c2].equippedBy, seeded);
+    check(back === 'aoi', `${tag} Take back: Aoi wears her charm again`);
+    // a claim on a loadout she took off: "Loadout A: … lent to Kage" and Take back puts A on (review r5 L2)
+    const lendFromA = () => page.evaluate(async ({ c2 }) => {
+      const { store } = window.__sakura;
+      const gear = await import('/src/systems/gear.js');
+      const teams = await import('/src/systems/teams.js');
+      const p = store.profile;
+      teams.usePreset(p, 'aoi', 0);
+      teams.usePreset(p, 'aoi', 1); // (adds B the first time)
+      gear.unequipGear(p, 'aoi', 'charm'); // her Loadout B: no charm
+      teams.usePreset(p, 'aoi', 0);
+      teams.usePreset(p, 'kage', 0);
+      p.units.kage.presets[1] = { ...p.units.kage.presets[1], charm: c2 };
+      teams.usePreset(p, 'kage', 1); // Kage's B borrows Aoi's charm
+      teams.usePreset(p, 'aoi', 1); // Aoi puts on B: A keeps the claim
+      store.commit('teams');
+    }, seeded);
+    await lendFromA();
+    await go('#/formation', '[data-testid="team-bar"]');
+    await go('#/student?id=aoi&tab=gear', '[data-testid="loadouts"]');
+    const offLine = await page.locator('[data-testid="loadout-lent"][data-loadout="A"] span:not(.ico)').last().innerText().catch(() => '');
+    check(/^\s*Loadout A: .+ lent to Kage/i.test(offLine), `${tag} Aoi on B: "${offLine.trim()}"`);
+    await noOverflow(page, W, `${tag} lent list`);
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/lent-off-${tag}.png` });
+    await tap('[data-testid="loadout-lent"][data-loadout="A"] [data-testid="loadout-take-back"]');
+    if (await page.locator('.modal-overlay:not(.closing) [data-testid="takes-ok"]').count()) await tap('.modal-overlay:not(.closing) [data-testid="takes-ok"]');
+    const offBack = await page.evaluate(({ c2 }) => { const p = window.__sakura.store.profile; return { by: p.gear[c2].equippedBy, preset: p.units.aoi.preset }; }, seeded);
+    check(offBack.by === 'aoi' && offBack.preset === 0, `${tag} Take back: Aoi puts on A and wears her charm`);
+    // copying B over A ends A's claim: a confirm line first, Kage keeps it (review r5 L3)
+    await lendFromA();
+    await go('#/formation', '[data-testid="team-bar"]');
+    await go('#/student?id=aoi&tab=gear', '[data-testid="loadouts"]');
+    await tap('[data-testid="loadout-copy"]');
+    await page.waitForSelector('.modal-overlay:not(.closing) [data-testid="confirm-ok"]', { timeout: 5000 }).catch(() => null);
+    const copyLine = await page.locator('.modal-overlay:not(.closing)').last().innerText().catch(() => '');
+    check(/Copying here ends Aoi's claim on .+; Kage keeps it\./.test(copyLine), `${tag} the copy confirm names the claim it ends`);
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/copy-claim-${tag}.png` });
+    await tap('.modal-overlay:not(.closing) [data-testid="confirm-cancel"]');
+    check(await page.locator('[data-testid="loadout-lent"][data-loadout="A"]').count() === 1, `${tag} Cancel keeps the claim`);
+    await tap('[data-testid="loadout-copy"]');
+    await page.waitForSelector('.modal-overlay:not(.closing) [data-testid="confirm-ok"]', { timeout: 5000 }).catch(() => null);
+    await tap('.modal-overlay:not(.closing) [data-testid="confirm-ok"]');
+    await page.waitForTimeout(300);
+    const copied2 = await page.evaluate(({ c2 }) => window.__sakura.store.profile.gear[c2].equippedBy, seeded);
+    check(copied2 === 'kage' && await page.locator('[data-testid="loadout-lent"]').count() === 0, `${tag} Copy: Kage keeps it, the claim is gone`);
+    // (Team 1 again names Kage on A for the stage checks below)
+    await page.evaluate(() => { const { store } = window.__sakura; return import('/src/systems/teams.js').then((t) => { t.usePreset(store.profile, 'kage', 0); store.commit('teams'); }); });
+
+    // ----- Stage Prep: the Team chip beside Start -----
+    await go('#/stage?id=1-1', '[data-testid="stage-start"]');
+    const chip = await page.locator('[data-testid="stage-team"]').boundingBox();
+    const start = await page.locator('[data-testid="stage-start"]').boundingBox();
+    check(!!chip && chip.y + chip.height <= H + 1 && chip.x >= 0 && chip.x + chip.width <= W + 1, `${tag} Stage Prep: the Team chip is on screen`);
+    check(!!start && start.y + start.height <= H + 1, `${tag} Stage Prep: Start still on screen without scrolling`);
+    check(/Bosses/i.test(await page.locator('[data-testid="stage-team"]').innerText()), `${tag} the chip names the team`);
+    await noOverflow(page, W, `${tag} Stage Prep`);
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/stage-${tag}.png` });
+    await tap('[data-testid="stage-team"]');
+    check(await page.locator('[data-testid="team-pick"] .tb-chip').count() === 5, `${tag} the chip opens the 5 teams`);
+    const pickH = await page.locator('[data-testid="team-pick"] .tb-chip').first().boundingBox();
+    check(pickH && pickH.height >= 44, `${tag} picker chips are 44 px tall`);
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/stage-pick-${tag}.png` });
+    await tap('[data-testid="team-3"]');
+    await page.waitForTimeout(300);
+    // (Team 3 is a copy of Team 1: a switch that moves or shares pieces lists them first; review r2 L4: the picker
+    // has closed under it)
+    check(await page.locator('.tb-pick-modal').count() === 0 || await page.locator('.modal-overlay:not(.closing) .tb-pick-modal').count() === 0, `${tag} the picker closes before the switch confirm`);
+    if (await page.locator('.modal-overlay:not(.closing) [data-testid="takes-ok"]').count()) {
+      check(await page.locator('[data-testid="takes-list"], [data-testid="clash-list"]').count() >= 1, `${tag} the switch lists what moves or is shared`);
+      if (SHOTS) await page.screenshot({ path: `${SHOTS}/switch-confirm-${tag}.png` });
+      await tap('.modal-overlay:not(.closing) [data-testid="takes-ok"]');
+    }
+    check(/Team 3/i.test(await page.locator('[data-testid="stage-team"]').innerText()), `${tag} switched to Team 3 from Stage Prep`);
+
+    // ----- the co-op hub: "You bring Team 3" -----
+    // (the local test backend asks for a player name once)
+    await page.evaluate(() => { location.hash = '#/chat'; });
+    const nameIn = await page.waitForSelector('[data-testid="name-input"]', { timeout: 15000 }).catch(() => null);
+    if (nameIn) {
+      await page.fill('[data-testid="name-input"]', 'Tester');
+      await tap('[data-testid="name-save"]');
+      await page.waitForSelector('[data-testid="name-input"]', { state: 'detached', timeout: 10000 }).catch(() => {});
+    }
+    await page.evaluate(() => { location.hash = '#/coop'; });
+    const team = await page.waitForSelector('[data-testid="coop-team"]', { timeout: 30000 }).catch(() => null);
+    if (team) {
+      check(/Team 3/i.test(await team.innerText()), `${tag} co-op hub: the Host panel's chip says Team 3`);
+      const b = await team.boundingBox();
+      check(!!b && b.y + b.height <= H + 400 && b.x >= 0 && b.x + b.width <= W + 1, `${tag} co-op hub: the chip fits across`);
+      const bring = page.locator('[data-testid="coop-bring"]');
+      if (await bring.isVisible().catch(() => false)) check(/You bring Team 3/i.test(await bring.innerText()), `${tag} co-op hub: "You bring Team 3"`);
+      // a switch here redraws the chip in place
+      await tap('[data-testid="coop-team"]');
+      await tap('[data-testid="team-pick"] [data-testid="team-1"]');
+      await page.waitForTimeout(300);
+      if (await page.locator('.modal-overlay:not(.closing) [data-testid="takes-ok"]').count()) await tap('.modal-overlay:not(.closing) [data-testid="takes-ok"]');
+      check(/Bosses/i.test(await page.locator('[data-testid="coop-team"]').innerText()), `${tag} co-op hub: switched to Team 1 ("Bosses")`);
+      await noOverflow(page, W, `${tag} co-op hub`);
+      if (SHOTS) await page.screenshot({ path: `${SHOTS}/coop-${tag}.png` });
+    } else {
+      // (review r1 M2: a hidden chip is a failure, never a skip)
+      check(false, `${tag} co-op hub: the team chip is on screen`);
+      if (SHOTS) await page.screenshot({ path: `${SHOTS}/coop-skip-${tag}.png` });
+    }
+
+    check(!errs.length, `${tag} no page errors${errs.length ? `: ${errs.slice(0, 3).join(' | ')}` : ''}`);
+    await page.close();
+  }
+} finally {
+  await browser.close();
+  await server.close();
+}
+if (fails.length) {
+  console.log(`\n${fails.length} FAILED`);
+  process.exit(1);
+}
+console.log('\nall ok');

@@ -431,8 +431,8 @@ async function runViewport(vp) {
     await page.click('[data-testid="pull-10"]');
     const confirm = await page.waitForSelector('[data-testid="confirm-pull"]', { timeout: 2000 }).catch(() => null);
     if (confirm) await confirm.click();
-    await page.waitForSelector('[data-testid="reveal-letter"]', { timeout: 5000 }).catch(() => null);
-    await page.click('[data-testid="reveal-letter"]', { timeout: 3000, force: true }).catch(() => {});
+    await page.waitForSelector('[data-testid="reveal-gate"]', { timeout: 5000 }).catch(() => null);
+    await page.click('.ma-gacha', { timeout: 3000, force: true }).catch(() => {});
     // the cards are dealt face down and flip one by one: press the last one while it is still down
     const down = await page.waitForFunction(() => {
       const cards = [...document.querySelectorAll('.ma-gacha-grid .ma-gc')];

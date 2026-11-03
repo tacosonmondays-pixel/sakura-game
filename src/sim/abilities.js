@@ -29,11 +29,12 @@
 // their statuses never roll), stable target orders (grid cell order, stable sorts, uid tie breaks),
 // only + − × ÷, floor / round / ceil / min / max and squared distances. Lifetimes are countdowns; the
 // step number (auto-cast stagger, the CC guard) is round(sim.time / STEP), the drones' precedent.
-// Nothing here reads the view getters sim.hero / sim.heroConfig: a girl's player is t.owner.
+// Nothing here reads the view getters sim.hero / sim.heroConfig: a girl's player is ctrlOf(t) (t.owner unless
+// another player controls her: co-op sharing, ./ctrl.js).
 //
 // State (all plain data, so the generic snapshot stores it):
 //   t.abil      { id, kind, scope, cdMax, cd, rate, active, auto, t5, n }  — created when she unlocks
-//   t.mirror2   Iroha's tier-5 second mirror { x, y } while her Mirror Shift runs (src/sim/mirrors.js), else null
+//   t.mirrors   Iroha's mirrors (derived from t.mirrorAim, her tiers and the road; src/sim/mirrors.js)
 //   t.abilMods  a running boost's ModSet, or a strike's boost tail (`after`: Zero Point); null otherwise
 //               (resolved last, src/sim/mods.js `extra`)
 //   sim.abilGroups  Map "<owner>|<id>" → { cd, cdMax, rate }   (map scope; deleted once charged)
@@ -48,18 +49,21 @@
 //   e.abilCc        (bosses and minibosses only) the step until which ability CC is ignored
 
 import { ABILITY_RULES, abilityAtTier, skillAtLevel, abilityRuns, abilityWithLr } from '../data/abilities.js';
-import { abilityChargePerTick, firstBellCharge } from './gearRules.js';
+import { abilityChargePerTick, firstBellCharge, superchargeMul } from './gearRules.js';
+import { buffDur, statusCtxFor, setPassive, pushMul, avgCritOf, CHEER_NEAR, CHEER_NEAREST } from './setRules.js';
 import { STEP, ABILITY_SCATTER, DOT_PCT_BOSS_MUL, PRISM_SHARDS, KNOCKBACK_RESIST, PUSH_LOCK, WELL_PULL_REACH } from './constants.js';
 import { selectTargets, topTargets, gatherTargets, targetScore, recomputeBuffs, chainJump, chainNext, hasRoamingDrones } from './towers.js';
 import { isEligible } from './combat.js';
+import { allocDealt } from './shapes.js';
 import { isCaster, syncStatusFlags, placeOnPath } from './enemies.js';
 import { spikeRain } from './strips.js';
 import { emergencyDeploy } from './sentries.js';
-import { mirrorShift, mirrorShiftEnd } from './mirrors.js';
+import { laserWeb } from './mirrors.js';
 import { shadowDoubles, bellCarpet, droneSurge, tickDeploys, endDeployWave, clearDeploys } from './deploys.js';
 import { startRunner } from './runners.js';
 import { samplePath } from './path.js';
 import { anchorsAt, pullAlong } from './zones.js';
+import { ctrlOf } from './ctrl.js';
 
 const R = ABILITY_RULES;
 
@@ -159,6 +163,8 @@ export function chargeRate(t, kind) {
   return abilityChargePerTick(t?.unitStats, kind);
 }
 
+// (a map ability's shared cooldown is her OWNER's group — one map ultimate per owner's copies, wherever a copy is lent:
+// review r2; who may fire her and which bar shows her follow her controller: pickCaster, abilitySlots)
 const groupKey = (t, id) => `${t.owner ?? 0}|${id}`;
 
 function groupOf(sim, t) {
@@ -212,11 +218,11 @@ export function syncAbility(sim, t) {
     t.abil = {
       id: def.id, kind: def.kind, scope: def.scope, cdMax,
       cd: def.kind === 'econ' ? cdMax : Math.round(cdMax / R.initialShare),
-      rate, active: 0, auto: !!sim.abilityAutoDefault?.[t.owner ?? 0], t5: up, n: 0,
+      rate, active: 0, auto: !!sim.abilityAutoDefault?.[ctrlOf(t)], t5: up, n: 0,
     };
     t.abilMods = null;
     sim._abilOn++;
-    sim._emit('abilityUnlock', { towerUid: t.uid, id: def.id, kind: def.kind, owner: t.owner ?? 0 });
+    sim._emit('abilityUnlock', { towerUid: t.uid, id: def.id, kind: def.kind, owner: ctrlOf(t) });
     return;
   }
   a.rate = rate;
@@ -270,7 +276,7 @@ export function abilityReach(t, def) {
     case 'boost': return t.eff.range + (e.mods?.range || 0);
     case 'rally': return rallyRadius(t, e);
     case 'debuff': return (e.reachMul ?? 1) * t.eff.range + (e.reachAdd || 0);
-    // (Mirror Shift: her mirror's reach, where the panel can stand; Drone Surge: her drones' reach)
+    // (Laser Web: her mirror reach, where her mirrors stand; Drone Surge: her drones' reach)
     case 'deploy': return e.deploy === 'mirror' && t.stats?.relay ? t.stats.relay.reach : e.deploy === 'drone' ? droneReach(t) : (e.reachMul ?? 1) * t.eff.range;
     case 'move': return (e.reachMul ?? 1) * t.eff.range + (e.reachAdd || 0);
     default: return t.eff.range;
@@ -318,7 +324,8 @@ export function abilitySpec(t, def) {
   const s = t.eff;
   const e = def.effect || {};
   return {
-    damage: (e.dmgMul || 0) * s.damage,
+    // (Power Bank's Supercharge: her ability hits harder, src/sim/gearRules.js superchargeMul)
+    damage: (e.dmgMul || 0) * s.damage * superchargeMul(t.unitStats),
     attackType: s.attackType,
     element: s.element || null,
     critChance: 0,
@@ -422,10 +429,10 @@ function applyStatuses(sim, e, t, list, spec, step) {
   const ctx = sim._statusCtx;
   ctx.element = spec.element || null;
   ctx.attackType = spec.attackType;
-  ctx.sourceUid = t.uid;
+  statusCtxFor(ctx, t);
   // a curse bursts for burstMul × her current hit (Ena's Omen Card), as a first-generation curse; no other status
   // reads these two
-  ctx.hitDamage = t.eff.damage || 0;
+  ctx.hitDamage = (t.eff.damage || 0) * avgCritOf(t.unitStats); // (curse bursts cannot crit: her average crit, §8.3)
   ctx.curseDepth = 0;
   const big = isBig(e);
   const guarded = big && (e.abilCc ?? -1) > step;
@@ -617,7 +624,7 @@ function catalyst(sim, t, def, spec, targets, step) {
 function addRally(sim, t, e, radius, left, to = null) {
   const map = e.radius === 'map';
   sim._rallies.push({
-    src: t.uid, owner: t.owner ?? 0, r2: map ? 0 : radius * radius, map,
+    src: t.uid, owner: ctrlOf(t), r2: map ? 0 : radius * radius, map,
     dmgMul: e.dmgMul ?? 1, rateMul: e.rateMul ?? 1, rangeMul: e.rangeMul ?? 1,
     // a ward blocks sabotage and the volatile slimes' tower stun (both read the cleanse, Sim._isCleansed);
     // stunImmune says the stun half of it (Noa's First Aid Call)
@@ -628,6 +635,53 @@ function addRally(sim, t, e, radius, left, to = null) {
     // the rally (a calm point never holds one)
     ...(e.lifeEvery > 0 ? { life: { every: e.lifeEvery, r2: (e.lifeRadius || 0) * (e.lifeRadius || 0), max: e.lifeMax || 0, kills: 0, given: 0 } } : null),
   });
+}
+
+/**
+ * Spirit Squad's Big Cheer (GEAR_UPDATE.md §3.2, src/sim/setRules.js), one step of a wave: each girl with the set
+ * counts fixed steps (`cheerT`); at the period the girls in her aura (no aura: her CHEER_NEAREST nearest within
+ * CHEER_NEAR tiles, ties by lower uid) get a rally-kind cheer, ×(1 + bonus) damage for its time × her Buff Duration.
+ * The strongest rally per key wins (buffs.js applyRallies); Skill Haste never speeds it. Cheer rallies count down
+ * here and end with the wave like every rally (endAbilityWave).
+ */
+export function tickCheers(sim) {
+  if (sim.state !== 'wave') return;
+  let changed = false;
+  if (sim._rallies.length) {
+    let gone = false;
+    for (const r of sim._rallies) if (r.cheer && --r.left <= 0) gone = true;
+    if (gone) {
+      sim._rallies = sim._rallies.filter((r) => r.left > 0);
+      changed = true;
+    }
+  }
+  for (const t of sim.towers) {
+    const p = setPassive(t.unitStats, 'spirit');
+    if (!p || t.removed) continue;
+    t.cheerT = (t.cheerT || 0) + 1;
+    if (t.cheerT < ticks(p.every)) continue;
+    t.cheerT = 0;
+    if (t.disabled > 0) continue;
+    const left = ticks(p.dur * buffDur(t.unitStats));
+    const e = { dmgMul: 1 + p.bonus };
+    const n = sim._rallies.length;
+    const auraR = t.stats?.aura?.range || 0;
+    if (auraR > 0) addRally(sim, t, e, auraR, left);
+    else {
+      const near = [];
+      for (const o of sim.towers) {
+        if (o === t || o.removed) continue;
+        const d2 = (o.x - t.x) * (o.x - t.x) + (o.y - t.y) * (o.y - t.y);
+        if (d2 <= CHEER_NEAR * CHEER_NEAR) near.push({ o, d2 });
+      }
+      near.sort((a, b) => a.d2 - b.d2 || a.o.uid - b.o.uid);
+      for (const { o } of near.slice(0, CHEER_NEAREST)) addRally(sim, t, e, 0, left, o.uid);
+    }
+    for (let i = n; i < sim._rallies.length; i++) sim._rallies[i].cheer = true;
+    sim._emit('setTrick', { towerUid: t.uid, kind: 'cheer' });
+    changed = true;
+  }
+  if (changed) recomputeBuffs(sim);
 }
 
 /** Is any enemy (outside the tunnels) within `r` of her? */
@@ -677,7 +731,7 @@ export function abilityKill(sim, e) {
   const c = sim.getTower(r.src);
   sim.lives++;
   L.given++;
-  sim._emit('lifeRestored', { towerUid: c.uid, lives: sim.lives, n: 1, id: abilityDef(c)?.id ?? null, owner: c.owner ?? 0 });
+  sim._emit('lifeRestored', { towerUid: c.uid, lives: sim.lives, n: 1, id: abilityDef(c)?.id ?? null, owner: ctrlOf(c) });
 }
 
 /**
@@ -714,7 +768,8 @@ function topDamageGirl(sim, t) {
     const dx = o.x - t.x;
     const dy = o.y - t.y;
     if (dx * dx + dy * dy > r2) continue;
-    if (!best || o.damageDealt > best.damageDealt || (o.damageDealt === best.damageDealt && o.uid < best.uid)) best = o;
+    // (attack shapes S5 rule 6: ranked without her shape damage, src/sim/buffs.js allocDealt)
+    if (!best || allocDealt(o) > allocDealt(best) || (allocDealt(o) === allocDealt(best) && o.uid < best.uid)) best = o;
   }
   return best;
 }
@@ -926,7 +981,7 @@ const KINDS = {
         const g = rallyGirl(sim, t, aim);
         if (!g) return null;
         if (e.cleanse && g.disabled > 0) g.disabled = 0;
-        addRally(sim, t, e, 0, ticks(def.duration), g.uid);
+        addRally(sim, t, e, 0, ticks(def.duration * buffDur(t.unitStats)), g.uid);
         recomputeBuffs(sim);
         return { x: g.x, y: g.y, radius: 0, targets: [g.uid] };
       }
@@ -936,7 +991,7 @@ const KINDS = {
       if (!allies.length && !(e.lifeEvery > 0 && enemyNear(sim, t, e.lifeRadius || 0))) return null;
       // a cleanse clears sabotage now; a ward (in the rally) blocks new sabotage while it lasts
       if (e.cleanse) for (const o of allies) if (o.disabled > 0) o.disabled = 0;
-      addRally(sim, t, e, r, ticks(def.duration));
+      addRally(sim, t, e, r, ticks(def.duration * buffDur(t.unitStats)));
       recomputeBuffs(sim);
       return { x: t.x, y: t.y, radius: r === Infinity ? 0 : r, targets: allies.slice(0, MAX_LISTED).map((o) => o.uid) };
     },
@@ -963,7 +1018,7 @@ const KINDS = {
         if (e.dmgMul > 0 && !v.dead) sim._hit(v, t, spec, 1); // (Overgrowth: the vines squeeze)
       }
       if (e.rally) {
-        addRally(sim, t, e.rally, rallyRadius(t, e.rally), ticks(def.duration));
+        addRally(sim, t, e.rally, rallyRadius(t, e.rally), ticks(def.duration * buffDur(t.unitStats)));
         recomputeBuffs(sim);
       }
       return { x: t.x, y: t.y, radius: map ? 0 : abilityReach(t, def), targets: listed(pool) };
@@ -980,8 +1035,9 @@ const KINDS = {
   econ: {
     cast(sim, t, def) {
       const coins = (def.effect.coins || 0) * (sim.diff.cashMul ?? 1) * (sim.incomeMul ?? 1);
-      const amount = sim._gainCashFor(t.owner ?? 0, coins);
-      sim._emit('cash', { amount, reason: 'ability', towerUid: t.uid, owner: t.owner ?? 0 });
+      const amount = sim._gainCashFor(ctrlOf(t), coins);
+      sim._emit('cash', { amount, reason: 'ability', towerUid: t.uid, owner: ctrlOf(t) });
+      sim._bakeOn(t, amount); // (Treasurer's Bake Sale on her own coins)
       return { x: t.x, y: t.y, radius: 0, targets: [], coins: amount };
     },
   },
@@ -1004,8 +1060,8 @@ function anyIn(sim, t, reach, spec) {
  * The deploy kind (ABILITIES_SPEC §4, A4) one object type at a time, by `effect.deploy`. A type that
  * is not here stays locked (every type in the data runs today: the A4 three, Azami's strips, Yuzuha's sentries and
  * Iroha's mirror). Each A4 cast is refused (`noTarget`, nothing spent) when no enemy its objects could hit is in
- * reach, or when nothing could be placed (no road in her range, the sim-wide cap full: src/sim/deploys.js); Mirror
- * Shift's rule is src/sim/mirrors.js mirrorShift.
+ * reach, or when nothing could be placed (no road in her range, the sim-wide cap full: src/sim/deploys.js); Laser
+ * Web's rule is src/sim/mirrors.js laserWeb.
  */
 const DEPLOYS = {
   // Kage's Shadow Doubles (src/sim/deploys.js): doubles on the road spots nearest the exit in her range
@@ -1056,15 +1112,12 @@ const DEPLOYS = {
       return { x: placed[0].x, y: placed[0].y, radius: reach, targets: [], placed: placed.length };
     },
   },
-  // Iroha's Mirror Shift (src/sim/mirrors.js): her panel jumps to her aim point (or the road spot nearest the leader
-  // in her mirror's reach) and reflects for the window: every girl's shot that crosses it splits in two, once; tier 5
-  // (Infinite Reflection) leaves the panel reflecting for good and the cast adds a second mirror for the window
+  // Iroha's Laser Web (src/sim/mirrors.js; the id is Mirror Shift's): beams join every pair of her mirrors for the
+  // window (her t.abil.active; mirrors.js updateWebs hits) and her mirrors reflect allies' shots; tier 5 (Infinite
+  // Reflection) reflects for good. Her mirrors stay put: an aim is ignored
   mirror: {
-    cast(sim, t, def, step, aim) {
-      return mirrorShift(sim, t, def, aim);
-    },
-    end(sim, t) {
-      mirrorShiftEnd(sim, t);
+    cast(sim, t) {
+      return laserWeb(sim, t);
     },
   },
   // Azami's Spike Rain (src/sim/strips.js): extra strips spread evenly along the road in her reach,
@@ -1136,7 +1189,8 @@ const MOVES = {
       pool.sort((a, b) => a.uid - b.uid);
       let moved = 0;
       for (const v of pool) {
-        if (movePush(sim, v, pushTiles(e, v), t.uid) > 0) moved++;
+        // (Control Strength: her pushes go half that much further, GEAR_UPDATE.md §2.4)
+        if (movePush(sim, v, pushTiles(e, v) * pushMul(t.unitStats), t.uid) > 0) moved++;
         applyStatuses(sim, v, t, e.status, spec, step);
       }
       return { x, y, radius: reach, targets: listed(pool), moved };
@@ -1219,6 +1273,7 @@ function refusal(sim, t) {
   if (a.active > 0) return 'active';
   if (a.cd > 0 || (groupOf(sim, t)?.cd || 0) > 0) return 'cooldown';
   if (a.kind === 'econ') {
+    // (the cap is her OWNER's — a loadout's econ girls — wherever she is lent: review r1 M2; her coins are her controller's)
     if ((sim.abilUses[t.owner ?? 0] || 0) >= R.econCapPerWave) return 'cap';
     if (sim.diff.noIncome) return 'noIncome';
   }
@@ -1241,12 +1296,12 @@ function enemiesInReach(sim, t, def) {
  */
 function pickCaster(sim, t) {
   if (!refusal(sim, t)) return t;
-  const owner = t.owner ?? 0;
+  const owner = ctrlOf(t);
   let best = null;
   let bestN = -1;
   let held = t.abil ? t : null;
   for (const o of sim.towers) {
-    if (o === t || o.removed || !o.abil || o.unitId !== t.unitId || (o.owner ?? 0) !== owner) continue;
+    if (o === t || o.removed || !o.abil || o.unitId !== t.unitId || ctrlOf(o) !== owner) continue;
     if (refusal(sim, o)) {
       if (!held) held = o;
       continue;
@@ -1278,7 +1333,7 @@ export function castAbility(sim, t0, { group = false, owner = null, auto = false
   // a group cast looks for a ready copy before it calls the selected one locked (pickCaster: no side effect)
   const t = group ? pickCaster(sim, t0) : t0;
   if (!t.abil) return no('locked');
-  if (owner != null && (t0.owner ?? 0) !== owner) return no('notYours');
+  if (owner != null && ctrlOf(t0) !== owner) return no('notYours');
   const why = refusal(sim, t);
   if (why) return no(why, t.uid);
   const def = abilityDef(t);
@@ -1297,13 +1352,13 @@ export function castAbility(sim, t0, { group = false, owner = null, auto = false
   const by = sim.stats.abilityByTower || (sim.stats.abilityByTower = {});
   by[t.uid] = (by[t.uid] || 0) + 1;
   sim._emit('ability', {
-    towerUid: t.uid, id: def.id, kind: def.kind, scope: def.scope, owner: t.owner ?? 0, auto: !!auto,
+    towerUid: t.uid, id: def.id, kind: def.kind, scope: def.scope, owner: ctrlOf(t), auto: !!auto,
     // a map-wide reach is Infinity: the event says 0 (no ring), so JSON and the FX never see Infinity / NaN
     x: fx.x, y: fx.y, radius: Number.isFinite(fx.radius) ? fx.radius : 0, targets: fx.targets,
     ...(fx.coins != null ? { coins: fx.coins } : null),
     ...(fx.placed != null ? { placed: fx.placed } : null),
     ...(fx.moved != null ? { moved: fx.moved } : null),
-    // (Mirror Shift: 'panel' her panel jumped to x, y; 'second' tier 5's second mirror stands there)
+    // (Laser Web: 'web', with its beam count)
     ...(fx.mirror != null ? { mirror: fx.mirror } : null),
   });
   return { ok: true, reason: null, casterUid: t.uid };
@@ -1513,7 +1568,8 @@ export function tickAbilities(sim) {
   }
   if (sim._rallies.length) {
     let gone = false;
-    for (const r of sim._rallies) if (--r.left <= 0) gone = true;
+    // (Big Cheer's rallies count down in tickCheers, which runs whether or not an ability does)
+    for (const r of sim._rallies) if (!r.cheer && --r.left <= 0) gone = true;
     if (gone) {
       sim._rallies = sim._rallies.filter((r) => r.left > 0);
       recomputeBuffs(sim);
@@ -1655,7 +1711,7 @@ export function setAbilityAutoAll(sim, owner, on) {
   sim.abilityAutoDefault[slot] = !!on;
   let n = 0;
   for (const t of [...sim.towers].sort((p, q) => p.uid - q.uid)) {
-    if (!t.abil || (t.owner ?? 0) !== slot) continue;
+    if (!t.abil || ctrlOf(t) !== slot) continue;
     t.abil.auto = !!on;
     n++;
   }
@@ -1703,7 +1759,7 @@ export function abilitySlots(sim, owner = 0) {
   const order = [...(sim.loadout?.keys?.() || [])];
   const slots = new Map();
   for (const t of sim.towers) {
-    if (t.isHero || (t.owner ?? 0) !== owner || !t.abil) continue;
+    if (t.isHero || ctrlOf(t) !== owner || !t.abil) continue;
     let s = slots.get(t.abil.id);
     if (!s) slots.set(t.abil.id, (s = { id: t.abil.id, unitId: t.unitId, kind: t.abil.kind, scope: t.abil.scope, casters: [], ready: 0, best: null, firstUid: t.uid }));
     s.casters.push(t.uid);

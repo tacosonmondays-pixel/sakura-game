@@ -7,7 +7,11 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ITEMS, ITEM_IDS } from '../../src/data/items.js';
-import { GEAR_SLOTS, ITEM_RARITY_ORDER } from '../../src/data/types.js';
+import { ITEM_RARITY_ORDER } from '../../src/data/types.js';
+import { SLOT_IDS, GEAR_SLOT_DEFS } from '../../src/data/gearSlots.js';
+
+/** Every gear slot (the classic three and the Hair Clip and Necklace). */
+const GEAR_SLOTS = Object.fromEntries(SLOT_IDS.map((s) => [s, GEAR_SLOT_DEFS[s]]));
 import { ITEM_ART, ITEM_ART_SMALL } from '../../src/art/itemArt.js';
 import {
   itemIcon, gearIcon, currencyIcon, itemIconSVG, itemArtSVG, itemArtUrl, hasItemArt, gearArtKey, hasItemIcon, preloadSmallItemArt,
@@ -15,6 +19,7 @@ import {
 import { tileTier } from '../../src/ui/components.js';
 import { COOP_PROTOCOL } from '../../src/online/coop/version.js';
 import { simId } from '../../tools/simId.mjs';
+import { KNOWN_SIM_IDS } from '../fixtures/simIds.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const GEAR_KEYS = Object.keys(GEAR_SLOTS).flatMap((s) => [...ITEM_RARITY_ORDER.map((r) => `gear_${s}_${r}`), `gear_${s}_ur`]);
@@ -28,9 +33,13 @@ function img(markup) {
   return { src: attr('src'), srcset: attr('srcset'), sizes: attr('sizes'), art: attr('data-art'), cls: attr('class'), onerror: attr('onerror') };
 }
 
+// Every item is baked: the gear update's Set Boxes, pins and Nightglass Lens and Set Boxes v2's 28 boxes included
+// (docs/specs/SET_BOXES_V2.md §3; tests/art/itemArtGuard.test.js).
+const BAKED_IDS = ITEM_IDS;
+
 describe('item art at runtime: every item has baked art', () => {
   it('every item id has a manifest entry, so no item falls back to the drawing', () => {
-    const missing = ITEM_IDS.filter((id) => !hasItemArt(id));
+    const missing = BAKED_IDS.filter((id) => !hasItemArt(id));
     expect(missing).toEqual([]);
     expect(ITEM_IDS.length).toBe(Object.keys(ITEMS).length);
   });
@@ -41,7 +50,7 @@ describe('item art at runtime: every item has baked art', () => {
   });
 
   it('itemIcon(id) is that item\'s own image over its drawn SVG', () => {
-    for (const id of ITEM_IDS) {
+    for (const id of BAKED_IDS) {
       const html = itemIcon(id);
       const i = img(html);
       expect(i, id).not.toBeNull();
@@ -59,8 +68,8 @@ describe('item art at runtime: every item has baked art', () => {
   });
 
   it('two different items never share an image', () => {
-    const srcs = ITEM_IDS.map((id) => img(itemIcon(id)).src);
-    expect(new Set(srcs).size).toBe(ITEM_IDS.length);
+    const srcs = BAKED_IDS.map((id) => img(itemIcon(id)).src);
+    expect(new Set(srcs).size).toBe(BAKED_IDS.length);
   });
 
   it('gearIcon maps slot + rarity (and UR) to the gear keys', () => {
@@ -116,6 +125,117 @@ describe('item art at runtime: every item has baked art', () => {
 
   it('URLs are relative to the deploy base, never absolute to a host', () => {
     expect(itemArtUrl('coins')).toMatch(/^(\.\/|\/)art\/items\/coins-128\.webp\?v=[0-9a-f]{8}$/);
+  });
+});
+
+describe('gear art: the 3D-flat gear icons (tools/blender/items models/gear.py, catalog GEAR_*)', () => {
+  const catalog = readFileSync(join(ROOT, 'tools/blender/items/catalog.py'), 'utf8');
+  const block = (name) => {
+    const at = catalog.indexOf(`${name} = dict(`);
+    expect(at, name).toBeGreaterThan(-1);
+    return catalog.slice(at, catalog.indexOf('\n)\n', at));
+  };
+
+  it('every gear slot of the game has a design row and every tier a ladder row in the catalog', () => {
+    const slots = block('GEAR_SLOT_ART');
+    for (const slot of Object.keys(GEAR_SLOTS)) expect(slots, slot).toMatch(new RegExp(`\\n    ${slot}=dict\\(base='(pendant|bow|sneaker|hairclip|necklace)'`));
+    const tiers = block('GEAR_TIERS');
+    for (const t of [...ITEM_RARITY_ORDER, 'ur']) expect(tiers, t).toMatch(new RegExp(`\\n    ${t}=dict\\(trim='`));
+  });
+
+  it('each slot shows its own baked image per rarity and UR, small through big', () => {
+    for (const slot of Object.keys(GEAR_SLOTS)) {
+      const hashes = new Set();
+      for (const r of [...ITEM_RARITY_ORDER, 'ur']) {
+        const key = `gear_${slot}_${r}`;
+        hashes.add(ITEM_ART[key]);
+        const rarity = r === 'ur' ? 'legendary' : r;
+        for (const px of [22, 32, 48, 104]) {
+          const im = img(gearIcon(slot, rarity, { ur: r === 'ur', px }));
+          expect(im.art, `${key} at ${px}px`).toBe(key);
+          expect(im.src).toBe(itemArtUrl(key, 128));
+          expect(im.srcset).toContain(itemArtUrl(key, 256));
+        }
+      }
+      expect(hashes.size, `${slot}: every tier has its own art`).toBe(6);
+    }
+  });
+
+  it('a set look (keyed by the gear set id, never the club) shows only when baked; otherwise the default look', () => {
+    for (const slot of Object.keys(GEAR_SLOTS)) {
+      const baked = ITEM_ART[`gear_spirit_${slot}`];
+      expect(gearArtKey(slot, 'mythic', { set: 'spirit' })).toBe(baked ? `gear_spirit_${slot}` : `gear_${slot}_mythic`);
+      expect(gearArtKey(slot, 'legendary', { ur: true, set: 'no_such_set' })).toBe(`gear_${slot}_ur`);
+      expect(gearArtKey(slot, 'rare', { set: null })).toBe(`gear_${slot}_rare`);
+      expect(gearArtKey(slot, 'mythic', { set: 'tea' })).toBe(`gear_${slot}_mythic`); // a club id is not a set
+      expect(img(gearIcon(slot, 'rare', { set: 'no_such_set' })).art).toBe(`gear_${slot}_rare`);
+    }
+    // every baked set look resolves through gearIcon for every rarity and keeps the piece's own drawing as fallback
+    for (const k of Object.keys(ITEM_ART).filter((x) => /^gear_[a-z0-9]+_[a-z]+$/.test(x) && !GEAR_KEYS.includes(x))) {
+      const [, set, slot] = /^gear_([a-z0-9]+)_([a-z]+)$/.exec(k);
+      for (const r of ['superRare', 'mythic', 'legendary']) {
+        const markup = gearIcon(slot, r, { set });
+        expect(img(markup).art).toBe(k);
+        expect(markup).toContain(itemArtSVG(`gear_${slot}_${r}`));
+      }
+      expect(img(gearIcon(slot, 'legendary', { ur: true, set })).art).toBe(k);
+      expect(itemArtSVG(k)).toMatch(/^<svg /);
+    }
+  });
+
+  it('every gearIcon / gearArtKey call in src passes the piece\'s gear set (set: <piece>.set), never its club', () => {
+    // Calls with no piece to take a set from, each with its reason. Anything else must pass `set: <piece>.set`.
+    const ALLOWED = [
+      ['src/ui/unitBuild.js', "gearIcon(g.slot, 'common')", 'the empty-slot placeholder: no piece is equipped'],
+      ['src/ui/screens/backpack.js', "gearIcon(id, 'rare')", 'the slot filter chips: a generic icon per slot, no piece'],
+      ['src/art/icons.js', 'gearArtKey(slot, rarity, { ur })', "gearIcon's own drawn fallback: always the default slot and rarity"],
+    ];
+    const files = [];
+    const walk = (dir) => {
+      for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+        const rel = `${dir}/${e.name}`;
+        if (e.isDirectory()) walk(rel);
+        else if (/\.(js|mjs)$/.test(e.name)) files.push(rel);
+      }
+    };
+    walk('src');
+    /** Every call `name(...)` in a source (balanced parentheses), without definitions or doc comments. */
+    const callsOf = (src, name) => {
+      const out = [];
+      const re = new RegExp(`(?<![\\w.])${name}\\(`, 'g');
+      let m;
+      while ((m = re.exec(src))) {
+        const line = src.slice(src.lastIndexOf('\n', m.index) + 1, m.index);
+        if (/function\s*$/.test(line) || /^\s*(\*|\/\/)/.test(line)) continue;
+        let depth = 0;
+        let k = m.index + name.length;
+        for (; k < src.length; k++) {
+          if (src[k] === '(') depth++;
+          else if (src[k] === ')' && --depth === 0) break;
+        }
+        out.push(src.slice(m.index, k + 1));
+      }
+      return out;
+    };
+    let seen = 0;
+    const used = new Set();
+    for (const f of files) {
+      const src = readFileSync(join(ROOT, f), 'utf8');
+      for (const name of ['gearIcon', 'gearArtKey']) {
+        for (const call of callsOf(src, name)) {
+          seen++;
+          const allow = ALLOWED.find(([af, ac]) => af === f && ac === call);
+          if (allow) {
+            used.add(allow);
+            continue;
+          }
+          expect(call, `${f}: ${call}`).toMatch(/\bset: [\w.]*\.set\b|\bset\b(?!:)/);
+          expect(call, `${f}: ${call}`).not.toMatch(/\.club\b/);
+        }
+      }
+    }
+    expect(seen).toBeGreaterThan(8);
+    expect(ALLOWED.filter((a) => !used.has(a)), 'stale allow-list rows').toEqual([]);
   });
 });
 
@@ -196,8 +316,19 @@ describe('display only: the battle sim is untouched', () => {
     // 11: the banners release with the duo Kohaku & Tsubaki (and Kohaku's constant beam), LR Limit Break, UR Resonance
     // and the staff heroes, and Tryout Day in co-op, in one release; 12: Gate Arc Acts 3–6, Tenka's LR form, the duo's
     // buff with the long beam, the sentry deploy event and Tryout Day's Extended Day + Random Class; 13: the last five
-    // tower ultimates: Kage's Shadow Doubles, Suzu's Bell Carpet, Chika's Drone Surge, Fuu's Backdraft Fan, Iroha's Mirror Shift)
-    const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: '35748b1b58db', 12: 'd35092f141d3', 13: 'be940ecb2087' };
+    // tower ultimates: Kage's Shadow Doubles, Suzu's Bell Carpet, Chika's Drone Surge, Fuu's Backdraft Fan, Iroha's Mirror Shift;
+    // 14: the battle + gear release v0.1.66: the attack shapes S1–S5 (wheels, held streams and sweeps, ground shapes,
+    // links, S5's six), balance round 5 (the LR rows, the duo's map-wide laser, Freeplay's boss bands), Ena's spreading
+    // curse, Iroha's mirror network, and the gear update's five-piece sets and LR gear, with the shapes carrying the
+    // set passives; re-pinned for fix/iroha-stun-clump: a glint never stuns, the splash on the glint's enemy, copies
+    // without the push, Auto by her main path, a fourth mirror at Polish and Kaleidoscope tier 4, Kaleidoscope's wider
+    // reach, Kaleidoscope Burst and Infinite Reflection +14 — 14 has not shipped); 15: co-op feel — the waited-on side
+    // raises its input delay, orders after the sent horizon, nudge — pinned on release v0.1.67 (the merged tree with
+    // release v0.1.66 @ fc978aba); 16: the duo's LR Refraction row 2.0 → 2.1 (fix/duo-p2t5-lr-bar, the LR bar on set gear);
+    // 17: Suzu and Azami on bosses (fix/suzu-azami-boss: bells and strips under a boss, Azami's boss row);
+    //     and co-op sharing (docs/specs/COOP_SHARING.md: gifts, lends, the leaver's grace and hand-out, the Sim's t.ctrl)
+    // (the ids live in tests/fixtures/simIds.js, shared with the gear tests that prove they leave the sim alone)
+    const KNOWN = KNOWN_SIM_IDS;
     if (!KNOWN[COOP_PROTOCOL]) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);
   });

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  createProfile, migrateProfile, serializeProfile, deserializeProfile, loadSaveText, migrationDropsData, backupNotice, SAVE_VERSION, STARTER_UNITS,
+  createProfile, migrateProfile, serializeProfile, deserializeProfile, loadSaveText, migrationDropsData, backupNotice, SAVE_VERSION, EXPORT_VERSION, STARTER_UNITS,
 } from '../../src/systems/save.js';
 import { SKIN_MAP } from '../../src/data/skins.js';
 import { setSkin, equippedSkinId } from '../../src/systems/skins.js';
@@ -142,9 +142,10 @@ describe('serialize / deserialize', () => {
   });
 
   it('refuses a save code from a newer build instead of stripping it', () => {
-    const p = createProfile();
-    p.version = SAVE_VERSION + 1;
-    expect(() => deserializeProfile(serializeProfile(p))).toThrow('Newer save');
+    // (an export carries EXPORT_VERSION, apart from the stored save's SAVE_VERSION: GEAR_UPDATE.md §9.4)
+    const p = { ...createProfile(), version: EXPORT_VERSION + 1 };
+    expect(() => deserializeProfile(Buffer.from(JSON.stringify(p)).toString('base64'))).toThrow('Newer save');
+    expect(deserializeProfile(serializeProfile(createProfile())).version).toBe(SAVE_VERSION);
   });
 });
 
@@ -625,5 +626,62 @@ describe('save outfits (additive, no version bump)', () => {
     const twice = migrateProfile(JSON.parse(JSON.stringify(once)));
     expect(twice).toEqual(once);
     expect(once.units.hikari.skin).toBe('hikari_sentinel');
+  });
+});
+
+// Gear M0 re-review r2: a broken gear line drops only that line (a main: its piece), never the save
+describe('a null or missing gear line (review M0 r2 M1)', () => {
+  const withGear = () => {
+    const p = createProfile();
+    p.currencies.coins = 4321;
+    const a = addGear(p, rollGear(createRng(1), { slot: 'charm', rarity: 'legendary', level: 4 }));
+    const b = addGear(p, rollGear(createRng(2), { slot: 'ribbon', rarity: 'legendary', level: 4 }));
+    return { p, a, b };
+  };
+  const load = (raw) => loadSaveText(JSON.stringify(raw));
+
+  it('a null main drops that piece; the rest of the save loads', () => {
+    const { p, a, b } = withGear();
+    const raw = JSON.parse(JSON.stringify(p));
+    raw.gear[a].main = null;
+    const r = load(raw);
+    expect(r.backup).not.toBe('corrupt');
+    expect(r.profile.gear[a]).toBeUndefined();
+    expect(r.profile.gear[b]).toBeTruthy();
+    expect(r.profile.currencies.coins).toBe(4321);
+  });
+
+  it('a missing main drops that piece', () => {
+    const { p, a, b } = withGear();
+    const raw = JSON.parse(JSON.stringify(p));
+    delete raw.gear[a].main;
+    const r = load(raw);
+    expect(r.backup).not.toBe('corrupt');
+    expect(r.profile.gear[a]).toBeUndefined();
+    expect(r.profile.gear[b]).toBeTruthy();
+  });
+
+  it('a null substat drops that line only', () => {
+    const { p, a } = withGear();
+    const raw = JSON.parse(JSON.stringify(p));
+    const n = raw.gear[a].subs.length;
+    raw.gear[a].subs[1] = null;
+    const r = load(raw);
+    expect(r.backup).not.toBe('corrupt');
+    expect(r.profile.gear[a].subs).toHaveLength(n - 1);
+    expect(r.profile.gear[a].main).toEqual(p.gear[a].main);
+  });
+});
+
+describe('unit.accItem (review M0 r2 L3)', () => {
+  it('an acc_ item id is kept; anything else is dropped', () => {
+    const p = createProfile();
+    const id = Object.keys(p.units)[0];
+    p.units[id].accItem = 'acc_star_pin';
+    expect(migrateProfile(JSON.parse(JSON.stringify(p))).units[id].accItem).toBe('acc_star_pin');
+    for (const bad of ['star_pin', 'acc_', 'acc_BAD', 42, { id: 'acc_x' }, `acc_${'x'.repeat(40)}`]) {
+      p.units[id].accItem = bad;
+      expect(migrateProfile(JSON.parse(JSON.stringify(p))).units[id].accItem, String(bad)).toBeUndefined();
+    }
   });
 });

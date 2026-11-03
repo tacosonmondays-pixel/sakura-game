@@ -2,7 +2,7 @@
 // keep it healthy here (it must finish, nobody's scripted order may be refused, both clients
 // must agree), so the cross-engine check keeps comparing a real, whole battle.
 import { describe, it, expect } from 'vitest';
-import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runReturningAbilBattle, RETURNING_ABIL_IDS, runRosterBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runGlowBowlBattle, runDuoBattle, runTenkaLrBattle, runStaffBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runReturningAbilBattle, RETURNING_ABIL_IDS, runRosterBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runSetBattle, runGlowBowlBattle, runShapesBattle, runHeldBattle, runGroundBattle, runLinksBattle, runS5aBattle, runS5bBattle, runDuoBattle, runTenkaLrBattle, runStaffBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
 import { launchAttempts } from '../../e2e/browser.mjs';
 
 // T3 review coop-3: e2e/engines.mjs only ever tried Playwright's own browsers, so on a machine without
@@ -23,6 +23,17 @@ describe('the cross-engine runner finds the browsers (e2e/browser.mjs launchAtte
   });
 });
 
+// Balance round 5 (src/data/balance.js) re-pinned every battle below that moved: a deliberate sim change. Every
+// outcome is the same (won, lost, between; Marumi's Glow Bowl reaches wave 27, was 26); the abilities battle still casts
+// ≥ 30 of ≥ 6 kinds; the returning girls' and the links scenarios divide the girls' rows back out (scriptedBattle.js).
+// COOP 15 (co-op feel: the waited-on side raises its input delay, docs/specs + tools/coopLatency.mjs) re-pinned every battle
+// below: the seeded fake network stalls, so orders land on other ticks. Every outcome is the same (state, wave, waves cleared,
+// lives); the runs now line both clients up on one tick before the final hash (alignTicks), the abilities battle upgrades
+// its coverage girls first and the staff guest fires Kogane's ult only in a wave (scriptedBattle.js).
+// COOP 17 (co-op sharing, docs/specs/COOP_SHARING.md) re-pinned only the checkpoint digests (ckDigest / finalDigest) of
+// the three battles that pin them: the co-op checkpoint is v 2 now (gift ticks, pending hand-outs, lends beside the Sim's
+// snapshot). No scenario lends or gifts, and none keeps a player away past the grace: every tick count, state, wallet and
+// state hash is unchanged.
 describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
   it('runs a whole co-op battle with both players to the end, in sync, every order accepted', () => {
     const r = runScriptedBattle();
@@ -44,7 +55,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // tables of the stages that existed
     // before stay pinned bit for bit in tests/sim/campaignGolden.test.js
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, waves: r.waves })
-      .toEqual({ ticks: 28995, state: 'won', wallets: '1499/1347', final: 93082125, hashes: '7db1eed1', waves: '4735:a2a5a5b3' });
+      .toEqual({ ticks: 26759, state: 'won', wallets: '1491/1355', final: 1337251687, hashes: '90f02bd3', waves: '4735:a2a5a5b3' });
   }, 120000);
 
   it('runs the Potential battle (POTENTIAL_START: every kind of step, Aoi at P1 for the host and P6 for the guest, Kage and Rei at P6) in sync', () => {
@@ -79,8 +90,9 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Re-pinned for Kaede's AoE rework (was 23752 / '317/222' / 4242036526 / '57997ea1'): her Maple
     // Cleave every 3rd strike and her new P5 (Maple Gale ×1.1 on her blade arts, not the 0.1-tile cut);
     // only Kaede's kit changed (every other girl resolves bit-identically, tests/sim/mods.test.js)
+    // Re-pinned Oct 30 (Hotaru ×1.06, Momo ×1.06: the final review): was 23736 / 1305949636 / 604a609f.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes })
-      .toEqual({ ticks: 23827, state: 'won', wallets: '317/222', final: 1924477857, hashes: 'dec1d574' });
+      .toEqual({ ticks: 23779, state: 'won', wallets: '317/222', final: 1778481096, hashes: '2836ab36' });
   }, 120000);
 
   it('runs the Potential boss battle (POTENTIAL_BOSS_START: Hotaru vs spectral, Kaede vs the Grave Lych, Rei\'s duel echo) in sync', () => {
@@ -100,8 +112,10 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Re-pinned for the B1 re-price (was 35232 / '6768/4510' / 2047586365 / 'a01bc9ff'): see above.
     // Re-pinned for Kaede's AoE rework (was 35101 / '6568/4679' / 3492961063 / 'b2b2f34d'): her Maple
     // Cleave, her full-focus maple splash on Unbroken Rhythm, Crimson Eternity ×1.6 vs bosses (was ×1.5)
+    // Re-pinned Oct 30 (Blade Cyclone never below her aimed volley; Umeko ×1.10, Hotaru ×1.04): was 33178 / 6532/4652 / 1833621268 / 6aef2a11 (Hotaru's row).
+    // Re-pinned Oct 30 (Hotaru ×1.06, Momo ×1.06: the final review): was 33176 / 6608/4607 / 2717645599 / 5d8a6467.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes })
-      .toEqual({ ticks: 35035, state: 'lost', wallets: '6700/4594', final: 2141169952, hashes: '20c45d69' });
+      .toEqual({ ticks: 33024, state: 'lost', wallets: '6397/4834', final: 2799502422, hashes: '8e9ee915' });
   }, 120000);
 
   it('runs a co-op freeplay battle through the goal into the boss waves, in sync, ended by both Finish votes', () => {
@@ -181,8 +195,24 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // checks the other engines agree). Then (was 30346 / 2173867755 / '4d00c481', 35 casts) the A4–A6 review: a mirror never
     // splits its owner's shots, Auto keeps a placed panel, doubles hold while sabotaged and throw her full volley, Bell
     // Carpet counts a shared stretch once; and the battle runs to wave 20 so each coverage girl casts at least twice.
+    // Re-pinned for balance round 5 on v0.1.61 (was 54756 / '4071/2770' / 1840728084 / '571b75af', 144 casts, splits
+    // 3/3): the round's rows (src/data/balance.js) move every girl's damage, so the crowds and the Auto rules' moments
+    // move; every coverage rule above still holds.
+    // Re-pinned Oct 30 (Blade Cyclone never below her aimed volley; Umeko ×1.10, Hotaru ×1.04): hashSim only (was ee689ad3).
+    // Re-pinned Oct 30 (Hotaru ×1.06, Momo ×1.06: the final review): hashSim only (was 2029691f).
+    // (and then, for Iroha's mirror network:)
+    // move; every coverage rule above still holds. Re-pinned Oct 30 (Blade Cyclone never below her aimed volley; Umeko
+    // ×1.10, Hotaru ×1.04): hashSim only (was ee689ad3). Re-pinned for Iroha's mirror network (was 58197 / '4138/3072' /
+    // 2618839254 / 'ee689ad3', 153 casts, splits 1/1, Mirror Shift 26×26): her bolts bounce through her mirrors, her ⚡ is
+    // the Laser Web (13 casts over 39 mirrors), allies' shots now split far more often at her mirrors (78/49), and the
+    // co-op hash carries her mirror spots; every coverage rule above still holds. Then (r2 review, was 60305 / '4138/3032' /
+    // 4134098195 / '692091c8', 141 casts, splits 78/49): Auto mirrors stay put as her count grows, her bounces never fall
+    // below her mirrors, a reflecting mirror catches allies' shots within 0.8 tiles (139/76 splits), her copies find
+    // their enemy and the tier-3 Laser Web hits at 0.9× her hit; every coverage rule above still holds. r4 review (was 58644 /
+    // '4038/2977' / 618107110 / '6b948af0', 140 casts, splits 139/76): her Auto slot 0 is her old panel spot, a real bounce
+    // glints at the nearest enemy, one bounce splash an enemy a bolt, the tier-3 web at 0.8×.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind, splits: r.splits, deploys: r.deploys })
-      .toEqual({ ticks: 54756, state: 'between', wallets: '4071/2770', final: 1840728084, hashes: '571b75af', casts: 144, byKind: 'boost 11 · burst 29 · debuff 20 · deploy 44 · econ 11 · move 2 · rally 8 · strike 19', splits: '3/3', deploys: 'chika.droneSurge 13×52 · iroha.mirrorShift 18×18 · kage.doubles 5×10 · suzu.bellCarpet 8×48' });
+      .toEqual({ ticks: 53671, state: 'between', wallets: '4107/2851', final: 1740673876, hashes: '3bf5553a', casts: 138, byKind: 'boost 10 · burst 26 · debuff 16 · deploy 39 · econ 10 · move 4 · rally 11 · strike 22', splits: '136/71', deploys: 'chika.droneSurge 13×52 · iroha.mirrorShift 15×45 · kage.doubles 3×6 · suzu.bellCarpet 8×48' });
   }, 240000);
 
   it('runs the returning girls\' abilities (RETURNING_ABIL_START, A3 M3: Swoop, Moon Pounce, First Aid Call with a life back, Omen Card, Puppet Hex, Storm Lance at Lv 17) in sync, its checkpoint replaying', () => {
@@ -203,12 +233,24 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.checkpoints).toBeGreaterThan(100);
     expect(runReturningAbilBattle().final).toBe(r.final);
     // pinned when the scenario landed (A3 M3; V8 and SpiderMonkey gave these, e2e/engines.mjs): change only with a
-    // deliberate sim / data / ability change, and say why
+    // deliberate sim / data / ability change, and say why. (Attack shapes S4: the checkpoint and final digests moved, the
+    // battle did not: every Sim now carries the tether fields and every enemy its `tie`, which the generic serializer
+    // stores; ckDigest c653f418 → b2fe614b, finalDigest 089da6b4 → e0834a0a, same ticks, hashes and final.)
+    // Re-pinned for Ena's spreading hex (feature/ena-contagion): her curse now rots and passes on while its enemy lives (was 47676 ticks / 843868789 / '0b57c250', 76 casts, digests 76e7917e / 8bc5612b): the
+    // crowds thin sooner, so the Auto rules' moments move; every coverage check above still holds. Then the review r1
+    // fixes (each curse records whose rot it is, `rotUid`) moved the checkpoint digest only (588f2a6d → ab003279).
+    // Re-pinned for release v0.1.66 (the merged tree: round 5 with the shapes S1–S5, Ena's spreading curse, Iroha's
+    // mirrors and the gear update, COOP_PROTOCOL 14): the same battle (ticks, casts, lives) with new digests (ab003279 / 50bdf2cd were the Ena branch's): the snapshot
+    // holds the gear update's Sim state and status context, and Iroha's mirror fields. Re-pinned for fix/iroha-stun-clump
+    // (Iroha's tier data and Auto rows): the same battle, new digests (d8ff8335 / 335c2bcf were release's)
+    // Re-pinned for release v0.1.67 (COOP_PROTOCOL 15 with fix/iroha-stun-clump merged): the COOP 15 battle, new digests only
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, lives: r.lives, final: r.final, hashes: r.hashes, casts: r.casts, byId: r.byId, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
       .toEqual({
-        ticks: 47017, state: 'between', wallets: '568/782', lives: 100, final: 3293782298, hashes: '6e087590', casts: 72,
-        byId: 'aoi.skyfall 11 · ena.omenCard 9 · hana.swoop 19 · noa.firstAid 2 · ruri.moonPounce 5 · seiran.stormLance 13 · yoriko.puppetHex 13',
-        ckDigest: 'c653f418', finalDigest: '089da6b4',
+        ticks: 47939, state: 'between', wallets: '568/787', lives: 100, final: 3625811915, hashes: 'a7ae5f68', casts: 77,
+        byId: 'aoi.skyfall 12 · ena.omenCard 10 · hana.swoop 20 · noa.firstAid 3 · ruri.moonPounce 5 · seiran.stormLance 13 · yoriko.puppetHex 14',
+        // (re-pinned for release v0.1.69, fix/suzu-azami-boss with feature/coop-sharing: the snapshot digests fold each girl's derived bossBellSpec and, where a
+        // boss met Suzu, the bells set for it; ticks, wallets, lives, final, hashes and casts are unchanged)
+        ckDigest: '8457c93f', finalDigest: 'e3550bd9',
       });
   }, 240000);
 
@@ -225,8 +267,23 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Dragonflight now flies all the way back to START, so the run reaches the same wave sooner (12239 → 11492
     // ticks, 60 → 61 curse bursts, new hashes) and a few kills land with the other player (wallets 2796/3575 →
     // 2891/3480, the same 6371 coins in all); damage, lives and the zero casts are unchanged
+    // Re-pinned Oct 30 (Noa's row ×1.04 damage, the final review round 2): the guest fields Noa, so her stats and the
+    // state hashes move (final 3279512551 → 3763507503, hashes 8c876068 → 3224f922); ticks, damage, lives, coins and
+    // the bursts are unchanged
+    // Re-pinned for Ena's spreading hex (feature/ena-contagion): her curse now rots and passes on while its enemy lives (was wallets
+    // 2828/3543, final 3279512551, hashes '8c876068', 10 curse bursts): Ena's curses rot and spread here even with no cast,
+    // so a few kills land with the other player (the same 6371 coins in all); ticks, damage, lives and the zero casts hold
+    // (and then, for Iroha's mirror network:)
+    // Re-pinned for Iroha's mirror network (was 3279512551 / '8c876068'): the co-op hash now carries her mirror spots
+    // (src/online/coop/simHash.js); ticks, damage, lives, coins and every other field are the same. Again for the r2
+    // review (was 3868163333 / 'dfc9903d'): her Auto mirror spots moved (slot k's spot no longer depends on her count),
+    // and the hash carries them; the battle is the same. r4 review (was 178939267 / '63490430'): her Auto slot 0 moved to
+    // her old panel spot; the hash only
+    // Re-pinned for release v0.1.66 (the merged tree: round 5 with the shapes S1–S5, Ena's spreading curse, Iroha's
+    // mirrors and the gear update, COOP_PROTOCOL 14): the same ticks, damage and lives; the kills land a little differently between the players
+    // (wallets 2842/3529, the same 6371 coins in all), Ena's curses burst 13 times (was 10 or 11 on each branch), new hashes
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, towers: r.towers, damage: r.damage, lives: r.lives, wallets: r.wallets, final: r.final, hashes: r.hashes, curseBursts: r.curseBursts, runners: r.runners })
-      .toEqual({ ticks: 11492, state: 'wave', wave: 14, towers: 9, damage: 28283, lives: 150, wallets: '2891/3480', final: 253530618, hashes: 'a90dc673', curseBursts: 61, runners: 2 });
+      .toEqual({ ticks: 10316, state: 'wave', wave: 14, towers: 9, damage: 28849, lives: 150, wallets: '2899/3493', final: 3010228145, hashes: 'ce381038', curseBursts: 16, runners: 1 });
   }, 240000);
 
   it('runs a co-op battle with Tenka (TENKA_START: her lab team over two absorbs, every class, the economy weapon, wells, Last Line, a sale) in sync, its checkpoint replaying', () => {
@@ -262,12 +319,25 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // pinned when the scenario landed (T3; V8 gave these, and SpiderMonkey matched them in the T3 review
     // fixes; JavaScriptCore not run yet): change only with a deliberate sim / data change, and say why. The
     // T3 review added the class counts and the wave-7 checkpoint's digest (finalDigest is taken after the
-    // sale, so only ckDigest holds a lab record)
+    // sale, so only ckDigest holds a lab record). Attack shapes S4 moved both digests and nothing else (the Sim's tether
+    // fields and each enemy's `tie` are stored by the generic serializer): e864bd71 → d529f30d, 8e111df8 → a6ec7988
+    // Re-pinned Oct 30 (Blade Cyclone never below her aimed volley; Umeko ×1.10, Hotaru ×1.04): digests only (was 60f651e2 / 98e117c2).
+    // Re-pinned Oct 30 (Hotaru ×1.06, Momo ×1.06: the final review): hashes and digests (was 56118d0f / 908e0502 / 2e213a40).
+    // Ena's spreading curse moved both digests and nothing else (the Sim's spread budget fields; no Ena here):
+    // 60f651e2 → 2af38483, 98e117c2 → cddc50f8. Re-pinned Oct 30 (Blade Cyclone never below her aimed volley; Umeko ×1.10,
+    // Hotaru ×1.04): digests only (on balance-r5 alone 60f651e2 → 908e0502, 98e117c2 → 2e213a40); both together 9436008b / 61d0c02a.
+    // Re-pinned for release v0.1.66 (the merged tree: round 5 with the shapes S1–S5, Ena's spreading curse, Iroha's
+    // mirrors and the gear update, COOP_PROTOCOL 14): the same battle, final and hashes as round 5 (88532403); both digests move (the snapshot holds the merged
+    // Sim and tower state: the spread budget, the set fields, the mirrors)
+    // (re-pinned for fix/iroha-stun-clump: Iroha's tier data and Auto rows; the same battle, new digests)
+    // Re-pinned for release v0.1.67 (COOP_PROTOCOL 15 with fix/iroha-stun-clump merged): the COOP 15 battle, new digests only
+    // (re-pinned for fix/suzu-azami-boss: the snapshot digests fold each girl's derived bossBellSpec and, where a boss met
+    // Suzu, the bells set for it; ticks, wallets, lives, final, hashes and casts are unchanged)
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, absorbed: r.absorbed, members: r.members, sale: r.sale, labCash: r.labCash, wells: r.wells, swallowed: r.swallowed, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
-      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '35f90fff', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: 'e864bd71', finalDigest: '8e111df8' });
+      .toEqual({ ticks: 51079, state: 'between', wallets: '1602/890', final: 1372417546, hashes: '44e8771c', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: 'b9a0d2aa', finalDigest: '484c0714' });
   }, 240000);
 
-  it('runs the returning girls in gear (GEAR_GIRLS_START: Iroha\'s two firing points with Pierce, every club trick) in sync', () => {
+  it('runs the returning girls in gear (GEAR_GIRLS_START: Iroha\'s bolts bouncing off her mirrors with Pierce, every club trick) in sync', () => {
     const r = runGearGirlsBattle();
     expect(r.refused).toBe('');
     expect(r.agree).toBe(true);
@@ -275,7 +345,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.checkpoints).toBeGreaterThanOrEqual(20);
     // all nine returning girls and Aoi stood and fought
     for (const id of ['kanna', 'seiran', 'iroha', 'ena', 'noa', 'fuu', 'hana', 'ruri', 'aoi']) expect(r.dealt, id).toMatch(new RegExp(`${id}:[1-9]`));
-    // Iroha shot from her mirror and from where she stands, and her shots took gear Pierce
+    // Iroha's bolts left where she stands and bounced off her mirrors, and her shots took gear Pierce
     const [mirror, own, pierced] = r.iroha.split('/').map(Number);
     expect(mirror).toBeGreaterThan(0);
     expect(own).toBeGreaterThan(0);
@@ -284,8 +354,179 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(runGearGirlsBattle().final).toBe(r.final);
     // pinned when the battle was added (v0.1.40 train; the same final as the merge review's ad hoc run
     // on V8 and JavaScriptCore). Change only with a deliberate sim / data change, and say why.
+    // Re-pinned Oct 30 (Noa's row ×1.04 damage, the final review round 2): Noa is in this team, so her stats and the
+    // state hashes move (final 32796160 → 2652086745, hashes 7cc84608 → 690a6f5b); the win, ticks, wallets and
+    // Iroha's counts are unchanged
+    // Re-pinned for Ena's spreading hex (was 42380 ticks / '5467/5624' / 32796160 / '7cc84608' / iroha 550/504/850): her
+    // curse rots and spreads while its enemy lives, so the kills and the waves' ends move a little; the battle is still won
+    // (and then, for Iroha's mirror network:)
+    // on V8 and JavaScriptCore). Change only with a deliberate sim / data change, and say why. Re-pinned for Iroha's
+    // mirror network (was 42380 / '5467/5624' / 32796160 / '7cc84608', shots mirror/own/pierced 550/504/850): `iroha` is
+    // now bounces / bolts / pierced (her bolts leave her and bounce through her mirrors). r2 review (was 41912 /
+    // '5464/5627' / 1048598229 / '1c0cbfb8', 2112/1056/844): her Auto spots, bounces ≥ mirrors, the re-set numbers. r4
+    // (was 41794 / '5460/5631' / 1497122937 / 'c42139b0', 2118/1059/846): slot 0 at her old panel spot, glints, the merge
+    // Re-pinned for release v0.1.66 (the merged tree: round 5 with the shapes S1–S5, Ena's spreading curse, Iroha's
+    // mirrors and the gear update, COOP_PROTOCOL 14): still won, Iroha's bounces / bolts / pierced the same (1668/834/666); Ena's curse rots and spreads
+    // here too, so the waves end a little later (41667 → 41896 ticks), new wallets and hashes
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, iroha: r.iroha })
-      .toEqual({ ticks: 54615, state: 'won', wallets: '5521/5179', final: 3900917007, hashes: '7ad51e89', iroha: '572/522/885' });
+      .toEqual({ ticks: 41828, state: 'won', wallets: '5452/5639', final: 1698669878, hashes: '850e026b', iroha: '1668/834/666' });
+  }, 240000);
+
+  it('runs the attack shapes S1 (SHAPES_START: Coin Wheel, Blade Cyclone, Firefly Halo) in sync, and a mid-wave rejoin lands on the run', () => {
+    const r = runShapesBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(r.checkpoints).toBeGreaterThanOrEqual(20);
+    const [wheel, spin, halo] = r.shapes.split('/').map(Number);
+    expect(wheel).toBeGreaterThan(0);
+    expect(spin).toBeGreaterThan(0);
+    expect(halo).toBeGreaterThan(0);
+    expect(r.rejoinTick).toBeGreaterThan(0);
+    expect(r.rejoinSame).toBe(true);
+    expect(runShapesBattle().final).toBe(r.final);
+    // pinned when the battle was added (feature/attack-shapes, S1 data fitted to the four-stage bench mean);
+    // re-pinned Oct 29 for the refit on both rulers (the Coin Wheel keeps her toss coins, the Blade Cyclone at
+    // tier 5 only with arms that stay on an enemy, a lighter halo); cheaper upgrades so both Kages reach tier 5.
+    // Change only with a deliberate sim / data change, and say why.
+    // Re-pinned Oct 30 (Blade Cyclone never below her aimed volley; Umeko ×1.10, Hotaru ×1.04): was 16314 / 3223573651 / f68f68df / 4/275/391 (every Blade Cyclone attack throws her aimed volley, the arms at a quarter).
+    // Re-pinned Oct 30 (Hotaru ×1.06, Momo ×1.06: the final review): was 16307 / 1790642613 / 77aa58ea / 4/136/320.
+    expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, shapes: r.shapes, rejoinTick: r.rejoinTick })
+      .toEqual({ ticks: 16314, state: 'won', wave: 22, wallets: '2209/1259', final: 2958572482, hashes: '25e77734', shapes: '6/138/323', rejoinTick: 10770 });
+  }, 240000);
+
+  it('runs the attack shapes S2 (HELD_START: Hearth Stream, Searchlight Sweep) in sync, and a mid-wave rejoin lands on the run', () => {
+    const r = runHeldBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(r.checkpoints).toBeGreaterThanOrEqual(15);
+    const [stream, sweep] = r.held.split('/').map(Number);
+    expect(stream).toBeGreaterThan(0);
+    expect(sweep).toBeGreaterThan(0);
+    expect(r.rejoinTick).toBeGreaterThan(0);
+    expect(r.rejoinSame).toBe(true);
+    expect(runHeldBattle().final).toBe(r.final);
+    // pinned when the battle was added (feature/attack-held, S2 data fitted on both rulers); hashes 'dbbdef4d' → 'd38011ff'
+    // when hashSim began folding t.ch.px (gear Pierce, review fix): the battle itself is the same (same final). Change
+    // only with a deliberate sim / data change, and say why.
+    // Re-pinned Oct 30 (Blade Cyclone never below her aimed volley; Umeko ×1.10, Hotaru ×1.04): was 28655 / 4139458384 / 89dbb28e / 4148/881 (Umeko's row).
+    // Re-pinned Oct 30 (Akane's Inferno Queen stream half 45 → 55 steps, 67.5° → 82.5° per side, a 165° cone: from a corner
+    // her 2-5-0 crowd read ×0.92 of live):
+    // the same loss, wave, ticks, coins and rejoin; final 2141733565 → 844707250, hashes b8a0c27c → 322c2f61, held
+    // 4147/879 → 4167/873 (her wider cone reaches a few more of the stream)
+    expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, held: r.held, rejoinTick: r.rejoinTick })
+      .toEqual({ ticks: 28550, state: 'lost', wave: 16, wallets: '615/669', final: 2944925512, hashes: 'bb4ef3ec', held: '4193/867', rejoinTick: 5564 });
+  }, 240000);
+
+  it('runs the attack shapes S3 (GROUND_START: Bramble Road, Rising Spikes, Ripple Quake) in sync, and a mid-wave rejoin lands on the run', () => {
+    const r = runGroundBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(r.checkpoints).toBeGreaterThanOrEqual(15);
+    const [lash, spike, quake] = r.ground.split('/').map(Number);
+    expect(lash).toBeGreaterThan(0);
+    expect(spike).toBeGreaterThan(0);
+    expect(quake).toBeGreaterThan(50);
+    expect(r.kanna).toBeGreaterThanOrEqual(24);
+    expect(r.rejoinTick).toBeGreaterThan(0);
+    expect(r.rejoinSame).toBe(true);
+    expect(runGroundBattle().final).toBe(r.final);
+    // pinned when the battle was added (feature/attack-ground, S3 data fitted on both rulers); re-pinned at the S3 review
+    // (Kanna moved beside the road near the spawn after wave 1 so her rings reach a crowd: 3 → 110 ring hits; the girls at
+    // half damage; vines skip grounded flyers and walkers already held). Change only with a deliberate sim / data change,
+    // and say why.
+    expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, ground: r.ground, rejoinTick: r.rejoinTick })
+      .toEqual({ ticks: 19221, state: 'won', wave: 22, wallets: '1680/1797', final: 1123191764, hashes: 'a67ed6a8', ground: '27/669/54', rejoinTick: 8594 });
+  }, 240000);
+
+  it('runs the attack shapes S4 (LINKS_START: Homecoming Throw, Spirit Tether) in sync, and a mid-wave rejoin lands on the run', () => {
+    const r = runLinksBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(r.checkpoints).toBeGreaterThanOrEqual(15);
+    const [cut, caught, tied, shared] = r.links.split('/').map(Number);
+    expect(cut).toBeGreaterThan(500);
+    expect(caught).toBeGreaterThan(500);
+    expect(tied).toBeGreaterThan(20);
+    expect(shared).toBeGreaterThan(500);
+    expect(r.rejoinTick).toBeGreaterThan(0);
+    expect(r.rejoinSame).toBe(true);
+    expect(runLinksBattle().final).toBe(r.final);
+    // pinned when the battle was added (feature/attack-links, S4 data fitted on both rulers; the host's girls at tier 5,
+    // the guest's at tier 4: one girl per path at the final tier). Change only with a deliberate sim / data change, and say why.
+    // Re-pinned for Ena's spreading hex (was 24568 ticks / '714/714' / 2324168228 / 'd26468f3', links 2203/1347/87/1922):
+    // her curse rots and spreads, so the waves end sooner and fewer throws and tethers happen; every floor above holds
+    expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, links: r.links, rejoinTick: r.rejoinTick })
+      .toEqual({ ticks: 22360, state: 'won', wave: 22, wallets: '721/720', final: 3841699902, hashes: '5a228243', links: '2016/1213/84/1742', rejoinTick: 5834 });
+  }, 240000);
+
+  it('runs the attack shapes S5a (S5A_START: Charm Wheel, Crescent Return, Bell Toll) in sync, and a mid-wave rejoin lands on the run', () => {
+    const r = runS5aBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(r.checkpoints).toBeGreaterThanOrEqual(15);
+    const [cres, charm, toll, rung] = r.s5a.split('/').map(Number);
+    expect(cres).toBeGreaterThan(300);
+    expect(charm).toBeGreaterThan(50);
+    expect(toll).toBeGreaterThan(20);
+    expect(rung).toBeGreaterThan(500);
+    expect(r.tiers).toBe('500 400 050 400 500 040');
+    expect(r.rejoinTick).toBeGreaterThan(0);
+    expect(r.rejoinSame).toBe(true);
+    expect(runS5aBattle().final).toBe(r.final);
+    // pinned when the battle was added (feature/attack-shapes-s5, S5a; the host's girls at tier 5, the guest's at tier 4:
+    // one girl per path at the final tier); re-pinned when Rei's crescent aimed at the densest line (Oct 30), and with S5b
+    // (Miko's mirror beam leads her wheel from its first target, attackBeam's t._lead; hashSim folds the S5b records).
+    // Change only with a deliberate sim / data change, and say why.
+    expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, s5a: r.s5a, rejoinTick: r.rejoinTick })
+      .toEqual({ ticks: 32044, state: 'won', wave: 22, wallets: '774/2868', final: 225825849, hashes: 'ad2a7fce', s5a: '1046/161/65/3077', rejoinTick: 8888 });
+  }, 240000);
+
+  it('runs the attack shapes S5b (S5B_START: Spore Mist, Static Web, Moonbeam Sweep) in sync, and a mid-wave rejoin lands on the run', () => {
+    const r = runS5bBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(r.checkpoints).toBeGreaterThanOrEqual(15);
+    const [mist, zap, moon, web] = r.s5b.split('/').map(Number);
+    expect(mist).toBeGreaterThan(1000);
+    expect(zap).toBeGreaterThan(100);
+    expect(moon).toBeGreaterThan(0);
+    expect(web).toBeGreaterThan(10);
+    expect(r.luna).toBeGreaterThanOrEqual(22);
+    expect(r.rejoinTick).toBeGreaterThan(0);
+    expect(r.rejoinSame).toBe(true);
+    expect(runS5bBattle().final).toBe(r.final);
+    // pinned when the battle was added (feature/attack-shapes-s5, S5b; the host's girls at tier 5 and Luna bought past
+    // Lv 22, the guest's at tier 4). Change only with a deliberate sim / data change, and say why.
+    expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, s5b: r.s5b, rejoinTick: r.rejoinTick })
+      .toEqual({ ticks: 20505, state: 'won', wave: 22, wallets: '1503/3037', final: 3246243139, hashes: '05f4af17', s5b: '9973/885/22/69', rejoinTick: 6734 });
+  }, 240000);
+
+  it('runs the gear sets (SET_START: every set\'s passive and set cap, super crits) in sync, its checkpoint replaying', () => {
+    const r = runSetBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(r.cleared).toBe(14);
+    // every passive ran: Right Angle, Confetti Burst and Big Cheer as tricks, crit over 100 % as super crits, You're It
+    // on hit enemies, Bake Sale's coins, Supercharge's lance
+    for (const k of ['aoi:rightAngle', 'hana:confetti', 'noa:cheer']) expect(r.sets, k).toMatch(new RegExp(`${k}=[1-9]`));
+    expect(r.superCrits).toBeGreaterThan(0);
+    expect(r.itHits).toBeGreaterThan(0);
+    expect(r.baked).toBeGreaterThan(0);
+    expect(r.byId).toMatch(/seiran\.stormLance [1-9]/);
+    expect(r.ckWave).toBe(8);
+    expect(r.ckSame).toBe(true);
+    expect(r.checkpoints).toBeGreaterThan(100);
+    expect(runSetBattle().final).toBe(r.final);
+    // pinned when the scenario landed (GEAR_UPDATE.md M2 review): change only with a deliberate sim / data change, and say why
+    // Re-pinned for release v0.1.66 (the merged tree: round 5 with the shapes S1–S5, Ena's spreading curse, Iroha's
+    // mirrors and the gear update, COOP_PROTOCOL 14): SET_START now runs on Hard with Ruri and Aoi nearest Noa (scriptedBattle.js: on Normal the merged
+    // kits killed everything before Aoi's and Ruri's spots, so Right Angle and Bake Sale never ran); every passive runs
+    // (re-pinned for fix/iroha-stun-clump: Iroha's tier data and Auto rows; the same battle, new digests)
+    // Re-pinned for release v0.1.67 (COOP_PROTOCOL 15 with fix/iroha-stun-clump merged): the COOP 15 battle, new digests only
+    // (re-pinned for fix/suzu-azami-boss: the snapshot digests fold each girl's derived bossBellSpec and, where a boss met
+    // Suzu, the bells set for it; ticks, wallets, lives, final, hashes and casts are unchanged)
+    expect({ ticks: r.ticks, wallets: r.wallets, lives: r.lives, final: r.final, hashes: r.hashes, sets: r.sets, superCrits: r.superCrits, itHits: r.itHits, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
+      .toEqual({ ticks: 41940, wallets: '403/633', lives: 50, final: 2180355410, hashes: 'aab6c70f', sets: 'aoi:rightAngle=13 hana:confetti=14 noa:cheer=30', superCrits: 71, itHits: 943, ckDigest: '5295abaa', finalDigest: 'ec2ca15b' });
   }, 240000);
 
   it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {
@@ -302,7 +543,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // pinned when the battle was added (v0.1.41: Marumi's rework with the lob for flyers only and the
     // Heavy Ball share tune). Change only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, bowl: r.bowl })
-      .toEqual({ ticks: 72006, state: 'wave', wave: 26, wallets: '7258/6667', final: 821407225, hashes: '018423c4', bowl: '659/397/7/0' });
+      .toEqual({ ticks: 71202, state: 'wave', wave: 27, wallets: '8228/7637', final: 123658824, hashes: '13e9dd3f', bowl: '716/441/8/0' });
   }, 240000);
 
   it('runs the duo Kohaku & Tsubaki (DUO_START: Refraction, Kohaku\'s beam, Prismfall on Auto-cast, the host\'s LR Twin Star) in sync', () => {
@@ -326,8 +567,15 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // hashes 8b361ee7 → baad978d, duo 273/1262/388/… → 274/1266/616/… (a lock-on and every 1.5 s held: Kohaku's clip)
     // Re-pinned Oct 29 for the Oct 29 duo buff (base +25%, the LR form ×1.1 and her long beam: the host's duo is LR):
     // the battle ends sooner, ticks 44656 → 39421, final 1485318803 → 1647005069, hashes baad978d → f97c7537.
+    // Re-pinned Oct 30 for the map-wide laser (the host's LR duo: a free beam locks on anywhere, her line runs edge to
+    // edge, × PRISM_EDGE_MUL_LR past her short beam, her LR row × bosses): the battle ends sooner, ticks 37736 → 31940,
+    // final 3211732776 → 3125619877, hashes e4374577 → 2ac47ed2, duo 244/1117/437/22/9/1 → 220/998/700/19/10/1. Then her LR
+    // row ×1.05 damage (the LR floor): ticks 31940 → 32000, final 1109559171, hashes 5d0756a0, duo 218/989/653/19/10/1.
+    // Then her non-LR row ×1.01 → ×1.12 (the final review round 2: Starfall at L40 beside Umeko + Midori): the same win,
+    // wave, tiers and wallets; ticks 32000 → 31481, final 3811873204, hashes 34873e79, duo 216/981/640/19/10/1 (at ×1.11,
+    // never shipped: ticks 32059, final 2156742882, hashes fbdae582).
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, tiers: r.tiers, wallets: r.wallets, final: r.final, hashes: r.hashes, duo: r.duo })
-      .toEqual({ ticks: 39421, state: 'won', wave: 22, tiers: '004 023 000 000', wallets: '3357/3772', final: 1647005069, hashes: 'f97c7537', duo: '251/1153/498/24/9/1' });
+      .toEqual({ ticks: 30980, state: 'won', wave: 22, tiers: '004 023 000 000', wallets: '3357/3772', final: 1057973614, hashes: '186a7e7f', duo: '216/979/650/19/10/1' });
   }, 240000);
 
   it('runs Tenka\'s LR form (TENKA_LR_START: Critical Mass · Event Horizon\'s pull and second detonation on the host\'s LR Tenka, the guest\'s without) in sync', () => {
@@ -343,8 +591,14 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.tiers.split(' ')[0]).toBe('050'); // the host's LR Tenka reached Zero Point (Event Horizon on the tier-5 blast)
     expect(runTenkaLrBattle().final).toBe(r.final);
     // pinned when the battle was added (Tenka's LR form, Oct 29). Change only with a deliberate sim / data change, and say why.
+    // Re-pinned Oct 30 for the LR rows (src/data/balance.js LR_POWER: the host's LR Tenka × bosses): the same waves,
+    // ticks and coins; final 747075865 → 2042327016, hashes 8ab4dbef → c121be7a, horizon 3/2/2/3 → 3/2/2/2.
+    // Re-pinned Oct 30 for the LR premium (Rail Arms tier 5 ×1.7 while LR): final 2042327016 → 1684999597, hashes c121be7a →
+    // b70575f5, wallets 1730/6014 → 1731/6015 (the same waves and ticks).
+    // Re-pinned Oct 30 for the LR bar (Rail Arms tier 5 ×1.7 → ×3.5 while LR): hashSim only, b70575f5 → 74403ee3 (the
+    // same waves, ticks, coins, final and Event Horizon counts: her bolts already took what they hit).
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, tiers: r.tiers, wallets: r.wallets, final: r.final, hashes: r.hashes, horizon: r.horizon })
-      .toEqual({ ticks: 47644, state: 'won', wave: 26, tiers: '050 030 000 000', wallets: '1709/5994', final: 3127393822, hashes: 'e2b30df2', horizon: '3/2/2/3' });
+      .toEqual({ ticks: 43031, state: 'won', wave: 26, tiers: '050 030 000 000', wallets: '1731/6015', final: 1684999597, hashes: '74403ee3', horizon: '3/2/2/2' });
   }, 240000);
 
   it('runs the staff heroes (STAFF_START: Norika\'s barricades and Hold the Line on a forked map, Kogane\'s plow and Moves) in sync', () => {
@@ -363,7 +617,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Re-pinned the same day (final review): Hold the Line now casts only during a wave (a calm point holds no lines),
     // and the host casts it in waves only (ultInWave).
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, staff: r.staff, heroLevels: r.heroLevels })
-      .toEqual({ ticks: 49465, state: 'won', wave: 20, wallets: '778/268', final: 3094781041, hashes: '8552ea5e', staff: '1082/21/32/0/0/15/28', heroLevels: '21/24' });
+      .toEqual({ ticks: 46512, state: 'won', wave: 20, wallets: '698/147', final: 3626508157, hashes: 'd9be6998', staff: '753/14/32/0/0/13/25', heroLevels: '21/24' });
   }, 240000);
 
   it('hashes the freeplay wave tables of every stage and tier', () => {

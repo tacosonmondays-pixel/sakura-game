@@ -10,6 +10,9 @@ import { addStrip, roadSpots, endStripWave, spikeRain } from '../../src/sim/stri
 import { aimMode } from '../../src/sim/towers.js';
 import { potentialFold } from '../../src/data/potential.js';
 import { MAP, MAP2, STAGE, ENEMIES } from './fixtures.js';
+import { POWER } from '../../src/data/balance.js';
+
+const AZ_POWER = POWER.azami?.dmg ?? 1;
 
 const units = defaultData().units;
 const AZ = units.azami;
@@ -357,21 +360,22 @@ describe('her blasts scale with her, and strips can crit', () => {
   test('+50% ATK: Charged Strips\' blast ×1.5 exactly; Detonation Line\'s 300 × her damage multiplier', () => {
     const base = setupWith({}, { tiers: [4, 0, 0] });
     const atk = setupWith({ damageMul: 1.5 }, { tiers: [4, 0, 0] });
-    expect(base.t.stats.strip.boom).toBe(40);
-    expect(atk.t.stats.strip.boom).toBe(60);
-    expect(atk.t.stripBoomSpec.damage).toBe(base.t.stripBoomSpec.damage * 1.5);
+    // (× her balance round 5 row, src/data/balance.js: AZ_POWER)
+    expect(base.t.stats.strip.boom).toBeCloseTo(40 * AZ_POWER, 9);
+    expect(atk.t.stats.strip.boom).toBeCloseTo(60 * AZ_POWER, 9);
+    expect(atk.t.stripBoomSpec.damage).toBeCloseTo(base.t.stripBoomSpec.damage * 1.5, 9);
     // her strips scaled before; they still do, the same way
-    expect(atk.t.trapSpec.damage).toBe(base.t.trapSpec.damage * 1.5);
+    expect(atk.t.trapSpec.damage).toBeCloseTo(base.t.trapSpec.damage * 1.5, 9);
     for (const mul of [1, 1.5, 2.37, 4.1]) {
       const d = setupWith({ damageMul: mul }, { tiers: [5, 0, 0] });
-      expect(d.t.stats.strip.boom, `×${mul}`).toBe(300 * mul);
-      expect(d.t.stripBoomSpec.damage).toBe(300 * mul);
+      expect(d.t.stats.strip.boom, `×${mul}`).toBeCloseTo(300 * mul * AZ_POWER, 9);
+      expect(d.t.stripBoomSpec.damage).toBeCloseTo(300 * mul * AZ_POWER, 9);
     }
     // Potential's whole-girl damage step reaches the blast like it reaches her strips (the same multiplier)
     const pot = setupWith({ potential: 6 }, { tiers: [5, 0, 0] });
     const pmul = potentialFold(units.azami, 6).damageMul;
     expect(pmul).toBeGreaterThan(1);
-    expect(pot.t.stats.strip.boom).toBeCloseTo(300 * pmul, 9);
+    expect(pot.t.stats.strip.boom).toBeCloseTo(300 * pmul * AZ_POWER, 9);
     expect(pot.t.stats.trap.damage).toBeCloseTo(setupWith({}, { tiers: [5, 0, 0] }).t.stats.trap.damage * pmul, 9);
     // the stripless girls are untouched: Suzu's trap block has no blast
     expect(units.suzu.base.strip).toBeUndefined();

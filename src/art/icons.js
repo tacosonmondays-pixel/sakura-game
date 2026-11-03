@@ -16,13 +16,20 @@ import { n, lighten, darken, linGrad, starPoints, blossom, slug } from './svgUti
 import { GLYPHS, glyphSVG } from './icons/glyphs.js';
 import {
   icon64, materialBody, bookBody, crownBody, diceBody, starFragmentBody, gearboxBody, ticketBody,
-  coinBody, gemBody, recruitPointsBody, tokenBody, gearBody, eventCurrencyBody, gearBodyUR, rainbowSeedBody, needleBody, armbandBody,
+  coinBody, gemBody, recruitPointsBody, tokenBody, gearBody, eventCurrencyBody, gearBodyUR, rainbowSeedBody, needleBody, armbandBody, gearPinBody, lensBody,
 } from './icons/items.js';
 import { eventOfItem } from '../data/events/index.js';
 import { ASCENSION_ICON_BODIES } from './icons/ascension.js';
 import { ITEM_ART, ITEM_ART_SMALL } from './itemArt.js';
 import { artUrl } from './portraits.js';
-import { TRAITS, ROLES, ROLE_CATEGORIES, ATTACK_TYPES, ARMOR_CLASSES, CAPABILITIES, ELEMENTS, STATUSES, MATERIAL_FAMILIES, ITEM_RARITIES, GEAR_SLOTS, DIFFICULTIES } from '../data/types.js';
+import { TRAITS, ROLES, ROLE_CATEGORIES, ATTACK_TYPES, ARMOR_CLASSES, CAPABILITIES, ELEMENTS, STATUSES, MATERIAL_FAMILIES, ITEM_RARITIES, DIFFICULTIES } from '../data/types.js';
+import { ROLL_SLOTS, SLOT_IDS } from '../data/gearSlots.js';
+
+/** Slots with baked gear art: all five (tools/blender/items; tests/art/itemArt.test.js keeps every key baked). */
+const ART_SLOTS = SLOT_IDS;
+/** Slots with a drawn SVG of their own; the Hair Clip and the Necklace draw the charm's (only on a failed image load). */
+const DRAWN_SLOTS = ROLL_SLOTS;
+const drawnSlot = (slot) => (DRAWN_SLOTS.includes(slot) ? slot : 'charm');
 
 // ---------------------------------------------------------------------------------
 // Items
@@ -36,6 +43,9 @@ const SPECIAL_ITEMS = {
   seed_rainbow: rainbowSeedBody,
   needle_star: needleBody,
   club_band: armbandBody,
+  tie_pin: () => gearPinBody('tie'),
+  collar_pin: () => gearPinBody('collar'),
+  lens_nightglass: lensBody,
   star_fragment: starFragmentBody,
   ticket_recruit: () => ticketBody('ticket_recruit'),
   ticket_recruit10: () => ticketBody('ticket_recruit10'),
@@ -59,10 +69,15 @@ function itemBody(itemId) {
   if (m && MATERIAL_FAMILIES[m[1]] && ITEM_RARITIES[m[2]]) return materialBody(m[1], m[2]);
   m = /^book_([a-zA-Z]+)$/.exec(id);
   if (m && ITEM_RARITIES[m[1]]) return bookBody(m[1]);
+  // Set Boxes (the gear update): baked art of their own; drawn as the gear box of their rarity on a failed image load
+  // (Set Boxes v2: either kind, `setbox_<set>_<rarity>[_random]`; a UR box draws the Rainbow Gear Box)
+  m = /^setbox_[a-z]+_([a-zA-Z]+)(?:_random)?$/.exec(id);
+  if (m && m[1] === 'ur') return ASCENSION_ICON_BODIES.gearbox_rainbow();
+  if (m && ITEM_RARITIES[m[1]]) return gearboxBody(m[1]);
   m = /^gearbox_([a-zA-Z]+)$/.exec(id);
   if (m && ITEM_RARITIES[m[1]]) return gearboxBody(m[1]);
   m = /^gear_([a-z]+)_([a-zA-Z]+)$/.exec(id);
-  if (m && GEAR_SLOTS[m[1]] && ITEM_RARITIES[m[2]]) return gearBody(m[1], m[2]);
+  if (m && ART_SLOTS.includes(m[1]) && ITEM_RARITIES[m[2]]) return gearBody(drawnSlot(m[1]), m[2]);
   return null;
 }
 
@@ -80,13 +95,20 @@ export function itemIconSVG(itemId) {
 
 /** The drawn SVG of a gear piece: charm pendant, ribbon or shoes tinted by rarity; `ur` = the rainbow UR art. */
 function gearIconSVG(slot, rarity, ur) {
-  return icon64(ur && rarity === 'legendary' ? gearBodyUR(slot) : gearBody(slot, rarity));
+  const d = drawnSlot(slot);
+  return icon64(ur && rarity === 'legendary' ? gearBodyUR(d) : gearBody(d, rarity));
 }
 
-/** Art key of a gear piece: `gear_<slot>_<rarity>`, or `gear_<slot>_ur` for the awakened UR piece. */
-export function gearArtKey(slot, rarity = 'common', { ur = false } = {}) {
-  const s = GEAR_SLOTS[slot] ? slot : 'charm';
+/**
+ * Art key of a gear piece: `gear_<slot>_<rarity>`, or `gear_<slot>_ur` for the awakened UR piece. With `set` (the
+ * piece's gear set id: SET_IDS of the gear update's src/data/gearSets.js; absent = No set; never the club), the set's
+ * own look `gear_<set>_<slot>` when it is baked (one look per set and slot, rarity on the tile: tools/blender/items
+ * catalog.GEAR_SETS), else the default look.
+ */
+export function gearArtKey(slot, rarity = 'common', { ur = false, set = null } = {}) {
+  const s = ART_SLOTS.includes(slot) ? slot : 'charm';
   const r = ITEM_RARITIES[rarity] ? rarity : 'common';
+  if (set && ITEM_ART[`gear_${set}_${s}`]) return `gear_${set}_${s}`;
   return `gear_${s}_${ur && r === 'legendary' ? 'ur' : r}`;
 }
 
@@ -127,8 +149,9 @@ export function preloadSmallItemArt() {
 
 /** The drawn SVG for any art key (the error fallback the UI swaps in): items, gear keys, recruitPoints. */
 export function itemArtSVG(key) {
-  const m = /^gear_([a-z]+)_([a-zA-Z]+)$/.exec(String(key));
-  if (m && GEAR_SLOTS[m[1]]) return m[2] === 'ur' ? gearIconSVG(m[1], 'legendary', true) : gearIconSVG(m[1], ITEM_RARITIES[m[2]] ? m[2] : 'common', false);
+  const m = /^gear_([a-z0-9]+)_([a-zA-Z]+)$/.exec(String(key));
+  if (m && !ART_SLOTS.includes(m[1]) && ART_SLOTS.includes(m[2])) return gearIconSVG(m[2], 'superRare', false); // a set look gear_<set>_<slot>
+  if (m && ART_SLOTS.includes(m[1])) return m[2] === 'ur' ? gearIconSVG(m[1], 'legendary', true) : gearIconSVG(m[1], ITEM_RARITIES[m[2]] ? m[2] : 'common', false);
   return itemIconSVG(key);
 }
 
@@ -165,11 +188,14 @@ export function itemIcon(itemId, { px = 64 } = {}) {
   return withArt(String(itemId ?? ''), itemIconSVG(itemId), px);
 }
 
-/** Gear piece icon (charm pendant, ribbon, shoes) by rarity; `ur` = the rainbow UR art. px as in itemIcon. */
-export function gearIcon(slot, rarity = 'common', { ur = false, px = 64 } = {}) {
-  const key = gearArtKey(slot, rarity, { ur });
-  const [, s, r] = /^gear_([a-z]+)_([a-zA-Z]+)$/.exec(key);
-  return withArt(key, r === 'ur' ? gearIconSVG(s, 'legendary', true) : gearIconSVG(s, r, false), px);
+/**
+ * Gear piece icon (charm pendant, ribbon, shoes) by rarity; `ur` = the rainbow UR art; `set` = the piece's gear set
+ * id (its set look when baked, see gearArtKey; never the club). px as in itemIcon. The drawn fallback is always the
+ * piece's own slot and rarity.
+ */
+export function gearIcon(slot, rarity = 'common', { ur = false, px = 64, set = null } = {}) {
+  const [, s, r] = /^gear_([a-z]+)_([a-zA-Z]+)$/.exec(gearArtKey(slot, rarity, { ur }));
+  return withArt(gearArtKey(slot, rarity, { ur, set }), r === 'ur' ? gearIconSVG(s, 'legendary', true) : gearIconSVG(s, r, false), px);
 }
 
 /**

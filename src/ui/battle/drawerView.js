@@ -6,7 +6,7 @@
 //   drawerStats(t, st, o)          the stat row: the role's 3 headline stats (+ PIERCE where she pierces)
 //   gearPierce(t, st)              her gear Pierce % where it adds targets (shots, beams, drones, Kaede's blade), else 0
 //   targetView(t, st, o)           FIRST · LAST · STRONG · CLOSE (+N: PRIORITY, AIR) or Azami's strip chips
-//   aimView(t, mode, o)            AUTO · SET AIM for mortar / mirror girls
+//   aimView(t, mode, o)            AUTO · SET AIM for mortar girls; AUTO · PLACE · 1…5 for Iroha's mirrors
 //   pathRowView(def, tiers, i, st, o)  one path row: edge colour, tier line, pips, price / lock / holder / MAX
 //   createBuyArm({ ms, now })      the two-tap buy: tap 1 arms (expands the row), tap 2 buys; disarms after 2.6 s
 //   footerView(spent, value, o)    INVESTED n · SELL +n (two-tap confirm)
@@ -22,14 +22,23 @@ import { effectParts, tierTags, UPGRADE_TAGS, TRANSFORM_TAG } from '../upgradeTa
 import { TARGET_MODES } from '../../data/types.js';
 import { pathCap } from './rules.js';
 
-/** The upgrade paths' edge colours (VAULT_BRIEF §2.4: 1 #ff5d7a, 2 #3b8cff, 3 #9b6bff). */
-export const PATH_COLORS = Object.freeze(['#ff5d7a', '#3b8cff', '#9b6bff']);
+/**
+ * The upgrade paths' edge colours, one set with the battle board's path looks (owner decision, path looks r1; VAULT_BRIEF
+ * §2.4 now reads 1 #ff6b8b pink, 2 #4cc9f0 cyan, 3 #ffd43b yellow): the drawer's edge and pips match the pips and pieces
+ * under the girl (src/render/pathLooks PATH_COLORS).
+ */
+export const PATH_COLORS = Object.freeze(['#ff6b8b', '#4cc9f0', '#ffd43b']);
 /** The four target chips always shown (owner default Q5: 4 chips + an overflow chip, "⋯"). */
 export const TARGET_CHIPS = Object.freeze(['first', 'last', 'strong', 'close']);
 /** The modes behind the overflow chip "⋯" (Air only for a girl who hits flyers). */
 export const TARGET_EXTRA = Object.freeze(['elite', 'air']);
-/** Behaviours that pick a target (the rest have no target row). */
-export const TARGETABLE = new Set(['projectile', 'beam', 'chain', 'duel', 'turret']);
+/**
+ * Behaviours that pick a target (the rest have no target row). The attack shapes: a Blossom Wheel aims her toss coins
+ * by target mode, a held stream or sweep locks her enemy by it, a Rising Spikes row rises under it (src/sim/wheels.js,
+ * held.js, ground.js), a Homecoming Throw's fans fly at her targets (links.js); a Pinwheel Stream does
+ * not (its arms take the first enemy they find), so 'spin' has none.
+ */
+export const TARGETABLE = new Set(['projectile', 'beam', 'chain', 'duel', 'turret', 'wheel', 'stream', 'sweep', 'spikes', 'return']);
 /** How long tap 1 keeps a price button armed (the Sell confirm uses the same). */
 export const BUY_ARM_MS = 2600;
 /** At most this many numbers in one drawer section (UI_DIRECTION P3; Q6 budgets each section). */
@@ -61,13 +70,17 @@ export function hitDamage(st) {
 
 /**
  * Her gear Pierce in % where it gives her extra targets (towers.js shotPierce, bladeArts, drones): a shot without splash,
- * a beam, her drones, Kaede's blade. 0 for traps, strips, a duel without a blade, blasts, pulses and chains: there it
- * widens the blast (mods.js applyGearReach), adds pulse hits or one more jump, never a pierced enemy.
+ * a beam, her drones, Kaede's blade, a wheel's or spin's shots, a spike row's spikes. 0 for traps, strips, a duel without a blade, blasts, pulses, held shapes and chains:
+ * there it widens the blast (mods.js applyGearReach), adds pulse hits or a held stream's / sweep's victims (src/sim/held.js)
+ * or one more jump, never a pierced enemy.
  */
 export function gearPierce(t, st) {
   const k = Math.round(t?.unitStats?.pierceK || 0);
   const b = st?.behavior;
-  const extra = b === 'beam' || b === 'turret' || !!st?.turret || (b === 'projectile' && !(st.splash > 0)) || (b === 'duel' && !!t?.eff?.blade);
+  // (the attack shapes: a Blossom Wheel's and a Pinwheel Stream's shots pierce more, a Rising Spikes row grows a spike per 100 %,
+  // a Homecoming Throw's fans cut more each way)
+  const extra = b === 'beam' || b === 'turret' || !!st?.turret || (b === 'projectile' && !(st.splash > 0)) || (b === 'duel' && !!t?.eff?.blade)
+    || b === 'wheel' || b === 'spin' || b === 'spikes' || b === 'return';
   return k > 0 && extra ? k : 0;
 }
 
@@ -169,9 +182,31 @@ export function targetView(t, st, { expanded = false, aiming = false, aimMode = 
   return { kind: 'target', label: 'TARGET', chips: [...chips, ...inUse.map(chip)], more: hidden.length, moreNames: hidden.map((m) => TARGET_MODES[m] || m) };
 }
 
-/** The aim row of a mortar / mirror girl (an aimed hero ult too): Auto · Set aim. Null for others and Azami. */
-export function aimView(t, mode, { aiming = false } = {}) {
+/**
+ * The aim row of a mortar / mirror girl (an aimed hero ult too): Auto · Set aim. Null for others and Azami. Iroha's
+ * mirror network (docs/specs/IROHA_MIRRORS.md §8): AUTO · PLACE (each tap places the next mirror) and one numbered chip
+ * per mirror (a tap re-places that one; `placed` when her player set it), with the count ("3/3 · 2 placed").
+ * `slot`: the mirror being placed now (-1: none).
+ */
+export function aimView(t, mode, { aiming = false, slot = -1 } = {}) {
   if (!mode || mode === 'checkpoint') return null;
+  if (mode === 'mirror' && t.mirrors) {
+    const n = t.mirrors.length;
+    const placed = t.mirrors.map((_, k) => !!t.mirrorAim?.[k]);
+    const count = placed.filter(Boolean).length;
+    return {
+      label: 'MIRRORS',
+      count: `${n} · ${count ? `${count} placed` : 'auto'}`,
+      chips: [
+        { mode: 'auto', label: 'AUTO', on: !count && !aiming, title: 'She spreads her mirrors along the road herself', testid: 'aim-auto' },
+        { mode: 'set', label: aiming && slot >= 0 ? 'TAP MAP…' : 'PLACE', on: aiming, title: 'Tap the map once for each mirror, in order', testid: 'aim-set' },
+      ],
+      slots: placed.map((p, k) => ({
+        k, label: String(k + 1), on: aiming && slot === k, placed: p, testid: `mirror-chip-${k}`,
+        title: `Mirror ${k + 1}${p ? ' (placed)' : ' (auto)'}: tap, then tap the map`,
+      })),
+    };
+  }
   return {
     label: mode === 'mirror' ? 'MIRROR' : 'AIM',
     chips: [
@@ -435,4 +470,55 @@ export function rowAir(spare, heights, tap) {
     }
   }
   return out;
+}
+
+/**
+ * Co-op sharing (docs/specs/COOP_SHARING.md §3.5): the row at the bottom of a girl's drawer that lends her, takes her
+ * back or hands her back. Pure: the drawer draws it.
+ * @param {{ me: number, owner: number, ctrl: number, kind?: 'lend'|'deal'|null, isHero?: boolean, lab?: boolean,
+ *   run?: boolean, ended?: boolean, wave?: boolean, allyHere?: boolean, ctrlGone?: boolean, ownerGone?: boolean,
+ *   allyName?: string, ownerName?: string, ctrlName?: string, armed?: boolean }} o
+ * @returns {null|{ kind: 'lend'|'lentOut'|'lentIn', line: string, button: string|null, act: 'lend'|'back'|'give'|null,
+ *   disabled: boolean, hint: string|null }}
+ */
+export function shareRowView(o) {
+  const ended = !!o.ended;
+  if (o.isHero) return null;
+  // my own girl with me: lend her to my ally (two taps, like a buy)
+  if (o.owner === o.me && o.ctrl === o.me) {
+    if (ended || o.run || o.lab || !o.allyHere) return null;
+    return {
+      kind: 'lend', line: o.armed ? `Lend her to ${o.allyName}? They give her orders and pay for her upgrades.` : `${o.allyName} can play her for you`,
+      button: o.armed ? 'Tap to lend' : `Lend to ${o.allyName}`, act: 'lend', disabled: false, hint: null,
+    };
+  }
+  // mine, with my ally: take her back between waves (at once when they are gone)
+  if (o.owner === o.me && o.ctrl !== o.me) {
+    const early = !!o.wave && !o.ctrlGone;
+    return {
+      kind: 'lentOut', line: `Lent to ${o.ctrlName}`, button: ended ? null : 'Take back', act: ended ? null : 'back',
+      disabled: early, hint: early ? 'Between waves' : null,
+    };
+  }
+  // someone else's girl that I command: lent to me (hand her back any time) or handed over when they left
+  if (o.ctrl === o.me && o.owner !== o.me) {
+    const dealt = o.kind === 'deal';
+    const canGive = !ended && !o.ownerGone;
+    return {
+      kind: 'lentIn', line: dealt ? `${o.ownerName}'s girl · yours while they are away` : `Lent by ${o.ownerName}`,
+      button: canGive ? 'Give back' : null, act: canGive ? 'give' : null, disabled: false, hint: null,
+    };
+  }
+  return null;
+}
+
+/** The read-only note on a girl another player commands: their name (her controller's), and whose she is when lent. */
+export function sharedAllyNote(ctrlName, ownerName, { wide = true, mine = false } = {}) {
+  if (mine) {
+    const title = `Your girl, lent to ${ctrlName} — they give her orders now. Take her back between waves.`;
+    return { text: wide ? title : `Lent to ${ctrlName} · view only`, title };
+  }
+  if (!ownerName || ownerName === ctrlName) return allyNoteText(ctrlName, { wide });
+  const title = `${ownerName}'s girl, with ${ctrlName} now — only ${ctrlName} can upgrade, retarget or sell her.`;
+  return { text: wide ? title : `With ${ctrlName} · view only`, title };
 }

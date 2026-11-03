@@ -158,12 +158,13 @@ export const CATALOG = [
   A('academy', 'a_ach_75', 'Hall of Fame', 'Claim 75 achievements.', 'achievementsClaimed', null, 75, 4, [g(100), R()], 'LIVE', { series: 'ach', honor: hr(26, 'Hall of Fame Ribbon', 'shiny', 'trophy'), title: tt('Hall of Famer', 'gold') }),
 
   // ------------------------------------------------------------------ Secrets (??? + hint until met; never a special ribbon)
+  // Cosmetics 2 (Oct 30): every secret gives a cosmetic; a_first_petals and a_room_view also give a frame (profileArt.js)
   A('secret', 'a_first_petals', 'Where It All Began', 'Earn all four medals on stage 1-1.', 'stageMedals', '1-1', 4, 0, [it('book_superRare', 2)], 'LIVE', { hidden: true, hint: 'Go back to the very first stage…', honor: hr(11, 'First Petal Ribbon', 'plain', 'bud') }),
-  A('secret', 'a_close_call', 'By a Petal', 'Win a battle with exactly 1 life left (one-life battles don\'t count).', 'counter', 'ach:closeCall', 1, 0, [O()], 'NEW', { hidden: true, hint: 'Cutting it close is fine… once.', title: tt('Cool Under Pressure') }),
+  A('secret', 'a_close_call', 'By a Petal', 'Win a battle with exactly 1 life left (one-life battles don\'t count).', 'counter', 'ach:closeCall', 1, 0, [O()], 'NEW', { hidden: true, hint: 'Cutting it close is fine… once.', title: tt('Cool Under Pressure'), honor: hr(38, 'Last Bell Ribbon', 'plain', 'bell') }),
   A('secret', 'a_room_view', 'Room with a View', 'Pick a lobby background for one of your girls.', 'lobbyBgs', null, 1, 0, [it('coins', 5000)], 'LIVE', { hidden: true, hint: 'The lobby could use a new look…' }),
-  A('secret', 'a_gold_rush', 'Gold Rush', 'Defeat 500 Gold Slimes.', 'enemyKills', 'slime_gold', 500, 0, [it('coins', 50000)], 'LIVE', { hidden: true, hint: 'Some slimes sparkle more than others.' }),
-  A('secret', 'a_not_fooled', 'Not Fooled!', 'Defeat 100 Mimic Slimes.', 'enemyKills', 'slime_mimic', 100, 0, [O()], 'LIVE', { hidden: true, hint: 'That slime looks a little too familiar…' }),
-  A('secret', 'a_mirror_mirror', 'Mirror, Mirror', 'Defeat the Mirror Queen 25 times.', 'enemyKills', 'fae_queen', 25, 0, [O(), it('dice_prism')], 'LIVE', { hidden: true, hint: 'Who is the bravest of them all?' }),
+  A('secret', 'a_gold_rush', 'Gold Rush', 'Defeat 500 Gold Slimes.', 'enemyKills', 'slime_gold', 500, 0, [it('coins', 50000)], 'LIVE', { hidden: true, hint: 'Some slimes sparkle more than others.', honor: hr(39, 'Lucky Coin Ribbon', 'plain', 'coin') }),
+  A('secret', 'a_not_fooled', 'Not Fooled!', 'Defeat 100 Mimic Slimes.', 'enemyKills', 'slime_mimic', 100, 0, [O()], 'LIVE', { hidden: true, hint: 'That slime looks a little too familiar…', honor: hr(40, 'Keen Eye Ribbon', 'plain', 'lens') }),
+  A('secret', 'a_mirror_mirror', 'Mirror, Mirror', 'Defeat the Mirror Queen 25 times.', 'enemyKills', 'fae_queen', 25, 0, [O(), it('dice_prism')], 'LIVE', { hidden: true, hint: 'Who is the bravest of them all?', honor: hr(41, 'Looking-Glass Ribbon', 'plain', 'mirror'), title: tt('Bravest of Them All') }),
 
   // ------------------------------------------------------------------ Codex modes (rows ship WITH the Codex release)
   A('codex', 'a_mr_1', 'Trying Something New', 'Earn your first mode ribbon.', 'ribbonsTotal', null, 1, 1, [g(20), it('dice_reroll')], 'CX', { series: 'mr' }),

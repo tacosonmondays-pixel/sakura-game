@@ -5,19 +5,22 @@ import { createProfile, migrateProfile, serializeProfile, deserializeProfile, SA
 import {
   eventWindow, eventPhase, featuredEvent, eventStageStatus, eventState, trackEvent, missionRows, claimEventMission,
   claimAllEventMissions, buyEventOffer, shopRows, episodeRows, readEpisode, markEventLogin, cleanEvents, eventCosmetics,
-  loginRows,
+  loginRows, windowText, settleEvents, eventSweepsLeft,
 } from '../../src/systems/events.js';
 import { applyBattleResult, sweep, canSweep } from '../../src/systems/rewards.js';
 import { EVENT_MAP } from '../../src/data/events/index.js';
 import { createRng } from '../../src/core/rng.js';
 import { itemCount } from '../../src/systems/inventory.js';
+import { mailList, claimMail } from '../../src/systems/mail.js';
+import { chicagoParts, gameDayEnd } from '../../src/core/reset.js';
 
 const EV = EVENT_MAP['halloween-2026'];
 const CANDY = 'evt_halloween_candy';
 const T = (iso) => Date.parse(iso);
 const OPEN = T('2026-10-20T00:00:00Z'); // opens at ship (owner, Oct 20): game day 2026-10-20, Mon Oct 19 7 PM CDT
-const END = T('2026-11-02T01:00:00Z');
-const XEND = T('2026-11-09T01:00:00Z');
+// extended two weeks (owner, Oct 30): Sun Nov 15 and Sun Nov 22, 7 PM CST (was Nov 2 / Nov 9 01:00Z)
+const END = T('2026-11-16T01:00:00Z');
+const XEND = T('2026-11-23T01:00:00Z');
 const MID = T('2026-10-25T18:00:00Z'); // Sun Oct 25 13:00 CDT
 
 /** A save that has cleared 1-5 (the event's unlock). */
@@ -33,8 +36,8 @@ describe('window and phases (ES-1, ES-2)', () => {
   it('the window instants on the 7 PM Central clock', () => {
     const w = eventWindow(EV);
     expect(new Date(w.startAt).toISOString()).toBe('2026-10-20T00:00:00.000Z');
-    expect(new Date(w.endAt).toISOString()).toBe('2026-11-02T01:00:00.000Z');
-    expect(new Date(w.exchangeEndAt).toISOString()).toBe('2026-11-09T01:00:00.000Z');
+    expect(new Date(w.endAt).toISOString()).toBe('2026-11-16T01:00:00.000Z');
+    expect(new Date(w.exchangeEndAt).toISOString()).toBe('2026-11-23T01:00:00.000Z');
     // the tease days lie before the ship: nobody sees 'upcoming' (the earliest ship is Oct 20)
     expect(new Date(w.teaseAt).toISOString()).toBe('2026-10-17T00:00:00.000Z');
     expect(w.startAt).toBeLessThanOrEqual(T('2026-10-20T13:00:00Z'));
@@ -192,11 +195,11 @@ describe('missions, login gifts, exchange, episodes (ES-8, ES-9)', () => {
     expect(loginRows(p, EV).filter((r) => r.got).length).toBe(2);
   });
 
-  it('a 13-day window (open at ship): nine gifts, the last one says so, later days still count the Roll Call', () => {
+  it('a 27-day window (open at ship, extended two weeks): nine gifts, the last one says so, later days still count the Roll Call', () => {
     const p = joined();
     const DAY = 24 * 3600000;
     const days = Math.round((END - OPEN) / DAY);
-    expect(days).toBe(13); // Oct 20 … Nov 1 game days (the extra hour is the CST change)
+    expect(days).toBe(27); // Oct 20 … Nov 15 game days (the extra hour is the CST change)
     const sent = [];
     for (let d = 0; d < days; d++) {
       const at = OPEN + d * DAY + 18 * 3600000; // 1 PM Central-ish every game day
@@ -286,5 +289,133 @@ describe('save (ES-11)', () => {
     const restored = migrateProfile(dropped).events.byId['halloween-2026'];
     expect(restored.owned).toEqual(['title:ev_halloween_2026']);
     expect(restored.read).toEqual(['ev.halloween.01']);
+  });
+});
+
+describe('the two-week extension (owner, Oct 30: "Halloween extended 2 weeks")', () => {
+  const DAY = 24 * 3600000;
+  // US daylight time ends Nov 1: every instant below is CST (UTC−6)
+  const NOV10 = T('2026-11-10T18:00:00Z'); // Tue Nov 10, noon Central
+  const LAST_MINUTE = END - 60000; // Sun Nov 15, 6:59 PM Central
+  const XLAST_MINUTE = XEND - 60000; // Sun Nov 22, 6:59 PM Central
+  /** Episode 1 read and Operation 1 won on Nov 10. */
+  function playedNov10() {
+    const p = joined();
+    readEpisode(p, EV.id, 'ev.halloween.01', NOV10);
+    play(p, 'ev-halloween-1', NOV10);
+    return p;
+  }
+
+  it('the new ends are 7 PM Central on the game clock (CST after Nov 1), 14 days after the old ones', () => {
+    expect(END).toBe(gameDayEnd('2026-11-15'));
+    expect(XEND).toBe(gameDayEnd('2026-11-22'));
+    expect(END - gameDayEnd('2026-11-01')).toBe(14 * DAY);
+    expect(XEND - gameDayEnd('2026-11-08')).toBe(14 * DAY);
+    for (const fallback of [false, true]) { // Intl and the US-rule fallback agree
+      expect(chicagoParts(END, { fallback })).toMatchObject({ year: 2026, month: 11, day: 15, hour: 19, minute: 0, second: 0 });
+      expect(chicagoParts(XEND, { fallback })).toMatchObject({ year: 2026, month: 11, day: 22, hour: 19, minute: 0, second: 0 });
+      expect(chicagoParts(LAST_MINUTE, { fallback })).toMatchObject({ month: 11, day: 15, hour: 18, minute: 59 });
+      expect(chicagoParts(XLAST_MINUTE, { fallback })).toMatchObject({ month: 11, day: 22, hour: 18, minute: 59 });
+      expect(chicagoParts(NOV10, { fallback })).toMatchObject({ month: 11, day: 10, hour: 12, minute: 0 });
+    }
+    // the event page's dates and the copy
+    expect(windowText(EV)).toEqual({ dates: 'Oct 19 – Nov 15 · ends 7 PM Central', exchangeClose: 'Nov 22, 7 PM Central' });
+    const copy = [...EV.notice.body, EV.currency.desc, EV.mail.unclaimed.body].join('\n');
+    expect(copy).toContain('until Nov 15 (7 PM Central)');
+    expect(copy).toContain('Candy Exchange until Nov 22');
+    expect(copy).toContain('before Nov 22, 7 PM Central');
+    expect(copy).toContain('open until Nov 22, 7 PM Central');
+    expect(copy).not.toMatch(/Nov [18]\b/);
+  });
+
+  it('open on Nov 10 and on Nov 15 at 6:59 PM Central: operations pay, sweeps count, missions claim, the gift arrives', () => {
+    for (const at of [NOV10, LAST_MINUTE]) {
+      const when = new Date(at).toISOString();
+      expect(eventPhase(EV, at), when).toBe('active');
+      expect(featuredEvent(createProfile(), at), when).toMatchObject({ phase: 'active' });
+      const p = joined();
+      expect(markEventLogin(p, at).letters.map((l) => [l.id, l.expiresAt]), when).toEqual([['ev:halloween-2026:1:login:1', XEND]]);
+      readEpisode(p, EV.id, 'ev.halloween.01', at);
+      expect(eventStageStatus(p, 'ev-halloween-1', at).ok, when).toBe(true);
+      const r = play(p, 'ev-halloween-1', at);
+      expect(r.practice, when).toBe(false);
+      expect(r.rewards.find((x) => x.id === CANDY).count, when).toBe(60 + 100);
+      // the daily sweep cap still counts on the extra days
+      expect(eventSweepsLeft(p, EV.id, at).left, when).toBe(10);
+      expect(sweep(p, 'ev-halloween-1', 'normal', 2, createRng(2), { now: new Date(at) }), when).toMatchObject({ ok: true, sweepsLeft: 8 });
+      expect(claimEventMission(p, EV.id, 'hw_d_clear3', at).ok, when).toBe(true); // 1 win + 2 sweeps
+      expect(claimEventMission(p, EV.id, 'hw_t_op1', at).ok, when).toBe(true);
+      expect(buyEventOffer(p, EV.id, 'hw_notes', 1, at).ok, when).toBe(true);
+    }
+  });
+
+  it('closed from 7 PM Central on Nov 15: no battle pays, nothing sweeps or claims, no gift; the Exchange still sells', () => {
+    for (const at of [END, END + DAY]) {
+      const when = new Date(at).toISOString();
+      const p = playedNov10();
+      expect(eventPhase(EV, at), when).toBe('exchange');
+      expect(featuredEvent(p, at), when).toMatchObject({ phase: 'exchange' });
+      expect(eventStageStatus(p, 'ev-halloween-1', at).reason, when).toBe('closed');
+      const late = play(p, 'ev-halloween-1', at);
+      expect(late.practice, when).toBe(true);
+      expect(late.note, when).toMatch(/closed before this battle started/);
+      expect(sweep(p, 'ev-halloween-1', 'normal', 1, createRng(2), { now: new Date(at) }).error, when).toBe('event');
+      expect(claimEventMission(p, EV.id, 'hw_t_op1', at).error, when).toBe('closed');
+      expect(trackEvent(p, EV.id, 'eventKill', 5, { now: at }), when).toBe(false);
+      expect(markEventLogin(p, at).letters, when).toEqual([]);
+      p.items[CANDY] = 1000;
+      expect(buyEventOffer(p, EV.id, 'hw_notes', 1, at).ok, when).toBe(true);
+    }
+  });
+
+  it('the Exchange stays open until Nov 22, 7 PM Central: the unclaimed letter expires with it, then the settle', () => {
+    const p = playedNov10();
+    trackEvent(p, EV.id, 'eventKill', 250, { now: LAST_MINUTE }); // the last day's kill daily: done, not claimed
+    expect(settleEvents(p, LAST_MINUTE).letters).toEqual([]);
+    const l = settleEvents(p, END).letters.find((x) => x.id === 'ev:halloween-2026:1:unclaimed');
+    expect(l.rewards).toEqual([{ id: CANDY, count: 50 + 30 }]); // Pumpkin Patch Path + Shoo the Spooks
+    expect(l.expiresAt).toBe(XEND);
+    p.items[CANDY] = 100;
+    for (const at of [END, NOV10 + 9 * DAY, XLAST_MINUTE]) {
+      expect(eventPhase(EV, at, p)).toBe('exchange');
+      expect(shopRows(p, EV, at).every((o) => o.open)).toBe(true);
+      expect(mailList(p, at).find((x) => x.id === l.id).claimable).toBe(true);
+    }
+    expect(buyEventOffer(p, EV.id, 'hw_notes', 1, XLAST_MINUTE).ok).toBe(true); // 60 candy left
+    expect(eventPhase(EV, XEND, p)).toBe('ended');
+    expect(buyEventOffer(p, EV.id, 'hw_notes', 1, XEND).error).toBe('closed');
+    expect(mailList(p, XEND).find((x) => x.id === l.id).expired).toBe(true);
+    const done = settleEvents(p, XEND);
+    expect(done.settled).toEqual(['halloween-2026']);
+    expect(done.letters.find((x) => x.id === 'ev:halloween-2026:1:leftover').rewards).toEqual([{ id: 'coins', count: 60 * 50 }]);
+    expect(itemCount(p, CANDY)).toBe(0);
+  });
+
+  it('gifts mailed before the update (stamped with the old exchange end, Nov 8 7 PM) expire with the exchange again', () => {
+    const OLD_XEND = gameDayEnd('2026-11-08'); // 2026-11-09T01:00Z: what the builds before the extension stamped
+    const p = joined();
+    markEventLogin(p, MID);
+    markEventLogin(p, MID + DAY);
+    const letter = (id) => p.mail.letters.find((x) => x.id === `ev:halloween-2026:1:${id}`);
+    for (const id of ['login:1', 'login:2']) letter(id).expiresAt = OLD_XEND; // as an older build sent them
+    expect(claimMail(p, letter('login:2').id, MID + DAY).ok).toBe(true);
+    const other = { id: 'ev:other-2026:1:login:1', from: 'x', title: 'x', body: '', rewards: [{ id: 'gems', count: 1 }], sentAt: MID, expiresAt: OLD_XEND, claimed: false };
+    p.mail.letters.push(other);
+    expect(mailList(p, OLD_XEND).find((x) => x.id === letter('login:1').id).expired).toBe(true); // before the pass
+    // app start (and the lobby, the event page): settleEvents moves this run's unclaimed letters to the new end
+    expect(settleEvents(p, MID + 2 * DAY)).toEqual({ letters: [], settled: [] });
+    expect(letter('login:1').expiresAt).toBe(XEND);
+    expect(letter('login:2').expiresAt).toBe(OLD_XEND); // claimed: left as it was
+    expect(other.expiresAt).toBe(OLD_XEND); // not this event's
+    expect(mailList(p, OLD_XEND + DAY).find((x) => x.id === letter('login:1').id)).toMatchObject({ expired: false, claimable: true });
+    expect(mailList(p, XEND).find((x) => x.id === letter('login:1').id).expired).toBe(true);
+    // a later expiry is never moved earlier; a second pass changes nothing
+    letter('login:1').expiresAt = XEND + DAY;
+    settleEvents(p, MID + 3 * DAY);
+    expect(letter('login:1').expiresAt).toBe(XEND + DAY);
+    // and the gift claims after the old end
+    letter('login:1').expiresAt = OLD_XEND;
+    settleEvents(p, OLD_XEND + DAY);
+    expect(claimMail(p, letter('login:1').id, OLD_XEND + DAY).ok).toBe(true);
   });
 });

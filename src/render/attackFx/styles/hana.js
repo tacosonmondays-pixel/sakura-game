@@ -7,7 +7,7 @@
 import { lookAt } from '../flair.js';
 import { flash, ripple } from '../patterns/bursts.js';
 import { SEG_GROW } from '../patterns/segments.js';
-import { hand, handFlash } from './util.js';
+import { hand, handFlash, tipUp } from './util.js';
 import { CORE, DECOR } from '../context.js';
 
 const GOLD = '#f2dc96';
@@ -42,11 +42,12 @@ export const hana = {
     const h = hand(ctx, t);
     rec.mx = h.x;
     rec.my = h.y;
-    rec.mz = h.h + 0.05;
+    rec.mz = h.h + tipUp(h, 0.05);
     return true;
   },
 
   view(p, rec, _t, v, ctx) {
+    v.ownTrail = true; // (her gold streak is her trail: the styled ribbon skips her shots)
     const tail = lookAt(rec.tw.look, 2) >= 3 ? 0.55 : 0.4;
     const vl = Math.hypot(p.vx, p.vy) || 1;
     ctx.line(ctx.b.bbA, ctx.q.trails ? CORE : DECOR, v.x, v.z, v.y, v.x - (p.vx / vl) * tail, v.z, v.y - (p.vy / vl) * tail, 0.08, ctx.col(GOLD), 0.8);

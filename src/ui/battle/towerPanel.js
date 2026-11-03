@@ -17,6 +17,7 @@ import { h, icon, setVar, isPhone } from './util.js';
 import { fmtNum } from '../format.js';
 import { createDronePanel, hasDroneTabs } from './chikaPanel.js';
 import { createDpsMeter, perTargetLine, boostEstimate, fmtSmallPct, DPS_LIVE_TIP, DPS_AVG_TIP } from './dpsView.js';
+import { kitRows, dealsDamage, damageSplit, paintKitCells, LIVE_KIT_KEYS } from './kitRows.js';
 import {
   crosspathReason, crosspathWhy, onePerPathReason, onePerPathWhy, onePerPathLine, heldPipTitle, whereOnMap, finalHolderLine, CROSSPATH_RULE, ONE_PER_PATH_COOP, ONE_PER_PATH_RULE,
 } from './rules.js';
@@ -38,7 +39,7 @@ import { abilityRuns } from '../../data/abilities.js';
 import { boltText, ico, KIT_SVG } from '../kit.js';
 import {
   drawerStats, targetView, aimView, pathRowView, createBuyArm, footerView, heroDrawerView, shortTeaser, rowTags, hitDamage, gearPierce, pierces, BUY_ARM_MS,
-  allyNoteText, holderParts, contentBelow, rowAir, SCROLL_CUE_PX, TARGET_EXTRA,
+  allyNoteText, holderParts, contentBelow, rowAir, SCROLL_CUE_PX, TARGET_EXTRA, shareRowView, sharedAllyNote,
 } from './drawerView.js';
 
 function statusLabel(s) {
@@ -94,6 +95,9 @@ function chipBtn({ label, on = false, title = '', testid = null, mode = null, di
   }, label);
 }
 
+/** Iroha's mirrors in the drawer's signature: how many, and which her player placed. */
+const mirrorSig = (t) => (t.mirrors ? `${t.mirrors.length}:${t.mirrors.map((_, k) => (t.mirrorAim?.[k] ? 1 : 0)).join('')}` : '');
+
 export function createTowerPanel(ctx) {
   const { sim } = ctx;
   const el = h('aside.bt-panel.bt-drawer', { 'data-testid': 'tower-panel', role: 'dialog', 'aria-label': 'Selected girl' });
@@ -144,9 +148,19 @@ export function createTowerPanel(ctx) {
     return `${src}/${tg}/${t.buffPick ?? -1}/${ctx.picking ?? ''}/${expanded.has(t.uid) ? 1 : 0}${short}`;
   }
 
+  /**
+   * sim.upgradeStatus, with the coins my co-op orders in flight hold taken off first (ctx.spendable): a tier those
+   * coins would have paid reads 'cash' (poor) until they land or come back.
+   */
+  function upgradeStatus(uid, path) {
+    const st = sim.upgradeStatus(uid, path);
+    if (!ctx.spendable || st.locked || !(st.cost > ctx.spendable())) return st;
+    return { ...st, locked: true, reason: 'cash' };
+  }
+
   function signature(t) {
     const afford = [0, 1, 2].map((p) => {
-      const st = sim.upgradeStatus(t.uid, p);
+      const st = upgradeStatus(t.uid, p);
       // a final tier held by another copy: her build and spot are in the holder line
       const hold = st.holder != null ? sim.getTower(st.holder) : null;
       return `${st.tier}${st.reason || 'ok'}${st.cost}${hold ? `h${hold.uid}:${hold.tiers.join('')}` : ''}`;
@@ -154,7 +168,7 @@ export function createTowerPanel(ctx) {
     const dv = t.turretSpec?.leash > 0 ? drones.signature(t) : '';
     // (the ability row's state, Auto and live line; its seconds tick in place, so a tap on a price is never lost to a
     // re-render once a second)
-    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${more ? 1 : 0}|${targetsOpen ? 1 : 0}|${arm.armedPath(t.uid) ?? '-'}|${isWide() ? 1 : 0}|${t.turrets?.length || 0}|${dv}${heroSig(t)}|${buffSig(t)}|${t.aim ? `${t.aim.x},${t.aim.y}` : '-'}${ctx.aim?.uid === t.uid ? 'A' : ''}|${abRow.sig(t)}`;
+    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${more ? 1 : 0}|${targetsOpen ? 1 : 0}|${arm.armedPath(t.uid) ?? '-'}|${isWide() ? 1 : 0}|${t.turrets?.length || 0}|${dv}${heroSig(t)}|${buffSig(t)}|${t.aim ? `${t.aim.x},${t.aim.y}` : '-'}${ctx.aim?.uid === t.uid ? `A${ctx.aim.slot}` : ''}|${mirrorSig(t)}|${more && (t.damageDealt || 0) > 0 ? 'd' : ''}|${abRow.sig(t)}${ctx.coopPending ? `|o${[0, 1, 2].map((p) => (ctx.coopPending.upgrading(t.uid, p) ? 1 : 0)).join('')}` : ''}${ctx.coop?.shareSig ? `|s${ctx.coop.shareSig(t.uid)}${shareArmed === t.uid ? 'a' : ''}${ctx.coop.allyHere() ? 'h' : ''}` : ''}`;
   }
 
   /** @param {{ drone?: number|null }} [opts] a drone of hers to show (tapped on the field: MORE opens on its card) */
@@ -298,7 +312,7 @@ export function createTowerPanel(ctx) {
       rows.push(h('div.bt-dw-row.bt-target', { 'data-testid': v.kind === 'strip' ? 'strip-row' : 'target-row' },
         h('span.bt-dw-k', v.label), h('div.bt-tchips', { role: 'group', 'aria-label': v.kind === 'strip' ? 'Strips' : 'Target' }, chips)));
     }
-    const aim = aimView(t, am, { aiming });
+    const aim = aimView(t, am, { aiming, slot: aiming ? ctx.aim?.slot ?? -1 : -1 });
     if (aim) {
       rows.push(h('div.bt-dw-row.bt-target.bt-aim', { 'data-testid': 'aim-row' },
         h('span.bt-dw-k', aim.label),
@@ -306,10 +320,26 @@ export function createTowerPanel(ctx) {
           label: c.label, on: c.on, title: c.title, testid: c.testid, disabled: !mine,
           onClick: () => {
             if (c.mode === 'auto') ctx.aim?.clear(t.uid);
-            else ctx.aim?.start(t.uid);
+            else ctx.aim?.start(t.uid, aim.slots ? { slot: 0, all: true } : undefined);
             rerender();
           },
         })))));
+      // Iroha: her mirrors one by one (a numbered chip re-places that mirror) and the count
+      if (aim.slots) {
+        rows.push(h('div.bt-dw-row.bt-target.bt-mirrors', { 'data-testid': 'mirror-row' },
+          h('span.bt-dw-k', { 'data-testid': 'mirror-count' }, aim.count),
+          h('div.bt-tchips', { role: 'group', 'aria-label': 'Mirrors' }, aim.slots.map((c) => {
+            const b = chipBtn({
+              label: c.label, on: c.on, title: c.title, testid: c.testid, disabled: !mine,
+              onClick: () => {
+                ctx.aim?.start(t.uid, { slot: c.k });
+                rerender();
+              },
+            });
+            if (c.placed) b.classList.add('bt-mirror-placed');
+            return b;
+          }))));
+      }
     }
     return rows;
   }
@@ -384,8 +414,10 @@ export function createTowerPanel(ctx) {
     const rows = t.def.paths.map((p, i) => pathRow(t, p, i, { readOnly: ally }));
     // (her controls read only, in the dim ink: the lock and this one line say why, UI_DIRECTION §5.5; a phone's line is
     // short, so her three path rows stay in view under it)
-    const note = ally ? allyNoteText(ctx.coop.ownerName(t.uid), { wide: isWide() }) : null;
-    const allyNote = ally ? h('div.bt-ally-note', { 'data-testid': 'ally-note', title: note.title, style: { '--ally': ctx.coop.colorOf(t.uid) } }, icon('lock', 'bt-ico-sm'), note.text) : null;
+    // (co-op sharing: the note names whoever commands her now; a girl of mine lent out says so)
+    const note = ally ? sharedAllyNote(ctx.coop.ctrlName?.(t.uid) ?? ctx.coop.ownerName(t.uid), ctx.coop.ownerName(t.uid), { wide: isWide(), mine: ctx.coop.ownerOf(t.uid) === ctx.coop.mySlot }) : null;
+    const allyNote = ally ? h('div.bt-ally-note', { 'data-testid': 'ally-note', title: note.title, style: { '--ally': ctx.coop.ctrlColorOf?.(t.uid) ?? ctx.coop.colorOf(t.uid) } }, icon('lock', 'bt-ico-sm'), note.text) : null;
+    const share = shareRow(t);
     return [
       allyNote,
       abRow.update(t),
@@ -395,7 +427,55 @@ export function createTowerPanel(ctx) {
       statRow(t, st, statOpts),
       rows.length ? h('div.bt-dw-sec', h('span.bt-dw-k', 'UPGRADES'), h('span.bt-dw-rule')) : null,
       rows.length ? h('div.bt-paths', rows) : null,
+      share,
     ];
+  }
+
+  // ---- co-op sharing (docs/specs/COOP_SHARING.md §3.5): lend her / take her back / give her back ------------------
+  let shareArmed = null; // the uid whose "Lend to …" waits for its second tap
+  let shareArmTimer = 0;
+  function shareView(t) {
+    const c = ctx.coop;
+    if (!c?.ctrlOf) return null;
+    const me = c.mySlot;
+    const owner = c.ownerOf(t.uid);
+    const ctrl = c.ctrlOf(t.uid);
+    if (owner == null || ctrl == null) return null;
+    return shareRowView({
+      me, owner, ctrl, kind: c.lentInfo(t.uid)?.kind || null, isHero: !!t.isHero,
+      lab: !!(t.stats?.lab || t.def?.paths?.some((p) => p.tiers?.some((x) => x.mods?.lab))), run: !!sim.tryout,
+      ended: sim.state === 'won' || sim.state === 'lost', wave: sim.state === 'wave', allyHere: c.allyHere(),
+      ctrlGone: c.isGone(ctrl), ownerGone: c.isGone(owner), allyName: c.nameOf(c.allySlot), ownerName: c.nameOf(owner),
+      ctrlName: c.nameOf(ctrl), armed: shareArmed === t.uid,
+    });
+  }
+  function shareRow(t) {
+    const v = shareView(t);
+    if (!v) return null;
+    const onTap = (e) => {
+      e.stopPropagation();
+      if (v.disabled || !v.act) return;
+      if (v.act === 'lend' && shareArmed !== t.uid) {
+        shareArmed = t.uid;
+        clearTimeout(shareArmTimer);
+        shareArmTimer = setTimeout(() => {
+          shareArmed = null;
+          rerender();
+        }, BUY_ARM_MS);
+        rerender();
+        return;
+      }
+      shareArmed = null;
+      clearTimeout(shareArmTimer);
+      const act = v.act === 'lend' ? ctx.act?.lend : v.act === 'back' ? ctx.act?.takeBack : ctx.act?.giveBack;
+      if (act) act(t.uid);
+      rerender();
+    };
+    const btn = v.button ? h(`button.bt-share-btn${v.kind === 'lend' && shareArmed === t.uid ? '.armed' : ''}`, {
+      type: 'button', 'data-testid': `share-${v.act || 'none'}`, disabled: v.disabled, title: v.hint || v.button, onclick: onTap,
+    }, v.button, v.hint ? h('small', ` · ${v.hint}`) : null) : null;
+    return h(`div.bt-share.s-${v.kind}`, { 'data-testid': 'share-row', style: { '--ally': ctx.coop.colorOf(t.uid), '--ctrl': ctx.coop.ctrlColorOf(t.uid) } },
+      icon(v.kind === 'lend' ? 'heart' : 'lock', 'bt-ico-sm'), h('span.bt-share-line', v.line), btn);
   }
 
   /**
@@ -440,7 +520,7 @@ export function createTowerPanel(ctx) {
 
   /** One path row: edge colour, name, pips, tier line, the price button (two taps), the lock or the holder, MAX. */
   function pathRow(t, p, i, { readOnly }) {
-    const us = sim.upgradeStatus(t.uid, i);
+    const us = upgradeStatus(t.uid, i);
     const cur = t.tiers[i];
     const heldNow = !t.isHero && cur < p.tiers.length && !!sim.finalTierHolder?.(t.uid, i);
     const hold = us.holder != null ? sim.getTower(us.holder) : null;
@@ -478,6 +558,11 @@ export function createTowerPanel(ctx) {
       extra = finalLock(t, p, i, holder?.line, holder?.uid ?? null);
     } else if (readOnly) {
       action = h('span.bt-dw-price', { title: `${v.priceText} coins` }, svgEl(currencyIcon('coins'), 'bt-buy-coin'), v.priceText);
+    } else if (ctx.coopPending?.upgrading(t.uid, i)) {
+      // co-op: the order is on its way (it runs on both screens after the input delay, coopPending.js): the tap
+      // shows at once, and a second tap cannot buy the tier twice
+      action = h('button.bt-buy.pending', { type: 'button', 'data-testid': `buy-${i}`, disabled: true, 'aria-label': `${us.next?.name}: ordered, on its way` },
+        h('span.bt-buy-spin', { 'aria-hidden': 'true' }), h('span.bt-buy-label', 'Ordered'));
     } else {
       const poor = v.state === 'poor';
       action = h(
@@ -561,14 +646,14 @@ export function createTowerPanel(ctx) {
       return;
     }
     clearTimeout(armTimer);
-    const st = sim.upgradeStatus(t.uid, i);
+    const st = upgradeStatus(t.uid, i);
     const done = ctx.act ? ctx.act.upgrade(t.uid, i) : sim.upgradeTower(t.uid, i);
     if (!done) {
       if (ctx.coop && !ctx.coop.isMine(t.uid)) return;
       const now = sim.upgradeStatus(t.uid, i);
       // the holder may have taken the final tier since the drawer was drawn
       if (now.reason === 'onePerPath') ctx.feed.push(onePerPathWhy(t.def.name, p.name), 'warn', { key: 'upg-final', ms: 2200 });
-      else ctx.feed.push(`Need ${price(st.cost - sim.cash)} more coins.`, 'warn', { key: 'upg-cash', ms: 1500 });
+      else ctx.feed.push(`Need ${price(st.cost - (ctx.spendable ? ctx.spendable() : sim.cash))} more coins.`, 'warn', { key: 'upg-cash', ms: 1500 });
       rerender();
       return;
     }
@@ -639,10 +724,13 @@ export function createTowerPanel(ctx) {
     if (t.level > 1) bonus.push(`+${Math.round((def.hero?.growth ?? HERO_GROWTH).damage * (t.level - 1) * 100)}% damage from her level`);
     if (t.mastery > 0) bonus.push(`Mastery ${fmtNum(t.mastery, 'pct')} damage`);
     if ((t.unitStats?.costMul ?? 1) < 1) bonus.push(`level prices ${fmtNum(-(1 - t.unitStats.costMul), 'pct')}`);
-    const dmg = dpsCells(t, st, st.dps);
+    // her attack and kit, the same grid as a girl's (her aura, her shapes: Luna's Moonbeam, Kanna's quake rings)
+    const grid = detailGrid(t, st);
     return [
       statRow(t, st, statOpts),
-      dmg.length ? h('div.bt-stats-grid', dmg) : null,
+      h('div.bt-stats-grid', { 'data-testid': 'hero-grid' }, grid.rows),
+      grid.caps,
+      buffedBy(t),
       h('div.bt-dt-sec', h('span.bt-dw-k', 'LEVEL'), h('span.bt-dw-rule')),
       xpLine ? h('p.bt-dt-line', { 'data-testid': 'hero-xp-text' }, xpLine) : null,
       bonus.length ? h('p.bt-dt-line', bonus.join(' · ')) : null,
@@ -665,7 +753,8 @@ export function createTowerPanel(ctx) {
    */
   function dpsCells(t, st, dps) {
     const cells = [];
-    if (dps > 0 || st.behavior === 'trap' || st.behavior === 'strip' || (st.status || []).some((x) => x.type === 'poison' || x.type === 'burn')) {
+    // (any damage source: her paper DPS, traps, a DoT, a damage kit, or damage the sim has credited her: kitRows.js)
+    if (dps > 0 || dealsDamage(t, st)) {
       const value = h('b', { 'data-testid': 'drawer-dps-live' }, '—');
       const label = h('span', 'DPS (live)');
       cells.push(h('div.bt-stat-cell.bt-stat-main', { 'data-testid': 'drawer-dps', role: 'group', title: DPS_LIVE_TIP, 'aria-label': `DPS live. ${DPS_LIVE_TIP}` }, label, value));
@@ -676,6 +765,12 @@ export function createTowerPanel(ctx) {
       const split = (st.behavior === 'projectile' || st.behavior === 'beam') && st.projectiles > 1 ? st.projectiles : 1;
       const per = perTargetLine(st, dps / split);
       if (per) cells.push(h('div.bt-stat-cell.bt-stat-wide', h('span', 'Per target'), h('b', per)));
+      // her damage by source, where the sim credits it apart (an S5 shape's damage, drones): "Attack 72% · Moonbeam 28%"
+      if (damageSplit(t)) {
+        const value = h('b', { 'data-testid': 'drawer-split' }, '—');
+        cells.push(h('div.bt-stat-cell.bt-stat-wide', { 'data-testid': 'drawer-split-cell', title: 'Her damage dealt so far, by source' }, h('span', 'Damage by source'), value));
+        live.split = { value };
+      }
     }
     const sup = t.stats || {};
     const lifts = (b) => !!b && ((b.dmgMul || 1) > 1 || (b.rateMul || 1) > 1);
@@ -687,10 +782,22 @@ export function createTowerPanel(ctx) {
     return cells;
   }
 
+  /** One kit row (kitRows.js) in the stat grid's cell style. */
+  const kitCell = (r) => {
+    const value = h('b', r.value);
+    // (a live count's cell is repainted every frame by updateLive: kitRows.js paintKitCells)
+    if (LIVE_KIT_KEYS.includes(r.key) && live) (live.kits ||= new Map()).set(r.key, value);
+    return h(`div.bt-stat-cell${r.wide ? '.bt-stat-wide' : ''}`, { 'data-testid': `kit-${r.key}` }, h('span', r.label), value);
+  };
+
   // ------------------------------------------------------------------------------------------------------------------
   // MORE: the Details sheet (girls)
   // ------------------------------------------------------------------------------------------------------------------
-  function girlDetails(t, st, { ally }) {
+  /**
+   * The Details stat grid (girls and heroes): her DPS cells, her attack numbers, her kit rows (kitRows.js), kills and
+   * damage dealt, and her capability chips. @returns {{ rows: Element[], keyed: object, caps: Element|null }}
+   */
+  function detailGrid(t, st) {
     const rows = [];
     const keyed = {};
     const add = (label, value, cls = '', key = null) => {
@@ -723,7 +830,8 @@ export function createTowerPanel(ctx) {
     const gear = gearPierce(t, st);
     if (pierces(t, st)) add('Pierce', `${fmtNum(Math.max(1, st.pierce || 1))}${gear > 0 ? ` (+${gear}%)` : ''}`);
     if (st.behavior === 'pulse' && st.maxTargets < 99) add('Max hits', fmtNum(st.maxTargets));
-    if (st.splash > 0) add('Splash', fmtNum(st.splash, 'range'));
+    // (a held stream or sweep has no blast: its fireball's splash stays in her stats from the tiers before, unused)
+    if (st.splash > 0 && st.behavior !== 'stream' && st.behavior !== 'sweep') add('Splash', fmtNum(st.splash, 'range'));
     if (st.chain > 0) add('Jumps', fmtNum(st.chain));
     if (st.armorPen > 0) add('Armor pen', fmtNum(st.armorPen, 'flat'));
     if (st.crit?.chance > 0) add('Crit', `${Math.round(st.crit.chance * 100)}% ${fmtNum(st.crit.mul, 'mul', { detail: true })}`, '.bt-stat-wide2');
@@ -768,6 +876,8 @@ export function createTowerPanel(ctx) {
     const rulesLine = councilRulesText(t);
     if (rulesLine) add('Council rules', rulesLine, '.bt-stat-wide');
     if (st.element) add('Element', ELEMENTS[st.element]?.name || st.element, '.bt-stat-wide2');
+    // her kit: shapes, mirrors, summons, signature pieces and her ⚡ ability (kitRows.js)
+    for (const r of kitRows(t, st)) rows.push(kitCell(r));
     const pot = t.unitStats?.potential || 1;
     if (pot >= 2) add('Potential', `P${pot}`);
     const kills = h('b');
@@ -787,6 +897,11 @@ export function createTowerPanel(ctx) {
     for (const s of st.status || []) chips.push(h('span.bt-cap.bt-cap-status', statusLabel(s)));
     if (st.disabled > 0) chips.push(h('span.bt-cap.bt-cap-bad', `Disabled ${fmtNum(st.disabled, 'time')}`));
     const caps = chips.length ? h('div.bt-caps', chips) : null;
+    return { rows, keyed, caps };
+  }
+
+  function girlDetails(t, st, { ally }) {
+    const { rows, keyed, caps } = detailGrid(t, st);
     const potBlock = potentialBlock(t, st);
     const roleLine = h('p.bt-dt-line', svgEl(roleIcon(t.def.role), 'bt-dw-tag-ico'), ` ${ROLES[t.def.role]?.name || t.def.role}`, st.element ? [' · ', svgEl(elementIcon(st.element), 'bt-dw-tag-ico'), ` ${ELEMENTS[st.element]?.name}`] : null, ` · ${ROLES[t.def.role]?.desc || ''}`);
     if (hasDroneTabs(st)) {
@@ -972,7 +1087,7 @@ export function createTowerPanel(ctx) {
     const ally = !mine;
     // ([friend support] a borrowed girl: her own clamped card, ctx.profileFor)
     const profile = mine ? (ctx.profileFor?.(def.id) || ctx.profile) : { units: { [def.id]: { awaken: t.unitStats?.awaken || 0 } } };
-    live = { kills: null, dmg: null, xpFill: null, ult: null, pot: null, buffKinds: null, stats: null, dps: null, boost: null };
+    live = { kills: null, dmg: null, xpFill: null, ult: null, pot: null, buffKinds: null, stats: null, dps: null, boost: null, kits: null, split: null };
     el.classList.toggle('bt-panel-ally', ally);
     el.classList.toggle('bt-drawer-hero', !!t.isHero);
     el.classList.toggle('bt-drawer-more', more);
@@ -1254,6 +1369,12 @@ export function createTowerPanel(ctx) {
     if (live.boost) {
       const b = boostEstimate(sim, t.uid, (u) => dpsMeter.live(u, sim).value);
       live.boost.value.textContent = b ? `~${stat(b.value)} DPS · ${b.girls} girl${b.girls === 1 ? '' : 's'}` : '—';
+    }
+    if (live.kits) paintKitCells(live.kits, t, st || (st = sim.towerStats(t.uid)));
+    if (live.split) {
+      const sp = damageSplit(t);
+      const text = sp ? sp.text : '—';
+      if (live.split.value.textContent !== text) live.split.value.textContent = text;
     }
     if (live.kills) live.kills.textContent = fmtNum(t.kills || 0);
     if (live.dmg) live.dmg.textContent = fmtNum(Math.max(0, Math.floor(t.damageDealt || 0)));

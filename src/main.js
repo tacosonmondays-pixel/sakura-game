@@ -7,6 +7,7 @@ import { whenSettled, txLog, transitionBusy } from './ui/transitions/index.js';
 import { store } from './core/store.js';
 import { onAppStart } from './systems/missions.js';
 import { ensureBetaGift, ensurePotentialLetter, ensureEssenceLetter } from './systems/mail.js';
+import { ensureVigilRibbonGift } from './systems/vigilRibbonGift.js';
 import { ensureCatchUpJoins, joinToastText } from './systems/catchUpJoins.js';
 import { createRng, hashString } from './core/rng.js';
 import { settleEvents, markEventLogin } from './systems/events.js';
@@ -78,6 +79,7 @@ try {
   settleEvents(store.profile, eventNow()); // [events] ended events: unclaimed rewards + leftover currency → coins by mail (once)
   markEventLogin(store.profile, eventNow()); // [events] the day's event visit: login mission + the daily gift letter
   ensureEssenceLetter(store.profile); // [ascension] "Duplicates are now Essence!" once, to a save the switch-over ran on
+  ensureVigilRibbonGift(store.profile); // the Starlight Vigil Ribbon once, to a save with a Freeplay best of wave 200+ (until Nov 30)
   caughtUp = ensureCatchUpJoins(store.profile); // Azami / Yuzuha / Noa / Wakaba / Hana join once (a letter each) when 2-2 / 4-2 / 6-2 / 6-5 / 7-5 was cleared before they existed
   store.commit('app-start');
 } catch (e) {
@@ -148,6 +150,9 @@ try {
   titleSeen = false;
 }
 if (!location.hash.replace(/^#\/?/, '') && !titleSeen) history.replaceState(null, '', '#/title');
+
+// The toasts' live region exists before the first toast (src/ui/components.js toastHost; review r3 low)
+import('./ui/components.js').then((m) => m.toastHost()).catch((e) => console.warn('[main] toast host failed', e));
 
 // The boot loader (index.html: black or colour, Mochi bottom-right) stays until the first screen is really
 // drawn: the router's first change holds it (src/ui/transitions), the lobby until its art has decoded.

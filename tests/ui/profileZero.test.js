@@ -3,7 +3,7 @@
 // played, and an empty bio that cannot be written yet are not shown; a new player's own profile keeps its Medals panel
 // (its empty line says how to earn them); a visitor's profile drops an empty panel. On real saves too.
 import { describe, it, expect } from 'vitest';
-import { profileZero, visibleStats, medalDiffs, ribbonsWon, freeplayPlayed, freeplayEarned, isFreeplayTitle, STAT_KEYS } from '../../src/ui/profile/zero.js';
+import { profileZero, visibleStats, medalDiffs, ribbonsWon, freeplayPlayed, freeplayEarned, isFreeplayTitle, isFreeplayFrame, STAT_KEYS } from '../../src/ui/profile/zero.js';
 import { ownModel } from '../../src/ui/screens/profile.js';
 import { createProfile } from '../../src/systems/save.js';
 import { veteran } from '../fixtures/veterans.js';
@@ -71,6 +71,12 @@ describe('the profile\'s zero states', () => {
     // someone else's card: their title only when it is a freeplay one; their frame
     expect(profileZero({ own: false, title: 'team_player' }).earned).toBe(false);
     expect(profileZero({ own: false, title: 'team_player', frame: 'eclipse' }).earned).toBe(true);
+    // Cosmetics 2: only Freeplay frames count; academy, LR, secret and event frames are not Freeplay records
+    expect(['eclipse', 'tide', 'endless'].every(isFreeplayFrame)).toBe(true);
+    expect(['ur', 'sakura', 'limit', 'window_seat', 'lantern_night', 'pumpkin', null].some(isFreeplayFrame)).toBe(false);
+    expect(profileZero({ own: true, earnedTitles: [], earnedFrames: ['sakura', 'window_seat', 'ur'] }).earned).toBe(false);
+    expect(profileZero({ own: true, earnedTitles: [], earnedFrames: ['window_seat', 'tide'] }).earned).toBe(true);
+    expect(profileZero({ own: false, title: 'team_player', frame: 'window_seat' }).earned).toBe(false);
   });
 
   it('a late save keeps everything it has won', () => {

@@ -3,10 +3,10 @@
 // every 0.5 s of game time, and prints one JSON line: the wave it fell on, the first leak, lives
 // lost by enemy tier, final-tier and tier-4 counts, the girls, coins earned and left unspent.
 //
-//   node --import ./tools/simLoader.mjs tools/capBot.mjs --build A|A2|B|C --stage 4-5 --tier blossom
+//   node --import ./tools/simLoader.mjs tools/capBot.mjs --build A|A2|AE|B|C --stage 4-5 --tier blossom
 //        [--seed 7] [--maxWave 260] [--coop 1|2] [--difficulty normal] [--log]
 //        [--profile p1|f2p-steady|f2p-late|whale] [--potential p1|f2p-steady|whale|1…6]
-//        [--level 60|75|85] [--gear maxed|late|urLate]
+//        [--level 60|75|85] [--gear maxed|late|urLate|full] [--lives N] [--shares]
 //
 // Profile (tools/potentialProfiles.mjs): default p1 = MAXED (tools/freeplayBot.mjs: ★5, legendary +10,
 // average rolls) at level 60 and P1; the Potential v3 profiles change Potential, level and gear for
@@ -18,6 +18,7 @@
 //      (carries first) → final tiers on the copy-1 main paths (carries, then supports) → copy 2 of
 //      each type to its own final path → further copies at tier 4 up to the cap → any free final path.
 //   A2 Build A with Chika (copy 1 0-5-2: tune-up / overclock; copy 2 5-2-0) instead of Momo.
+//   AE Build A with Ena in Kage's place.
 //   B  "Kage army", 28 Kages: 5-0-2 / 2-0-5 / 2-5-0, then 4-0-2. Order: 8 copies at 2-0-0 → all to
 //      tier 3 → tier 4 → the three final tiers → more copies.
 //   C  the research's std team (tools/freeplayBot.mjs, cheapest step first, cap-aware).
@@ -50,6 +51,8 @@ const maxWave = Number(opt('maxWave', 260));
 const coop = Number(opt('coop', 0));
 const difficulty = opt('difficulty', 'normal');
 const verbose = args.includes('--log');
+/** --lives N: start with N lives (a Nightmare run with lives to spare shows where each kind of enemy first gets through). */
+const livesOpt = Number(opt('lives', 0));
 
 /** Copy plans per type: copies 1, 2, 3, then every further copy (null: no such copy). */
 const PLANS = {
@@ -62,9 +65,10 @@ const PLANS = {
   midori: ['5-0-2', '2-0-5', null, null],
   momo: ['5-0-2', '0-5-2', null, null],
   chika: ['0-5-2', '5-2-0', null, null],
+  ena: ['5-0-2', '2-0-5', null, '4-0-2'],
 };
 const KAGE_ARMY = ['5-0-2', '2-0-5', '2-5-0', '4-0-2'];
-const CARRIES = ['shiro', 'kage', 'aoi', 'akane', 'sango'];
+const CARRIES = ['shiro', 'kage', 'aoi', 'akane', 'sango', 'ena'];
 const SUPPORTS = new Set(['miko', 'midori', 'chika']);
 const HERO = 'hikari';
 const HERO_PLAN = '5-0-2';
@@ -296,19 +300,23 @@ function makeBrain({ sim, types, first, cap, copiesOf, carries, hero, act, cash,
 
 function buildConfig(name) {
   if (name === 'B') return { types: ['kage'], first: null, cap: 28, copiesOf: () => KAGE_ARMY, carries: ['kage'] };
-  const types = name === 'A2' ? ['shiro', 'kage', 'aoi', 'akane', 'sango', 'miko', 'midori', 'chika'] : ['shiro', 'kage', 'aoi', 'akane', 'sango', 'miko', 'midori', 'momo'];
+  // AE: Build A with Ena in Kage's place (her spreading hex in a team where the others take the kills)
+  const types = name === 'A2' ? ['shiro', 'kage', 'aoi', 'akane', 'sango', 'miko', 'midori', 'chika']
+    : name === 'AE' ? ['shiro', 'ena', 'aoi', 'akane', 'sango', 'miko', 'midori', 'momo'] : ['shiro', 'kage', 'aoi', 'akane', 'sango', 'miko', 'midori', 'momo'];
   return { types, first: name === 'A2' ? null : 'momo', cap: 32, copiesOf: (ty) => PLANS[ty], carries: CARRIES };
 }
 
 // ---- runs ------------------------------------------------------------------------------------
 function summarize(sim, extra) {
   const lostBy = { boss: 0, miniboss: 0, elite: 0, normal: 0 };
+  const firstBy = {};
   let firstLeak = null;
   for (const l of sim.stats.leakLog || []) {
     if (l.wave <= sim.totalWaves) continue;
     const tierE = sim.data.enemy(l.enemyId)?.tier || 'normal';
     if (verbose) process.stderr.write(`leak w${l.wave} ${l.enemyId} (${tierE}) -${l.lives}\n`);
     lostBy[tierE] = (lostBy[tierE] || 0) + l.lives;
+    if (firstBy[tierE] == null) firstBy[tierE] = l.wave;
     if (firstLeak == null) firstLeak = l.wave;
   }
   const towers = sim.towers.filter((t) => !t.isHero);
@@ -318,7 +326,7 @@ function summarize(sim, extra) {
   for (const t of towers) girls[t.unitId] = (girls[t.unitId] || 0) + 1;
   return {
     build, stage: stageId, tier, seed, coop, fell: sim.state === 'lost' ? sim.wave : null, reached: sim.wave, goal: sim.totalWaves,
-    firstLeak, lostBy, finals: finals.length, finalPaths: finals.sort().join(' '), t4, girls, towers: towers.length,
+    firstLeak, firstBy, lostBy, finals: finals.length, finalPaths: finals.sort().join(' '), t4, girls, towers: towers.length,
     coinsEarned: Math.round(sim.stats.cashEarned || 0), ...extra,
   };
 }
@@ -333,6 +341,7 @@ export function runSolo({ data = {}, after = null, maxWave: lastWave = maxWave }
   const loadout = cfg.types.map((unitId) => ({ unitId, stats: statsOf(unitId) }));
   const sim = withDetMath(() => new Sim({ stageId, difficulty, seed, loadout, hero: { unitId: HERO, stats: statsOf(HERO) }, options: { freeplay: true, autoStart: false }, data: { ...data, stage } }));
   if (coop === 1) sim.cash = Math.round(sim.cash * COOP.cashShare * 2);
+  if (livesOpt > 0) sim.lives = sim.maxLives = livesOpt;
   const act = (k, a, b) => {
     if (k === 'place') return sim.placeTower(a, b.x, b.y);
     if (k === 'upg') return sim.upgradeTower(a, b);
@@ -354,8 +363,19 @@ export function runSolo({ data = {}, after = null, maxWave: lastWave = maxWave }
       if (verbose && sim.state === 'between') process.stderr.write(`w${sim.wave} lives ${sim.lives} girls ${sim.towers.length} cash ${Math.round(sim.cash)}\n`);
     }
   });
-  const sum = summarize(sim, { unspent: Math.round(sim.cash), wallSec: Math.round((Date.now() - t0) / 1000) });
+  const sum = summarize(sim, { unspent: Math.round(sim.cash), wallSec: Math.round((Date.now() - t0) / 1000), ...(args.includes('--shares') ? { shares: shares(sim) } : {}) });
   return after ? { ...sum, kc: withDetMath(() => after(sim)) } : sum;
+}
+
+/** --shares: each girl type's share of the run's damage (%), largest first. */
+function shares(sim) {
+  const by = {};
+  let all = 0;
+  for (const t of sim.towers) {
+    by[t.unitId] = (by[t.unitId] || 0) + (t.damageDealt || 0);
+    all += t.damageDealt || 0;
+  }
+  return Object.fromEntries(Object.entries(by).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, +(100 * v / (all || 1)).toFixed(1)]));
 }
 
 /** Build B's order on top of the generic placement / upgrade steps. */

@@ -5,7 +5,8 @@
 import { UNIT_MAP } from '../data/units.js';
 import { STAGE_MAP } from '../data/stages.js';
 import { FREEPLAY_TIERS } from '../data/freeplay.js';
-import { GEAR_SLOTS, GEAR_STATS, GEAR_MAIN_STATS, GEAR_SUBSTATS_BY_RARITY, ITEM_RARITIES } from '../data/types.js';
+import { GEAR_SUBSTATS_BY_RARITY, ITEM_RARITIES } from '../data/types.js';
+import { SLOT_IDS, ROLL_SLOTS, MAIN_STATS_BY_SLOT, emptySlots } from '../data/gearSlots.js';
 import { BANNER_MAP, DEFAULT_BANNER, FRAME_IDS, TITLES } from '../data/profileArt.js';
 import { levelCapAt, potentialLevelCap, gatesForLevel, MAX_AWAKEN, MAX_BREAKTHROUGH } from '../systems/progression.js';
 import { isLR } from '../systems/limitBreak.js';
@@ -14,8 +15,8 @@ import { isLegendUnit } from '../data/banners.js';
 /** A card's `aw` for an LR unit after Limit Break (BANNERS §C.4). */
 export const LR_AW = 6;
 import { potentialLevel, potentialState, MAX_POTENTIAL } from '../systems/potential.js';
-import { MAX_GEAR_LEVEL, SUB_GROWTH_EVERY, mainStatMax, substatMax, isUrGear, gearLines, tuneCount } from '../systems/gear.js';
-import { GEAR_STAT_DEFS, NEW_STAT_SLOT } from '../data/gearStats.js';
+import { MAX_GEAR_LEVEL, SUB_GROWTH_EVERY, mainStatMax, substatMax, isUrGear, isLrGear, lineCeiling, gearLines, tuneCount } from '../systems/gear.js';
+import { SUB_STAT_KEYS, newStatFits } from '../data/gearStats.js';
 import { UR_MAX_LEVEL, TUNE_GOLD, TUNE_RAINBOW } from '../data/gearAwaken.js';
 import { CLUB_IDS, CLUB_RARITIES, clubIndex, clubAt } from '../data/clubs.js';
 import { autoShowcase, autoPins, medalTally, ribbonTally, freeplayByTier, collectionStats, STAGE_COUNT, UNIT_COUNT } from '../systems/profileTrophies.js';
@@ -25,7 +26,12 @@ import { tagTitleAllowed } from './tags.js';
 
 export { cardHash, validCard } from './profileRules.js';
 
-const SLOTS = Object.keys(GEAR_SLOTS);
+/**
+ * Five pieces, the set and the LR marker on cards and Support Students (GEAR_UPDATE.md §11.2) need the owner's one SQL
+ * paste (supabase/migrations/…_gear_update_card.sql). Until then a card carries the three classic pieces, as today.
+ */
+export const CARD_FIVE_PIECES = false;
+const SLOTS = CARD_FIVE_PIECES ? SLOT_IDS : ROLL_SLOTS;
 /**
  * Gates a card carries: at most 5. Gates 6–10 never raise a girl's cap above her Potential's
  * (gate k needs P(k − 4)), so 5 gates + her P give a viewer her real cap (levelCapAt(5, p)).
@@ -56,7 +62,16 @@ function cardGear(p, st, { marks = CARD_GEAR_MARKS } = {}) {
     const g = st.gear?.[s] && p.gear?.[st.gear[s]];
     if (!g || g.slot !== s || !g.main) continue;
     const L = gearLines(g);
-    const piece = { s, r: isUrGear(g) ? 'ur' : g.rarity, l: g.level || 0, m: [g.main.stat, r4(L.main.value)] };
+    // an LR piece shows as UR +12 until the card rules know LR (CARD_FIVE_PIECES): level and lines at UR ceilings
+    if (isLrGear(g) && !CARD_FIVE_PIECES) {
+      L.main.value = Math.min(L.main.value, lineCeiling(g.main.stat, { ur: true, main: true, level: UR_MAX_LEVEL }));
+      for (const sub of L.subs) {
+        sub.upgrades = Math.min(sub.upgrades, Math.floor(UR_MAX_LEVEL / SUB_GROWTH_EVERY));
+        sub.value = Math.min(sub.value, lineCeiling(sub.stat, { ur: true, ups: sub.upgrades, tuned: sub.tuned }));
+      }
+    }
+    const level = isLrGear(g) && !CARD_FIVE_PIECES ? Math.min(UR_MAX_LEVEL, g.level) : g.level || 0;
+    const piece = { s, r: isUrGear(g) ? 'ur' : g.rarity, l: level, m: [g.main.stat, r4(L.main.value)] };
     const x = L.subs.map((sub) => {
       const t = marks ? (sub.tuned | 0) & 3 : 0;
       if (t) return [sub.stat, r4(sub.value), sub.upgrades || 0, t];
@@ -121,8 +136,8 @@ function viewGear(list, lv) {
   for (const g of list.slice(0, GEAR_MAX)) {
     // 'ur' is card-only (a UR piece is a Legendary with the `ur` flag in a save)
     const ur = g?.r === 'ur';
-    if (!isObj(g) || !GEAR_SLOTS[g.s] || seenSlots.has(g.s) || !(ITEM_RARITIES[g.r] || ur)) continue;
-    if (!Array.isArray(g.m) || !GEAR_MAIN_STATS[g.s].includes(g.m[0])) continue;
+    if (!isObj(g) || !SLOTS.includes(g.s) || seenSlots.has(g.s) || !(ITEM_RARITIES[g.r] || ur)) continue;
+    if (!Array.isArray(g.m) || !MAIN_STATS_BY_SLOT[g.s].includes(g.m[0])) continue;
     const rarity = ur ? 'legendary' : g.r;
     const scale = ur ? 'ur' : g.r;
     // a box-born UR piece (the Rainbow Gear Box, ASCENSION.md §C.8) starts at +0: any level up to +12
@@ -140,8 +155,8 @@ function viewGear(list, lv) {
     let rainbow = false;
     for (const sub of Array.isArray(g.x) ? g.x : []) {
       if (lines.length >= GEAR_SUBSTATS_BY_RARITY[rarity]) break;
-      if (!Array.isArray(sub) || !GEAR_STAT_DEFS[sub[0]] || used.has(sub[0])) continue;
-      if (NEW_STAT_SLOT[sub[0]] && NEW_STAT_SLOT[sub[0]] !== g.s) continue;
+      if (!Array.isArray(sub) || !SUB_STAT_KEYS.includes(sub[0]) || used.has(sub[0])) continue;
+      if (!newStatFits(sub[0], g.s)) continue;
       used.add(sub[0]);
       const ups = whole(sub[2], 0, maxUps, 0);
       // ✦ marks: ≤ 1 gold per piece (Legendary at +10 or UR), ≤ 1 rainbow per piece (UR only)
@@ -243,7 +258,7 @@ export function cleanViewedCard(card, { tags = null } = {}) {
 /** One cleaned card.units entry → { units: { [id]: state }, gear } (unitBattleStats, unitPower, gearStatTotals accept it). */
 export function snapshotToMiniProfile(u) {
   const gear = {};
-  const slots = { charm: null, ribbon: null, shoes: null };
+  const slots = emptySlots();
   for (const g of u.g || []) {
     const uid = `snap:${u.id}:${g.s}`;
     slots[g.s] = uid;

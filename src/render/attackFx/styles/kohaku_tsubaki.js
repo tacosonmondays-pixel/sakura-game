@@ -7,9 +7,10 @@
 // gentle 1.1 Hz swell (none under reduced motion: a steady beam) instead of the old flash's flicker. It brightens
 // a touch as Resonant Light climbs (a steady change, not a strobe). At Grand Spectrum the beams take the prism's
 // colours. A beam fades in over ~0.1 s on a lock and fades out over ~0.15 s where it last was when its enemy dies
-// or leaves her reach, so it ends cleanly between the sim's damage ticks. A long beam (Grand Spectrum, the LR form:
-// spec.edge) runs on past her reach to the map edge as one fainter, thinner segment (the cheap fade).
-// Draw cost: four camera-facing quads per beam (five for a long beam) and one on her prism, in the shared batch (no meshes, no allocation per frame:
+// or leaves her reach, so it ends cleanly between the sim's damage ticks. A long beam (Prism Corridor tier 3 on, the LR
+// form: spec.edge) is one map-wide laser: it may hold an enemy anywhere, and its line runs edge to edge through her
+// prism and her enemy at nearly full strength (a glow and a white core both ways), as the sim hits along it.
+// Draw cost: four camera-facing quads per beam (seven for a long beam) and one on her prism, in the shared batch (no meshes, no allocation per frame:
 // the per-beam display records are made once in init and reused).
 import { genericAttack } from './generic.js';
 import { CORE } from '../context.js';
@@ -27,13 +28,14 @@ const LILAC = '#c9a8ff';
 const SPECTRUM = ['#c9a8ff', '#8fd8ff', '#ffd27a', '#ff9ad5', '#9dffc4', '#ffffff'];
 
 function rec() {
-  return { a: 0, uid: -1, ax: 0, ah: 0, ay: 0, bx: 0, bh: 0, by: 0, ex: 0, ey: 0, fx: 0, fy: 0, k: 0, w: 0 };
+  return { a: 0, uid: -1, ax: 0, ah: 0, ay: 0, bx: 0, bh: 0, by: 0, ex: 0, ey: 0, fx: 0, fy: 0, gx: 0, gy: 0, edge: false, k: 0, w: 0 };
 }
 
-/** Is a hold's enemy still drawn and in her reach? (sim objects read only) */
+/** Is a hold's enemy still drawn and in her reach (a long beam: anywhere)? (sim objects read only) */
 function liveHold(b, t, spec, ctx) {
   const e = b?.e;
   if (!e || e.dead || t.disabled > 0) return null;
+  if (spec.edge) return ctx.enemy(e.uid);
   const dx = e.x - t.ox;
   const dy = e.y - t.oy;
   const r = spec.range + 0.25;
@@ -100,10 +102,14 @@ export const kohaku_tsubaki = {
         const reach = Math.max(len, spec.range);
         r.ex = px + (dx / len) * reach;
         r.ey = pz + (dy / len) * reach;
-        // a long beam (Grand Spectrum, the LR form) runs on, fading, to the map edge (read from the sim's map)
-        const far = spec.edge && ctx.sim?.map ? Math.max(reach, edgeReach(px, pz, dx / len, dy / len, ctx.sim.map.width, ctx.sim.map.height)) : reach;
+        // a long beam runs edge to edge through her prism and her enemy (read from the sim's map)
+        r.edge = !!(spec.edge && ctx.sim?.map);
+        const far = r.edge ? Math.max(reach, edgeReach(px, pz, dx / len, dy / len, ctx.sim.map.width, ctx.sim.map.height)) : reach;
+        const back = r.edge ? edgeReach(px, pz, -dx / len, -dy / len, ctx.sim.map.width, ctx.sim.map.height) : 0;
         r.fx = px + (dx / len) * far;
         r.fy = pz + (dy / len) * far;
+        r.gx = px - (dx / len) * back;
+        r.gy = pz - (dy / len) * back;
         r.k = spec.ramp && tick ? (prismRamp(spec, tick, b.held) - 1) / spec.ramp.max : 0;
       } else if (r.a > 0) {
         // its enemy died or left: fade out where it was
@@ -118,12 +124,21 @@ export const kohaku_tsubaki = {
       const w = (0.18 + 0.035 * Math.min(6, spec.pierce)) * (1 + 0.25 * r.k) * (1 + swell);
       r.w = w;
       const a = r.a * (0.62 + 0.18 * r.k) * (1 + swell * 0.5);
-      // outer glow, white core, the faint tail past the enemy (and on to the map edge for the long beam) and a soft glow on the impact
+      // outer glow, white core, the faint tail past the enemy (a long beam: the map-wide line both ways) and a soft glow on the impact
       ctx.line(B, CORE, r.ax, r.ah, r.ay, r.bx, r.bh, r.by, w, c, a);
       ctx.line(B, CORE, r.ax, r.ah, r.ay, r.bx, r.bh, r.by, w * 0.32, white, r.a * 0.85);
-      if (r.ex !== r.bx || r.ey !== r.by) ctx.line(B, CORE, r.bx, r.bh, r.by, r.ex, r.bh * 0.85, r.ey, w * 0.7, c, a * 0.32);
-      // the long beam on to the map edge: thinner and dimmer than within her reach, but it reads across the board
-      if (r.fx !== r.ex || r.fy !== r.ey) ctx.line(B, CORE, r.ex, r.bh * 0.85, r.ey, r.fx, r.bh * 0.7, r.fy, w * 0.65, c, a * 0.42);
+      if (r.edge) {
+        // the map-wide laser: on past her enemy to the far edge and back through her prism to the near edge, nearly as
+        // strong as the beam to her enemy (a glow and a white core both ways)
+        if (r.fx !== r.bx || r.fy !== r.by) {
+          ctx.line(B, CORE, r.bx, r.bh, r.by, r.fx, r.bh, r.fy, w * 0.85, c, a * 0.8);
+          ctx.line(B, CORE, r.bx, r.bh, r.by, r.fx, r.bh, r.fy, w * 0.28, white, r.a * 0.7);
+        }
+        if (r.gx !== r.ax || r.gy !== r.ay) {
+          ctx.line(B, CORE, r.ax, r.ah, r.ay, r.gx, r.ah, r.gy, w * 0.85, c, a * 0.8);
+          ctx.line(B, CORE, r.ax, r.ah, r.ay, r.gx, r.ah, r.gy, w * 0.28, white, r.a * 0.7);
+        }
+      } else if (r.ex !== r.bx || r.ey !== r.by) ctx.line(B, CORE, r.bx, r.bh, r.by, r.ex, r.bh * 0.85, r.ey, w * 0.7, c, a * 0.32);
       const g = 0.32 * (1 + 0.3 * r.k) * (1 + swell);
       ctx.quad(B, CORE, r.bx, r.bh, r.by, g, g, R.glow, c, r.a * 0.75);
       if (r.a > prismA) prismA = r.a;

@@ -6,12 +6,14 @@ import { SHOP_OFFERS } from '../data/shop.js';
 import { STAGES, bountyArenas } from '../data/stages.js';
 import { ACHIEVEMENT_MAP, ACHIEVEMENT_CATEGORIES, ACH_V2_LIVE, NO_COSMETIC, achievementLive } from '../data/achievements.js';
 import { achievementContext, metricValue } from './achievementMetrics.js';
+import { ribbonGifted } from './profileHonors.js';
 import { featureOpen } from './story.js';
 import { UNITS } from '../data/units.js';
 import { DIFFICULTIES, DIFFICULTY_ORDER, GACHA } from '../data/types.js';
 import { dayKey, weekKey } from '../core/util.js';
 import { hashString } from '../core/rng.js';
 import { addItems, normalizeList } from './inventory.js';
+import { notePbSeason } from './profileBanners.js';
 
 const MISSION_SETS = { daily: DAILY_MISSIONS, weekly: WEEKLY_MISSIONS };
 /** missions.weekly key (wiped with the weekly commissions): this week's 'weeklyDone' was counted. */
@@ -58,6 +60,7 @@ export function onAppStart(profile, now = new Date()) {
     dailyReset = true;
     track(profile, 'login', 1);
   }
+  notePbSeason(profile, now); // the season banners (src/systems/profileBanners.js): idempotent
   return { dailyReset, weeklyReset };
 }
 
@@ -260,6 +263,20 @@ export function achievementList(profile, { includeHidden = false, v2 = ACH_V2_LI
 }
 
 /**
+ * Is `id` a secret achievement this save hasn't found yet (hidden, not claimed, its goal not met)? A ribbon-only gift
+ * ('hgift:') doesn't count as found: it owns the ribbon (screens that check ownership first draw it as itself) but the
+ * secret's title, frame and requirement stay hidden, as they were before Cosmetics 2.
+ * Every place that shows a secret's rewards (its ribbon, title or frame: name, how, desc, hint) asks this one helper
+ * first and draws "???" and the hint while it is true (Cosmetics 2 review r2: the secrets' new rewards never leak).
+ */
+export function isSecretLocked(profile, id) {
+  const a = ACHIEVEMENT_MAP[id];
+  if (!a?.hidden) return false;
+  if (profile?.missions?.achievements?.[id] === true) return false;
+  return metricValue(profile || {}, a) < a.goal;
+}
+
+/**
  * Claim one achievement. The claim marker is set BEFORE the payout, so a double tap answers 'claimed'.
  * @returns {{ ok: boolean, error?: 'unknown'|'notLive'|'retired'|'claimed'|'incomplete'|'locked', feature?: string, rewards: object[] }}
  */
@@ -312,7 +329,8 @@ export function claimAllAchievements(profile, { v2 = ACH_V2_LIVE, cat = null } =
     ok: ids.length > 0,
     ids,
     rewards: normalizeList(all),
-    honors: ids.filter((id) => ACHIEVEMENT_MAP[id].honor && cosmetic(id)),
+    // (a ribbon a letter already gave is not new: no "New Honor Ribbon" strip, no fanfare)
+    honors: ids.filter((id) => ACHIEVEMENT_MAP[id].honor && cosmetic(id) && !ribbonGifted(profile, id)),
     titles: ids.filter((id) => ACHIEVEMENT_MAP[id].title && cosmetic(id)),
     skipped,
   };

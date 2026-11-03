@@ -7,13 +7,16 @@ import { UNIT_MAP, UNITS } from '../data/units.js';
 import { DIFFICULTY_ORDER } from '../data/types.js';
 import { FREEPLAY_TIERS } from '../data/freeplay.js';
 import { ACHIEVEMENTS, achievementLive } from '../data/achievements.js';
-import { TITLES, FREEPLAY_TITLES, FRAME_IDS, BANNER_MAP } from '../data/profileArt.js';
+import { TITLES, FREEPLAY_TITLES, FRAMES, FRAME_IDS, BANNER_MAP } from '../data/profileArt.js';
+import { isLegendUnit } from '../data/banners.js';
+import { EVENT_MAP } from '../data/events/index.js';
 import { MAX_AWAKEN, unitPower } from './progression.js';
-import { bestiaryPercent } from './missions.js';
+import { bestiaryPercent, isSecretLocked } from './missions.js';
 import { NO_COSMETIC, honorOf, earnedAchievementTitles, honorCount, killsAll } from './profileHonors.js';
 import { ID_RE, PIN_RE, PINS_MAX, SHOWCASE_MAX } from '../online/profileRules.js';
 import { markedTags } from '../data/playerTags.js';
-import { eventCosmetics } from './events.js';
+import { eventCosmetics, eventPhase } from './events.js';
+import { pbUnlocked } from './profileBanners.js';
 
 const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
 const counters = (p) => (isObj(p?.missions?.counters) ? p.missions.counters : {});
@@ -71,6 +74,22 @@ export function titleChoices(p) {
 }
 
 /**
+ * The hint to show instead of a title that comes from a secret achievement the save hasn't earned yet (Edit Profile
+ * draws "???" and this hint, like a secret frame), or null when the title may show its name and how.
+ */
+export function secretTitleHint(p, id) {
+  if (!isSecretLocked(p, id) || earnedTitles(p).includes(id)) return null;
+  return ACH_MAP[id].hint || 'A secret achievement…';
+}
+
+/** The hint to show instead of a secret frame the save hasn't earned (its secret achievement not found yet), or null. */
+export function secretFrameHint(p, id) {
+  const f = FRAMES[id];
+  if (!f?.secret || earnedFrames(p).includes(id) || (f.ach && !isSecretLocked(p, f.ach))) return null;
+  return f.hint || 'A secret achievement…';
+}
+
+/**
  * A title this build doesn't know (a newer achievement pack) is kept while its achievement is claimed,
  * so an older build never erases it (ACHIEVEMENTS.md §6.6, change 7).
  */
@@ -82,15 +101,59 @@ export function titleKeepable(p, id) {
 
 const ownsUR = (p) => Object.entries(p?.units || {}).some(([id, st]) => UNIT_MAP[id]?.rarity === 'SSR' && (Number(st?.awaken) || 0) >= MAX_AWAKEN);
 
+const num = (v) => Math.max(0, Math.floor(Number(v) || 0));
+/** Campaign stages holding a medal of this difficulty. */
+const medalStages = (p, d) => TROPHY_STAGES.filter((s) => s.kind === 'campaign' && p?.progress?.stages?.[s.id]?.[d] === true).length;
+/** Best Freeplay wave over every tier and stage (solo or co-op). */
+const bestFreeplayWave = (p) => Math.max(0, ...Object.values(freeplayByTier(p)).map((b) => b.w));
+/** LR girls Limit Broken ('lr:<unit>', a counter every build keeps). */
+const limitBroken = (p) => Object.keys(p?.units || {}).filter((id) => isLegendUnit(id) && num(counters(p)[`lr:${id}`]) >= 1).length;
+
+/**
+ * Why each frame is earned. Every rule reads what the save already keeps word for word in every older build
+ * (claims, medals, Freeplay bests, missions.counters, units), so a frame is granted retroactively, the same way
+ * every time, and an older build's save never loses what earned it.
+ */
+const FRAME_RULES = {
+  ur: (p) => ownsUR(p),
+  eclipse: (p, c) => FREEPLAY_TIERS.some((t) => c[`fpm:${t}:wyrm`] > 0) || fpLegacy(p, 'frames').includes('eclipse'),
+  sakura: (p) => medalStages(p, 'nightmare') >= 10,
+  laurel: (p) => medalStages(p, 'hard') >= 40,
+  rosette: (p) => CAMPAIGN_IDS.some((id) => { const r = ribbonCount(p, id); return r.total > 0 && r.have >= r.total; }),
+  knot: (p, c) => num(c.coopWin) >= 50,
+  chalkboard: (p, c) => Math.max(num(p?.tryoutGrade), num(c['ty:grade'])) >= 12,
+  tide: (p) => bestFreeplayWave(p) >= 100,
+  endless: (p) => bestFreeplayWave(p) >= 300,
+  limit: (p) => limitBroken(p) >= 1,
+  twin_legends: (p) => limitBroken(p) >= 2,
+};
+
 /** Frame ids this save has earned (null = Default is always available). */
 export function earnedFrames(p) {
   const c = counters(p);
-  const earned = {
-    ur: ownsUR(p),
-    eclipse: FREEPLAY_TIERS.some((t) => c[`fpm:${t}:wyrm`] > 0) || fpLegacy(p, 'frames').includes('eclipse'),
-  };
-  for (const id of eventCosmetics(p).frames) earned[id] = true; // bought in a limited-event exchange
-  return FRAME_IDS.filter((id) => earned[id]);
+  const event = new Set(eventCosmetics(p).frames); // bought in a limited-event exchange
+  return FRAME_IDS.filter((id) => {
+    const f = FRAMES[id];
+    if (FRAME_RULES[id]) return !!FRAME_RULES[id](p, c);
+    if (f.ach) return claimed(p, f.ach) && !!ACH_MAP[f.ach] && achievementLive(ACH_MAP[f.ach]);
+    if (f.stage) return p?.progress?.stages?.[f.stage.id]?.[f.stage.difficulty] === true;
+    return event.has(id);
+  });
+}
+
+/**
+ * The frames the picker lists for this save: every frame but an event frame it does not own once its event is over
+ * (an exchange frame: only its owners). Secret frames are listed, as "???" until owned.
+ */
+export function frameChoices(p, now = Date.now()) {
+  const own = new Set(earnedFrames(p));
+  return FRAME_IDS.filter((id) => {
+    const f = FRAMES[id];
+    if (own.has(id) || !f.event) return true;
+    if (!f.stage) return false;
+    const ph = eventPhase(EVENT_MAP[f.stage.eventId], now, p);
+    return ph === 'active';
+  });
 }
 
 const stageCleared = (p, id) => {
@@ -103,6 +166,7 @@ export function bannerUnlocked(p, id) {
   if (!b) return false;
   if (b.kind === 'academy') return true;
   if (b.kind === 'scene') return !!p?.units?.[b.girl];
+  if (b.kind === 'pb') return pbUnlocked(p, id);
   const chapter = CHAPTERS.find((c) => c.id === b.chapter);
   // the chapter's Act I (`stages`): an Act II that ships later never re-locks a banner a player already has
   const ids = chapter ? chapter.stages : [];

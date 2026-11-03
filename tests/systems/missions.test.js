@@ -306,17 +306,17 @@ describe('achievements: the expansion (docs/specs/ACHIEVEMENTS.md §3, §5)', ()
     expect(p.missions.counters.heroMax).toBe(12);
   });
 
-  it('the F2P one-time Achievements row equals the sum of the live defs (135 with social, Codex and a_ch1_act2 … a_ch6_act2)', () => {
+  it('the F2P one-time Achievements row equals the sum of the live defs (137 with social, Codex, a_ch1_act2 … a_ch6_act2 and LR gear\'s two Lens rows)', () => {
     const row = f2pIncomeSummary().oneTime.find((r) => r.source === 'Achievements');
     // (Tryout Day's 15 rows are their own one-time row below: TRYOUT_DAY.md §10.2, §20.5)
     const live = ACHIEVEMENTS.filter((a) => achievementLive(a) && a.wave !== 'tryout');
     const sum = (id) => live.reduce((n, a) => n + a.rewards.filter((r) => r.id === id).reduce((m, r) => m + r.count, 0), 0);
-    expect(live).toHaveLength(135);
+    expect(live).toHaveLength(137);
     expect(row.gems).toBe(sum('gems'));
     expect(row.gems).toBe(14231); // + 670 from the Codex rows, + 62 / 75 / 87 / 100 / 112 / 125 from Chapters 1-6 · Act II (Gate Arc)
     expect(row.tickets).toBe(sum('ticket_recruit') + 10 * sum('ticket_recruit10'));
     expect(row.tickets).toBe(24); // + Every Ribbon, Every Stage's ticket
-    expect(row.note).toBe('135 achievements');
+    expect(row.note).toBe('137 achievements'); // (LR gear's two rows pay a Lens each, no gems or tickets)
   });
 
   it('Tryout Day\'s 480 gems are a one-time source of their own; the 28-day chart does not move', () => {

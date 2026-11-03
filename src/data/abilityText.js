@@ -184,14 +184,14 @@ export const ABILITY_TEXT = Object.freeze({
     'Girls within {radius} tiles of her, your ally\'s too, are cleansed and can\'t be sabotaged or stunned for {dur}s. Meanwhile every {lifeEvery} enemies that fall within {lifeRadius} tiles of her bring back a life (at most {lifeMax}; never where lives can\'t come back).',
     'a call that protects the girls around her and brings back lives',
     'First Aid Call lasts {dur}s, brings back up to {lifeMax} lives and recharges in {cd}s.'),
-  'iroha.mirrorShift': t('Mirror Shift', 'mirror',
-    'Her mirror panel jumps to where you aim (or the road spot nearest the leader in her reach) and stays there; for {dur}s every shot that crosses it, yours or your ally\'s, splits in two, once each.',
-    'a mirror that splits the team\'s shots in two',
-    'Infinite Reflection: the panel splits shots for good, Mirror Shift adds a second panel for {dur}s, and it recharges in {cd}s.'),
+  'iroha.mirrorShift': t('Laser Web', 'mirror',
+    'For {dur}s a beam joins every pair of her mirrors and strikes everything crossing it five times a second; meanwhile every shot that crosses one of her mirrors, yours or your ally\'s, splits once and bounces on to her next mirror.',
+    'beams between every pair of her mirrors',
+    'Infinite Reflection: the web lasts {dur}s with much stronger beams, her mirrors split the team\'s shots for good, and it recharges in {cd}s.'),
   'ena.omenCard': t('Omen Card', 'curse',
-    'Every enemy within {reach} tiles draws a cursed card: when it falls it bursts for {curseBurst} damage ({curseMul}× her hit) within {curseRadius} tiles and passes a weaker curse on, so a dense wave chain-reacts.',
-    'a cursed card for every enemy around her',
-    'Omen Card reaches {reach} tiles, bursts for {curseMul}× her hit and recharges in {cd}s.'),
+    'Every enemy within {reach} tiles draws a cursed card: its Omen Rot eats {curseRot}% of her hit a second and the curse spreads to its neighbours while it lives, and when it falls it bursts for {curseBurst} damage ({curseMul}× her hit) within {curseRadius} tiles, so a dense wave chain-reacts.',
+    'a spreading curse for every enemy around her',
+    'Omen Card reaches {reach} tiles, its Omen Rot eats {curseRot}% of her hit a second, bursts for {curseMul}× her hit and recharges in {cd}s.'),
 });
 
 /** Settings and hold-card copy (spec §8.6). */
@@ -253,6 +253,8 @@ export function abilityValues(def, stats = null) {
       if (s.burstMul != null) {
         put(`${k}Mul`, s.burstMul);
         if (s.radius != null) put(`${k}Radius`, s.radius);
+        // (the spreading curse's Omen Rot: a share of her hit a second)
+        if (s.rot != null) put(`${k}Rot`, r2(s.rot * 100));
         if (stats) put(`${k}Burst`, Math.round(s.burstMul * stats.damage));
       }
     }

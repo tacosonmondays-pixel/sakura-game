@@ -20,10 +20,25 @@ import { itemCount } from '../../systems/inventory.js';
 // static (not lazy): right after "Claim gifts" the SSR picker offer must appear at once — a lazy
 // chunk on a slow connection made the tap look like it did nothing
 import { offerSelectTicket } from '../selectTicket.js';
+import { HONOR_REWARD_PREFIX } from '../../systems/profileHonors.js';
+import { HONOR_MAP } from '../../data/honors.js';
 
 const SHOWN_KEY = 'sakura-beta-gift-shown';
 
+const isHonor = (id) => id.startsWith(HONOR_REWARD_PREFIX);
+
+/** An Honor Ribbon gift ('honor:<achId>'): the ribbon itself (its art loads with the ribbon module) and its name. */
+function honorTile(id, size) {
+  const achId = id.slice(HONOR_REWARD_PREFIX.length);
+  const name = HONOR_MAP[achId]?.name || 'Honor Ribbon';
+  const art = h('span.mbx-honor-art', { style: { '--s': `${size}px` } });
+  import('../honorFx.js').then(({ ribbonArt }) => art.replaceChildren(ribbonArt(achId, size, { title: name }))).catch(() => {});
+  return h('span.mbx-honor', { title: name, 'data-testid': `mail-honor-${achId}` },
+    art, h('small', name));
+}
+
 function tile(id, count, size = 54) {
+  if (isHonor(id)) return honorTile(id, size);
   const wrap = itemTile(id, count, { size, showName: false });
   wrap.style.setProperty('--rarity', ITEM_RARITIES[getItem(id)?.rarity]?.color || '#9aa5b1');
   return wrap; // the tile's own count is already short (300000 → "x300K"), so big counts fit a small tile
@@ -55,7 +70,11 @@ export function openMailbox({ tab = null } = {}) {
  * both ("Gifts received! … choose your SSR now?") so a toast never sits on top of its title.
  */
 export function afterClaim(rewards) {
-  const received = `Received ${rewards.length} kind${rewards.length === 1 ? '' : 's'} of gifts — check your Backpack!`;
+  const ribbons = rewards.filter((r) => isHonor(r.id)).map((r) => HONOR_MAP[r.id.slice(HONOR_REWARD_PREFIX.length)]?.name || 'Honor Ribbon');
+  const items = rewards.length - ribbons.length;
+  const ribbonLine = ribbons.length ? `${ribbons.join(' and ')} added to your Honor Ribbon Case!` : '';
+  const itemLine = items ? `Received ${items} kind${items === 1 ? '' : 's'} of gifts — check your Backpack!` : '';
+  const received = [ribbonLine, itemLine].filter(Boolean).join(' ');
   if (rewards.some((r) => r.id === 'ticket_ssr_select') && itemCount(store.profile, 'ticket_ssr_select') > 0) {
     Promise.resolve(offerSelectTicket({ lead: received })).catch(() => toast(received, 'good', 2600));
     return;

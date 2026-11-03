@@ -10,6 +10,10 @@ import { drinkTarget, endDrinkWave } from '../../src/sim/drinks.js';
 import { rallyGirl } from '../../src/sim/abilities.js';
 import { roadSpots } from '../../src/sim/strips.js';
 import { MAP, STAGE, ENEMIES } from './fixtures.js';
+import { POWER } from '../../src/data/balance.js';
+
+// Wakaba's balance round 5 row (src/data/balance.js): her drinks' bonus parts × buff
+const WB = POWER.wakaba?.buff ?? 1;
 
 const units = defaultData().units;
 const WK = units.wakaba;
@@ -92,8 +96,8 @@ describe('Hydrated', () => {
     const before = gs.map((g) => [g.eff.rate, g.eff.range]);
     firstDrink(sim);
     expect(gs.map((g) => !!g.hydrated)).toEqual([true, false, false]);
-    expect(gs[0].eff.rate).toBeCloseTo(before[0][0] * 1.15, 12);
-    expect(gs[0].eff.range).toBeCloseTo(before[0][1] * 1.1, 12);
+    expect(gs[0].eff.rate).toBeCloseTo(before[0][0] * (1 + 0.15 * WB), 12);
+    expect(gs[0].eff.range).toBeCloseTo(before[0][1] * (1 + 0.1 * WB), 12);
     expect(gs[0].hydrated.shots).toBe(8);
     // eight attacks use it up
     parkAt(sim, 'tank', gs[0].x, 4.5);
@@ -112,7 +116,7 @@ describe('Hydrated', () => {
     const g = gs[0];
     expect(g.hydrated).toBeTruthy();
     expect(g.buff.rateMul * g.buff.dmgMul).toBeGreaterThan(1); // Miko's aura is on her
-    expect(g.eff.rate).toBeCloseTo(g.stats.rate * g.buff.rateMul * sim.globalRateMul * 1.15, 12);
+    expect(g.eff.rate).toBeCloseTo(g.stats.rate * g.buff.rateMul * sim.globalRateMul * (1 + 0.15 * WB), 12);
     expect(g.eff.damage).toBeCloseTo(g.stats.damage * g.buff.dmgMul * (sim.globalDmgMul ?? 1), 12);
   });
 
@@ -120,12 +124,12 @@ describe('Hydrated', () => {
     const t3 = setup({ tiers: [3, 0, 0] });
     const d0 = t3.gs[0].eff.damage;
     firstDrink(t3.sim);
-    expect(t3.gs[0].eff.damage).toBeCloseTo(d0 * 1.2, 12);
+    expect(t3.gs[0].eff.damage).toBeCloseTo(d0 * (1 + 0.2 * WB), 12);
     const t5 = setup({ tiers: [5, 2, 0] });
     const p0 = t5.gs[0].eff.pierce;
     firstDrink(t5.sim);
     expect(t5.gs[0].eff.pierce).toBe(p0 + 1);
-    expect(t5.gs[0].hydrated.rateMul).toBeCloseTo(1.25, 12);
+    expect(t5.gs[0].hydrated.rateMul).toBeCloseTo(1 + 0.25 * WB, 12);
   });
 
   test('Secret Formula: never runs out in the wave; ends at the wave clear and when she is sold', () => {

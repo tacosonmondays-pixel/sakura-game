@@ -1,3 +1,4 @@
+import { POWER } from '../../src/data/balance.js';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Lockstep, REBUILD_TIMEOUT_MS } from '../../src/online/coop/lockstep.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
@@ -1322,13 +1323,16 @@ describe('co-op lockstep: Tenka\'s lab team through a drop, a rejoin and a resyn
 // the viaduct fixture (previews/viaductMaps.js; not in MAPS, so it is registered in the sim's data source
 // here) with the same command log stay bit-identical while enemies climb onto it and walk under it.
 describe('co-op lockstep: the viaduct board', () => {
+  const neutral = (id) => ({ ...CHEAP, damageMul: (CHEAP.damageMul ?? 1) / (POWER[id]?.dmg ?? 1) });
   const VSTART = {
     seed: 4242,
     stageId: 'fixture:viaduct',
     difficulty: 'normal',
     players: [
-      { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'aoi', stats: CHEAP }, { unitId: 'rei', stats: CHEAP }], hero: null },
-      { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'yuki', stats: CHEAP }], hero: null },
+      // (power-neutral: balance round 5's damage rows divided back out, src/data/balance.js, so a walker still reaches the
+      // underpass before the girls clear it)
+      { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'aoi', stats: neutral('aoi') }, { unitId: 'rei', stats: neutral('rei') }], hero: null },
+      { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'yuki', stats: neutral('yuki') }], hero: null },
     ],
   };
   const maps = defaultData().maps;
@@ -1379,5 +1383,157 @@ describe('co-op lockstep: the viaduct board', () => {
     expect(underSeen).toBe(true);
     expect(hashes[0].length).toBe(50);
     expect(hashes[1]).toEqual(hashes[0]);
+  });
+});
+
+// COOP 15 (co-op feel, tools/coopLatency.mjs): the input delay a stall raises is the waited-on side's, an order after
+// a quiet spell lands after the promise actually sent (not a whole idle lead), and the UI's nudge ends the idle saver early.
+describe('co-op lockstep: input lag (COOP 15)', () => {
+  const supa = { heartbeatMs: 250, inputDelay: 30, keepaliveMs: 1000 };
+  const idle = { idleAfterMs: 10000, idleLeadTicks: 60, idleKeepaliveMs: 2000 };
+  const run = (h, n) => {
+    for (let f = 0; f < n; f++) h.stepFrame();
+  };
+  const inSync = (h, fromTick) => {
+    const [A, B] = h.clients;
+    const late = A.hashPairs().filter((p) => p.t > fromTick);
+    return late.length > 0 && late.every((p) => p.mine === p.theirs) && !A.peers.get(1).gone && !B.peers.get(0).gone;
+  };
+
+  it('a client that waits for its ally raises the ALLY\'s input delay, never its own', () => {
+    const h = harness({ seed: 91, maxLag: 2, net: supa });
+    const [A, B] = h.clients;
+    run(h, 120);
+    expect(A.delay).toBe(30);
+    expect(B.delay).toBe(30);
+    // the host's packets come in bursts (a jittery uplink): ~0.7 s of silence, then everything at once
+    const held = [];
+    h.lose = (slot, msg) => {
+      if (slot !== 0) return false;
+      held.push(JSON.parse(JSON.stringify(msg)));
+      return true;
+    };
+    for (let f = 0; f < 60 * 6; f++) {
+      h.stepFrame();
+      if (f % 40 === 39) for (const m of held.splice(0)) B.receive(m);
+    }
+    h.lose = null;
+    run(h, 60);
+    expect(B.stallTicks).toBeGreaterThan(30);
+    expect(A.delay).toBeGreaterThan(30); // the host leads further…
+    expect(B.delay).toBe(30); // …and the guest's own orders stay quick
+    A.queue('auto', [true]);
+    run(h, 60 * 3);
+    expect(A.sim.options.autoStart && B.sim.options.autoStart).toBe(true);
+    expect(inSync(h, A.tick - 240)).toBe(true);
+  });
+
+  it('after a quiet spell an order lands after the promise actually sent, not a whole idle lead later; a nudge makes it one input delay', () => {
+    const h = harness({ seed: 93, maxLag: 3, net: supa, opts: idle });
+    const [A, B] = h.clients;
+    run(h, 60 * 15); // idle (no orders for 15 s)
+    expect(A.idle).toBe(true);
+    const leads = [];
+    for (let i = 0; i < 12; i++) {
+      run(h, 7 + i * 3);
+      const before = A.sentHorizon;
+      const cmd = A.queue('tgt', [0, 'first']);
+      leads.push(cmd.t - A.tick);
+      expect(cmd.t).toBeGreaterThan(before); // never under a promise already made
+      run(h, 60 * 12); // idle again
+    }
+    // the idle lead is 60 ticks; orders land 30–60 ticks out (the sent promise), most well under the full lead
+    expect(Math.max(...leads)).toBeLessThanOrEqual(61);
+    expect(Math.min(...leads)).toBeGreaterThanOrEqual(30);
+    expect(leads.reduce((a, b) => a + b, 0) / leads.length).toBeLessThan(55);
+    // a nudge (the player selected a girl) 0.6 s before the order: one input delay
+    A.nudge();
+    run(h, 36);
+    const cmd = A.queue('tgt', [0, 'first']);
+    expect(cmd.t - A.tick).toBe(30);
+    run(h, 120);
+    expect(inSync(h, A.tick - 120)).toBe(true);
+    expect(B.tick).toBeGreaterThan(60 * 140);
+  }, 60000);
+});
+
+// review r1 L1: the waited time a client reports (`st`) is real time, not frames — a 120 Hz client does not raise its
+// ally's input delay twice as fast as a 60 Hz one.
+describe('co-op lockstep: stall time is frame-rate independent (COOP 15, review r1 L1)', () => {
+  it('a client stalled for 2 s reports ~120 ticks waited at 60 Hz and at 120 Hz', () => {
+    const waited = (hz) => {
+      const clock = { t: 0 };
+      const mk = (slot) => new Lockstep({ start: START, mySlot: slot, now: () => clock.t, send: () => {} });
+      const A = mk(0);
+      // nobody ever hears the peer: A stalls from tick 0 (no horizon) — under the load timeout, so nobody is dropped
+      for (let f = 0; f < 2 * hz; f++) {
+        clock.t += 1000 / hz;
+        A.advance(1 / hz);
+      }
+      expect(A.stalled).toBe(true);
+      return A.stallTicks;
+    };
+    const at60 = waited(60);
+    const at120 = waited(120);
+    expect(at60).toBeGreaterThanOrEqual(118);
+    expect(at60).toBeLessThanOrEqual(121);
+    expect(Math.abs(at120 - at60)).toBeLessThanOrEqual(2);
+  });
+});
+
+// Co-op sharing (docs/specs/COOP_SHARING.md, COOP 17) through the network: the guest freezes past the drop timeout,
+// the host's grace runs out and it takes over the guest's girls and coins; the guest wakes, the host re-admits it
+// (its log carries the 'gone' / 'join' markers), and the girls are the guest's again on both, in lockstep.
+describe('co-op lockstep: a dropped player\'s girls are handed out after the grace and come back on the rejoin', () => {
+  const run = (h, n) => {
+    for (let f = 0; f < n; f++) h.stepFrame();
+  };
+  it('drop → grace → hand-out → rejoin → girls back, both clients\' hashes agreeing after the rejoin', () => {
+    const h = harness({ seed: 71, maxLag: 3 });
+    const [A, B] = h.clients;
+    // (spots of its own: the shared spots() list runs out when the whole file runs)
+    const free = (unitId, away = null) => {
+      const c = createCoopSim(START);
+      for (let y = 0.55; y < c.sim.map.height; y += 0.35) {
+        for (let x = 0.55; x < c.sim.map.width; x += 0.35) {
+          if (c.sim.placementReason(unitId, x, y)) continue;
+          if (away && Math.hypot(away[0] - x, away[1] - y) < 2) continue;
+          return [x, y];
+        }
+      }
+      throw new Error(`no spot for ${unitId}`);
+    };
+    const a = free('aoi');
+    const y = free('yuki', a);
+    run(h, 5);
+    A.queue('place', ['aoi', ...quantize(...a)]);
+    B.queue('place', ['yuki', ...quantize(...y)]);
+    run(h, 120);
+    const guestGirl = A.sim.towers.find((t) => A.coop.ownerOf(t.uid) === 1)?.uid;
+    expect(guestGirl).toBeTypeOf('number');
+    expect(A.coop.ctrlOf(guestGirl)).toBe(1);
+    // the guest's page freezes past the drop timeout
+    h.frozen.add(1);
+    run(h, Math.ceil((COOP.maxTimeoutMs / 1000 + 2) * 60));
+    expect(A.peers.get(1).gone).toBe(true);
+    const due = A.coop.pendingDeals()[0]?.at;
+    expect(due).toBeGreaterThan(A.tick);
+    run(h, due - A.tick + 30);
+    expect(A.coop.ctrlOf(guestGirl)).toBe(0); // handed out to the host
+    expect(A.coop.wallets[1]).toBe(0);
+    // the guest wakes: the host re-admits it, its timeline adopts the host's (markers and all)
+    h.frozen.delete(1);
+    run(h, 60 * 8);
+    expect(A.rejoins).toBe(1);
+    expect(B.rejoins).toBe(1);
+    run(h, 60 * 4);
+    for (const c of [A, B]) {
+      expect(c.coop.ctrlOf(guestGirl)).toBe(1); // back with their owner
+      expect(c.coop.lentInfo(guestGirl)).toBeNull();
+    }
+    const late = A.hashPairs().filter((p) => p.t > A.tick - 200);
+    expect(late.length).toBeGreaterThan(0);
+    expect(late.every((p) => p.mine === p.theirs)).toBe(true);
+    expect(A.coop.hash()).toBe(B.tick === A.tick ? B.coop.hash() : A.coop.hash());
   });
 });

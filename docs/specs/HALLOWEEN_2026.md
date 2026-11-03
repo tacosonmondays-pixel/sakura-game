@@ -10,6 +10,17 @@ The summer port in EVENT_SPEC comes later; build only the framework parts Hallow
   the moment the build is live. Last game day **2026-11-01** (ends Sun Nov 1, 7 PM Central) and exchange until
   **2026-11-08** are unchanged. This replaces `EVENT_SPEC.md` E1 / §3.2's Halloween row (opens 2026-10-24, Fri Oct 23
   7 PM Central). The event now runs 13 game days instead of 9.
+- **Extended two weeks (owner, Oct 30: "Halloween extended 2 weeks"; branch `fix/halloween-extend`).** Last game day
+  **2026-11-15** (ends Sun Nov 15, 7 PM Central) and exchange until **2026-11-22** (Sun Nov 22, 7 PM Central), both 14
+  days later than above. Daylight time ends Nov 1, so both are CST: `2026-11-16T01:00Z` and `2026-11-23T01:00Z`
+  (`gameDayEnd`). The event runs 27 game days. Nothing else changes: nine login gifts, the same stock and prices, 10
+  event sweeps a game day. Login gifts already in a Mailbox carry the old exchange end as their expiry; `settleEvents`
+  (app start, the lobby, the event page) moves the run's unclaimed ones to the new end, so they expire with the
+  exchange again. SW-8 now counts 26 game days (Oct 21 – Nov 15): 61,660 / 59,140 / 32,520 candy, smallest daily
+  limit 1 / 1 / 3. A build from before the extension keeps the old window: a tab of it still open after Nov 1, 7 PM
+  Central closes the operations there and mails the unclaimed-missions letter early (the claims are marked, so
+  nothing pays twice), and after Nov 8, 7 PM Central it settles the run, which is final. So it ships before
+  Nov 1, 7 PM Central.
 - It must be live **before Fri Oct 23, 7 PM Central** at the latest (the original opening).
   If the full content can't make it, ship the framework plus a smaller event on time rather than a late full one, and say
   what was cut.

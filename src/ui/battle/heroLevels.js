@@ -125,15 +125,19 @@ export function createHeroLevels(ctx, ls) {
     const st = shown || sim.heroLevelStatus();
     if (st.reason === 'noHero' || st.reason === 'max' || st.reason === 'ended') return false;
     const cur = sim.heroLevelStatus();
-    if (cur.reason === 'cash' || sim.cash < st.price) {
-      ctx.feed.push(`Need ${fmtNum(Math.max(5, st.price - sim.cash), 'money', { round: 'up' })} more coins.`, 'warn', { key: 'lvl-cash', ms: 1500 });
+    // (co-op: less the coins my orders in flight hold, ctx.spendable — review r2 R2-2)
+    const cash = ctx.spendable ? ctx.spendable() : sim.cash;
+    if (cur.reason === 'cash' || cash < st.price) {
+      ctx.feed.push(`Need ${fmtNum(Math.max(5, st.price - cash), 'money', { round: 'up' })} more coins.`, 'warn', { key: 'lvl-cash', ms: 1500 });
       ctx.bump?.('cash');
       return false;
     }
     const want = { level: st.level + 1, maxPrice: st.price };
     if (ls) {
       if (ls.job) return false;
-      ls.queue('hlv', [want.level, want.maxPrice]);
+      // (its price is spoken for until it runs, like an upgrade's: coopPending.js)
+      const cmd = ls.queue('hlv', [want.level, want.maxPrice]); // (queued first: `?.` would skip the call itself)
+      ctx.coopPending?.level(cmd, st.price);
       return true;
     }
     const r = sim.buyHeroLevel(want);

@@ -654,7 +654,7 @@ describe('co-op lobby: the start message is clamped on both clients (statLimits.
     expect(W.until(() => guest.phase === 'battle', 5000)).not.toBe(null);
     expect(guest.lockstep.start).toEqual(host.lockstep.start);
     const g = host.lockstep.start.players.find((p) => p.uid === GUEST);
-    expect(g.loadout[0].stats).toEqual({ damageMul: 15, rateMul: 5, costMul: 0.75, level: 99, potential: 6, awakenPassive: true });
+    expect(g.loadout[0].stats).toEqual({ damageMul: 40, rateMul: 12, costMul: 0.5, level: 99, potential: 6, awakenPassive: true });
     // an honest L85 P6 girl passes through as she is
     expect(g.loadout[1].stats).toEqual({ potential: 6, level: 85 });
     expect(guest.lockstep.coop.hash()).toBe(host.lockstep.coop.hash());
@@ -696,7 +696,7 @@ describe('co-op lobby: the start message is clamped on both clients (statLimits.
     ls.applyResync({ start: hostile, T: C.tick + 30, w: C.sim.wave, cmds, ck: { t: C.tick, snap: C.snapshot() } });
     while (ls.job) ls.runJob(Infinity);
     const t = ls.coop.sim.getTower(cheat.uid);
-    expect(t.unitStats).toMatchObject({ damageMul: 15, rateMul: 5 });
+    expect(t.unitStats).toMatchObject({ damageMul: 40, rateMul: 12 });
     // her stats and effective stats come from the clamped entry, not from the checkpoint's numbers
     const honest = createCoopSim(clampStart(hostile), { mySlot: 1 });
     for (const c of cmds) {
@@ -706,8 +706,9 @@ describe('co-op lobby: the start message is clamped on both clients (statLimits.
     const h = honest.sim.towers[0];
     expect(t.stats.damage).toBe(h.stats.damage);
     expect(t.stats.rate).toBe(h.stats.rate);
-    expect(t.stats.damage).toBeLessThan(cheat.stats.damage / 50);
-    expect(t.eff.damage).toBeLessThan(cheat.eff.damage / 50);
+    // (the gear update's rows: damageMul ≤ 40, GEAR_UPDATE.md §10.2)
+    expect(t.stats.damage).toBeLessThan(cheat.stats.damage / 20);
+    expect(t.eff.damage).toBeLessThan(cheat.eff.damage / 20);
     host.close();
     guest.close();
   });
@@ -1182,14 +1183,14 @@ describe('co-op freeplay: the room setting', () => {
     guest.close();
   });
 
-  it('protocol 13: a hello or a start message from a protocol-12 build (v0.1.60) is refused (the version banner)', () => {
+  it('protocol 17: a hello or a start message from a protocol-16 build (v0.1.68) is refused (the version banner)', () => {
     const W = world();
     const { host, guest } = paired(W, { freeplay: 'tempest' });
     const v = coopVersion();
-    expect(v.proto).toBe(13);
-    const old = { ...v, proto: 12, label: '0.1.60' };
+    expect(v.proto).toBe(17);
+    const old = { ...v, proto: 16, label: '0.1.68' };
     host.room.handlers.onMessage({ type: 'hello', player: { ...meOf('old-uid', 'Chi', ['aoi']), ready: true, host: false }, v: old, sees: null }, 'old-uid');
-    expect(host.mismatch).toMatchObject({ uid: 'old-uid', theirs: { proto: 12, label: '0.1.60' } });
+    expect(host.mismatch).toMatchObject({ uid: 'old-uid', theirs: { proto: 16, label: '0.1.68' } });
     expect(host.peer.uid).toBe(GUEST);
     // a start message from an old host never becomes a battle
     const players = [{ slot: 0, uid: HOST, name: 'Aiko', loadout: [], hero: null }, { slot: 1, uid: GUEST, name: 'Bea', loadout: [], hero: null }];
@@ -1388,5 +1389,100 @@ describe('co-op battle modes: the room setting', () => {
     host.setStage('1-2', 'normal', null, 'nope');
     expect(host.mode).toBe('standard');
     host.close();
+  });
+});
+
+describe('[stickers] co-op stickers on the side channel (docs/specs/STICKERS.md §4)', () => {
+  function paired(W, social = {}) {
+    const host = open(W, true, {}, social);
+    W.connect(host.room);
+    const guest = open(W, false, {}, social);
+    W.connect(guest.room);
+    expect(W.until(() => host.paired && guest.paired)).not.toBe(null);
+    return { host, guest };
+  }
+  const heard = (s) => {
+    const out = [];
+    s.on('sticker', (e) => out.push(e));
+    return out;
+  };
+
+  it('a sticker reaches the ally as its own message type, never through the session or the lockstep stream', () => {
+    const W = world();
+    const { host, guest } = paired(W);
+    const got = heard(guest);
+    const mine = heard(host);
+    expect(host.sendSticker('aoi_nice')).toEqual({ ok: true, waitMs: 0 });
+    W.step(200);
+    expect(got).toEqual([{ uid: HOST, id: 'aoi_nice', mine: false }]);
+    expect(mine).toEqual([{ uid: HOST, id: 'aoi_nice', mine: true }]);
+    const sent = host.room.log.filter((e) => e.msg.type === 'stk');
+    expect(sent).toHaveLength(1);
+    expect(sent[0].msg).toEqual({ type: 'stk', uid: HOST, id: 'aoi_nice', n: 1 });
+    // nothing else changed: no 'ls' traffic, and the session state does not know about stickers
+    expect(host.room.log.some((e) => e.msg.type === 'ls')).toBe(false);
+    expect(guest.phase).toBe('lobby');
+    host.close();
+    guest.close();
+  });
+
+  it('the sender waits 2 s between stickers and sends at most 5 in 20 s', () => {
+    const W = world();
+    const { host, guest } = paired(W);
+    expect(host.sendSticker('slime_hi').ok).toBe(true);
+    const r = host.sendSticker('slime_hi');
+    expect(r.ok).toBe(false);
+    expect(r.waitMs).toBeGreaterThan(1900);
+    for (let i = 0; i < 4; i++) {
+      W.step(2000);
+      expect(host.sendSticker('slime_gg').ok).toBe(true);
+    }
+    W.step(2000);
+    const sixth = host.sendSticker('slime_gg');
+    expect(sixth.ok).toBe(false); // 5 in the last 20 s
+    expect(sixth.waitMs).toBeGreaterThan(0);
+    W.step(sixth.waitMs);
+    expect(host.sendSticker('slime_gg').ok).toBe(true);
+    host.close();
+    guest.close();
+  });
+
+  it('the receiver drops unknown ids, other players, spoofed senders, blocked players and a flood', () => {
+    const W = world();
+    const blocked = new Set();
+    const { host, guest } = paired(W, { isBlocked: (uid) => blocked.has(uid) });
+    const got = heard(guest);
+    const raw = (msg, from = HOST) => guest.room.handlers.onMessage(msg, from);
+    raw({ type: 'stk', uid: HOST, id: 'not_a_sticker', n: 1 }); // an id from a newer build: ignored
+    raw({ type: 'stk', uid: HOST, id: '<img src=x>', n: 2 });
+    raw({ type: 'stk', uid: 'someone-else', id: 'aoi_nice', n: 3 }, 'someone-else'); // not my ally
+    raw({ type: 'stk', uid: HOST, id: 'aoi_nice', n: 4 }, 'someone-else'); // says it is the host, isn't
+    raw({ type: 'stk', uid: HOST, id: 'aoi_nice', text: 'free text never shows' }, HOST);
+    expect(got).toEqual([{ uid: HOST, id: 'aoi_nice', mine: false }]);
+    raw({ type: 'stk', uid: HOST, id: 'aoi_nice', n: 5 }); // 0 s after the last one: over the limit
+    expect(got).toHaveLength(1);
+    blocked.add(HOST);
+    W.step(2500);
+    raw({ type: 'stk', uid: HOST, id: 'aoi_nice', n: 6 });
+    expect(got).toHaveLength(1);
+    host.close();
+    guest.close();
+  });
+
+  it('an older build (a plain session) ignores a sticker without trouble', () => {
+    const W = world();
+    const host = open(W, true, {}, {});
+    W.connect(host.room);
+    const old = open(W, false); // no social wrapper: the session alone, like a build from before stickers
+    W.connect(old.room);
+    expect(W.until(() => host.paired && old.paired)).not.toBe(null);
+    expect(old.sendSticker).toBe(undefined);
+    expect(() => {
+      host.sendSticker('aoi_nice');
+      W.step(500);
+    }).not.toThrow();
+    expect(old.paired).toBe(true);
+    host.close();
+    old.close();
   });
 });

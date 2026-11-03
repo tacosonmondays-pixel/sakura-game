@@ -12,8 +12,9 @@
 // Hover, Hold, Patrol, Pursuit), so the checkpoints catch drones flying home, jammed or far out.
 import { describe, it, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
-import { STEP, PRISM_BEAM_TICK } from '../../src/sim/constants.js';
+import { STEP, PRISM_BEAM_TICK, INCOME_INTEREST_MAX, INCOME_INTEREST_SET_MAX } from '../../src/sim/constants.js';
 import { autoPlan } from '../../src/sim/headless.js';
+import { samplePath } from '../../src/sim/path.js';
 import { createRng } from '../../src/core/rng.js';
 import { TARGET_MODES } from '../../src/data/types.js';
 import { STAGE_MAP } from '../../src/data/stages.js';
@@ -21,7 +22,7 @@ import { hashSim } from '../../src/online/coop/simHash.js';
 import { coopStage } from '../../src/data/coop.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
 import { RECORD_V, SNAP_V, SNAP_V_P1, slotKey } from '../../src/systems/battleSave.js';
-import { xpToReach } from '../../src/sim/hero.js';
+import { xpToReach, gainHeroXp } from '../../src/sim/hero.js';
 import { FLIGHT_MODES } from '../../src/sim/constants.js';
 import { shadowDoubles } from '../../src/sim/deploys.js';
 import {
@@ -50,6 +51,42 @@ const team = (c) => ({
   hero: c.hero ? { unitId: c.hero, stats: { ...unitBattleStats(null, c.hero), ...c.stats, ...c.per?.[c.hero] } } : null,
 });
 const makeSim = (c) => new Sim({ stageId: c.stageId, difficulty: c.difficulty, ...team(c), seed: c.seed, options: { endless: !!c.endless, autoStart: false, mode: c.mode } });
+/**
+ * The attack shapes S5 mid-wave on 2-5 and 3-5: Miko, Rei, Suzu, Midori and Raika at tier 5 on their shape paths and Luna
+ * at Lv 25; `each(sim)` after every step (fields that live only while a wave runs: toll rings, mists, moonbeam passes, webs).
+ */
+function s5Run(each) {
+  // (each girl alone, so the early waves' few enemies reach her: Luna as the hero with no girl beside her)
+  for (const [ids, hero] of [[['miko'], null], [['rei'], null], [['suzu'], null], [['midori'], null], [['raika'], null], [[], 'luna']]) for (const st of ['2-5', '3-5']) {
+    const sim = makeSim({ stageId: st, difficulty: 'normal', towers: ids, hero, stats: {}, seed: 16 });
+    sim.cash = 1e6;
+    // each on the free spot covering the most road within 2.5 tiles (as tools/balance/r5Bench.mjs places a girl)
+    const road = sim.pathData.flatMap((q) => samplePath(q, 0.5)).filter((q) => !q.hidden);
+    for (const id of hero ? [...ids, hero] : ids) {
+      let best = null;
+      for (let y = 0.5; y < sim.map.height; y += 0.5) {
+        for (let x = 0.5; x < sim.map.width; x += 0.5) {
+          if (!sim.canPlace(id, x, y).ok) continue;
+          const cov = road.reduce((n, q) => n + ((q.x - x) ** 2 + (q.y - y) ** 2 <= 6.25 ? 1 : 0), 0);
+          if (!best || cov > best.cov) best = { x, y, cov };
+        }
+      }
+      expect(sim.placeTower(id, best.x, best.y), id).toBeTruthy();
+    }
+    const path = { miko: 1, rei: 0, suzu: 0, midori: 2, raika: 2 };
+    for (const t of sim.towers) {
+      if (t.isHero) gainHeroXp(sim, t, xpToReach(t.def.hero, 25), 'restore');
+      else for (let k = 0; k < 5; k++) expect(sim.upgradeTower(t.uid, path[t.unitId])).toBe(true);
+    }
+    for (let w = 0; w < 4; w++) {
+      if (sim.state !== 'wave') sim.startNextWave();
+      for (let i = 0; i < 60 * 60 && sim.state === 'wave'; i++) {
+        sim.update(STEP);
+        each(sim);
+      }
+    }
+  }
+}
 const recordOf = (c, snap) => ({
   v: RECORD_V, id: 'bs-test', slot: slotKey(c.stageId, !!c.endless), stageId: c.stageId, endless: !!c.endless,
   difficulty: c.difficulty, ...(c.mode ? { mode: c.mode } : {}), seed: c.seed, ...team(c), createdAt: 1, updatedAt: 1, resumes: 0, snap,
@@ -779,7 +816,8 @@ function nearPath(sim, units) {
 }
 
 /** Potential v3 test team: every girl at P6 by the path on 4-5 Hard (a blizzard rule, a kept focus). */
-const POT = { stageId: '4-5', difficulty: 'hard', towers: ['kage', 'rei', 'kaede', 'momo', 'suzu', 'chika', 'akane'], hero: 'luna', stats: { damageMul: 1.5, rateMul: 1.2, potential: 6 }, seed: 4545 };
+// (power-neutral, `powerOff`: balance round 5's rows stay out, so Kage's tempo and carry are still caught mid-run)
+const POT = { stageId: '4-5', difficulty: 'hard', towers: ['kage', 'rei', 'kaede', 'momo', 'suzu', 'chika', 'akane'], hero: 'luna', stats: { damageMul: 1.5, rateMul: 1.2, potential: 6, powerOff: true }, seed: 4545 };
 /** The team on spots by the path, tier 2 on path 0, the waves' own streams (as the controller). */
 function potBuild() {
   const sim = makeSim(POT);
@@ -860,6 +898,32 @@ const ftTrapRun = () => (ftTrapPlayed ??= (() => {
   return sim;
 })());
 
+/** The gear sets (GEAR_UPDATE.md §10.4): Right Angle, Confetti Burst, Big Cheer and Bake Sale on four girls. */
+const SETS = {
+  ...GEAR, towers: ['aoi', 'rei', 'yuki', 'momo'], hero: null,
+  per: {
+    aoi: { set: 'geometry', setN: 5, critChance: 0.3 }, rei: { set: 'popper', setN: 4 }, yuki: { set: 'spirit', setN: 4 }, momo: { set: 'treasurer', setN: 5, setLr: true },
+  },
+};
+function setsBuild() {
+  const sim = makeSim(SETS);
+  sim.cash = 5e6;
+  const at = nearPath(sim, SETS.towers);
+  const placed = {};
+  for (const u of SETS.towers) placed[u] = sim.placeTower(u, at[u][0], at[u][1]);
+  for (const id of SETS.towers) for (let k = 0; k < 2; k++) sim.upgradeTower(placed[id].uid, 0);
+  sim.cash = 4000;
+  wrapWaves(sim, SETS.seed);
+  return sim;
+}
+let setsPlayed = null;
+const setsRun = () => (setsPlayed ??= (() => {
+  const sim = setsBuild();
+  potWaves(sim, 4, () => {});
+  return sim;
+})());
+const SET_FIELDS = ['cheerT', 'angleN', 'burstN', 'bakeC', 'bakeW'];
+
 describe('battle save and gear (Pierce carries, club tricks, Finale Pop budget)', SLOW, () => {
   it('every gear counter comes back exactly, and a split run plays on like the straight one', () => {
     const { sim } = gearBuild();
@@ -881,6 +945,32 @@ describe('battle save and gear (Pierce carries, club tricks, Finale Pop budget)'
     const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
     const { sim: back } = restoreSim(recordOf(GEAR, snap), { settings: { autoStart: false } });
     wrapWaves(back, GEAR.seed);
+    potWaves(sim, 2, () => {});
+    potWaves(back, 2, () => {});
+    expect(hashSim(back)).toBe(hashSim(sim));
+  });
+
+  it('the gear sets\' counters (cheerT, angleN, burstN, bakeC) and Confetti Burst\'s budget come back; the split run plays on the same', () => {
+    const sim = setsBuild();
+    const seen = Object.fromEntries(SET_FIELDS.map((k) => [k, 0]));
+    potWaves(sim, 4, () => {
+      const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+      const { sim: back, dropped } = restoreSim(recordOf(SETS, snap), { settings: { autoStart: false } });
+      expect(dropped).toEqual([]);
+      for (const t of sim.towers) {
+        const b = back.towers.find((x) => x.uid === t.uid);
+        for (const k of SET_FIELDS) {
+          if (t[k] != null) seen[k]++;
+          if (k === 'bakeC') expect(b[k] ?? 0).toBeCloseTo(t[k] ?? 0, 9);
+          else expect(b[k], `${t.unitId}.${k}`).toBe(t[k]);
+        }
+      }
+      expect(back.burstBudget).toBe(sim.burstBudget);
+    });
+    for (const k of SET_FIELDS) expect(seen[k], k).toBeGreaterThan(0);
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const { sim: back } = restoreSim(recordOf(SETS, snap), { settings: { autoStart: false } });
+    wrapWaves(back, SETS.seed);
     potWaves(sim, 2, () => {});
     potWaves(back, 2, () => {});
     expect(hashSim(back)).toBe(hashSim(sim));
@@ -1242,6 +1332,107 @@ describe('the new girls in a battle save: Ouka\'s banners (UNIT_GAPS §7.3)', SL
   });
 });
 
+/** Iroha at Mirror Hall tier 5 on 1-1 with mirrors 0 and 2 placed, mid-cast in wave 1 (her Laser Web running). */
+function irohaRun() {
+  const c = { stageId: '1-1', difficulty: 'normal', towers: ['iroha', 'aoi'], hero: null, stats: {}, seed: 15 };
+  const sim = makeSim(c);
+  wrapWaves(sim, c.seed);
+  sim.cash = 1e6;
+  for (const a of autoPlan('1-1', ['iroha', 'aoi'], { maxCopies: 1 })) if (a.action === 'place') sim.placeTower(a.unitId, a.x, a.y);
+  const iro = sim.towers.find((t) => t.unitId === 'iroha');
+  for (let k = 0; k < 5; k++) expect(sim.upgradeTower(iro.uid, 0)).toBe(true);
+  expect(iro.mirrors).toHaveLength(5);
+  // (both near their road spots, so the leaders pass them)
+  expect(sim.setAim(iro.uid, iro.mirrors[0].x + 0.25, iro.mirrors[0].y, 0)).toBe(true);
+  expect(sim.setAim(iro.uid, iro.mirrors[2].x, iro.mirrors[2].y - 0.25, 2)).toBe(true);
+  sim.startNextWave();
+  for (let i = 0; i < 60 * 60 && !(iro.abil.active > 0); i++) {
+    sim.update(STEP);
+    sim.drainEvents();
+    if (iro.abil.cd > 0) iro.abil.cd = 0;
+    if (sim.enemies.length) sim.castAbility(iro.uid);
+  }
+  expect(iro.abil.active).toBeGreaterThan(0);
+  return { c, sim, iro };
+}
+
+describe('Iroha\'s mirror network in a battle save (docs/specs/IROHA_MIRRORS.md §6)', SLOW, () => {
+  it('the mirrors her player placed come back on their slots; the Auto ones follow the road; the battle plays on the same', () => {
+    const { c, sim, iro } = irohaRun();
+    while (sim.state === 'wave') {
+      sim.update(STEP);
+      sim.drainEvents();
+    }
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const row = snap.towers.find((t) => t.u === 'iroha');
+    expect(row.mr).toEqual([[iro.mirrorAim[0].x, iro.mirrorAim[0].y], 0, [iro.mirrorAim[2].x, iro.mirrorAim[2].y], 0, 0]);
+    const { sim: back, dropped } = restoreSim(recordOf(c, snap));
+    expect(dropped).toEqual([]);
+    const bi = back.towers.find((t) => t.unitId === 'iroha');
+    expect(bi.mirrorAim).toEqual(iro.mirrorAim);
+    expect(bi.mirrors).toEqual(iro.mirrors);
+    expect(JSON.stringify(snapshotSim(back))).toBe(JSON.stringify(snap));
+    // both play the next wave the same
+    wrapWaves(back, c.seed);
+    for (const s of [sim, back]) {
+      s.startNextWave();
+      while (s.state === 'wave') {
+        s.update(STEP);
+        s.drainEvents();
+      }
+    }
+    expect(hashSim(back)).toBe(hashSim(sim));
+  });
+});
+
+describe('Iroha\'s placed mirrors come back exactly (review r3 MEDIUM-1)', SLOW, () => {
+  /** Iroha at Mirror Hall tier 5 on 1-1 (five mirrors), placed in `order` at random spots around her; a calm point. */
+  function layout(seed) {
+    const c = { stageId: '1-1', difficulty: 'normal', towers: ['iroha', 'aoi'], hero: null, stats: {}, seed: 15 };
+    const sim = makeSim(c);
+    sim.cash = 1e6;
+    const a = autoPlan('1-1', ['iroha'], { maxCopies: 1 }).find((x) => x.action === 'place');
+    const t = sim.placeTower('iroha', a.x, a.y);
+    for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, 0);
+    const rng = createRng(seed);
+    const order = [0, 1, 2, 3, 4].sort(() => rng.next() - 0.5);
+    for (const k of order) sim.setAim(t.uid, t.x + (rng.next() * 2 - 1) * 4, t.y + (rng.next() * 2 - 1) * 4, k);
+    return { c, sim, t };
+  }
+
+  it('over 40 random layouts placed in random slot orders: the same spots, mirrors and battle hash after a restore', () => {
+    for (let seed = 1; seed <= 40; seed++) {
+      const { c, sim, t } = layout(seed);
+      // every placed spot on the 1/1024 grid and inside her reach
+      for (const m of t.mirrorAim) {
+        expect(m.x * 1024).toBe(Math.round(m.x * 1024));
+        expect(Math.hypot(m.x - t.x, m.y - t.y)).toBeLessThanOrEqual(t.stats.relay.reach);
+      }
+      const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+      const { sim: back } = restoreSim(recordOf(c, snap));
+      const bt = back.towers.find((x) => x.unitId === 'iroha');
+      expect(bt.mirrorAim, `seed ${seed}`).toEqual(t.mirrorAim);
+      expect(bt.mirrors, `seed ${seed}`).toEqual(t.mirrors);
+      expect(hashSim(back), `seed ${seed}`).toBe(hashSim(sim));
+    }
+  });
+
+  it('an older save\'s `am` (her one panel) becomes her mirror 0', () => {
+    const { c, sim, t } = layout(3);
+    sim.clearAim(t.uid);
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const row = snap.towers.find((x) => x.u === 'iroha');
+    expect('mr' in row).toBe(false);
+    const g = (v) => Math.round(v * 1024) / 1024;
+    row.am = [g(t.x + 1), g(t.y + 0.5)];
+    const { sim: back } = restoreSim(recordOf(c, snap));
+    const bt = back.towers.find((x) => x.unitId === 'iroha');
+    expect(bt.mirrorAim[0]).toEqual({ x: row.am[0], y: row.am[1] });
+    expect(bt.mirrorAim.slice(1).every((m) => m === null)).toBe(true);
+    expect(bt.mirrors[0]).toEqual(bt.mirrorAim[0]);
+  });
+});
+
 /** The legal spot for `unitId` nearest girl `o` (a 0.25-tile scan of the map), or null. */
 function spotNear(sim, unitId, o) {
   let best = null;
@@ -1309,6 +1500,24 @@ describe('Tenka\'s lab team in a battle save (src/sim/lab.js)', SLOW, () => {
     expect(hashSim(back)).toBe(hashSim(sim));
   });
 
+  it('a joiner\'s lifted interest cap (Treasurer 5 on her) travels as `lb[6]`; a default lab writes none (review M2 r2 N1)', () => {
+    const { c, sim, tk } = tenkaLabRun();
+    let row = JSON.parse(JSON.stringify(snapshotSim(sim))).towers.find((t) => t.u === 'tenka');
+    expect(tk.lab.interestCap).toEqual([INCOME_INTEREST_MAX]);
+    expect(row.lb).toHaveLength(6);
+    const plain = hashSim(sim);
+    tk.lab.interestCap = [INCOME_INTEREST_SET_MAX]; // (Momo had joined in Treasurer 5)
+    expect(hashSim(sim)).not.toBe(plain);
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    row = snap.towers.find((t) => t.u === 'tenka');
+    expect(row.lb[6]).toEqual([INCOME_INTEREST_SET_MAX]);
+    const bt = restoreSim(recordOf(c, snap)).sim.towers.find((t) => t.unitId === 'tenka');
+    expect(bt.lab).toEqual(tk.lab);
+    // a hand-made cap is never more than Treasurer's: anything else reads as the default
+    row.lb[6] = [1e9];
+    expect(restoreSim(recordOf(c, snap)).sim.towers.find((t) => t.unitId === 'tenka').lab.interestCap).toEqual([INCOME_INTEREST_MAX]);
+  });
+
   it('Continue plays on like the original: her lab weapons and income, then Unified Theory absorbs a second time', () => {
     const { c, sim, tk } = tenkaLabRun();
     const { sim: back } = restoreSim(recordOf(c, JSON.parse(JSON.stringify(snapshotSim(sim)))), { settings: { autoStart: false } });
@@ -1369,6 +1578,7 @@ describe('Tenka\'s lab team in a battle save (src/sim/lab.js)', SLOW, () => {
       coins: { dps: 100, frag: 0, control: 0, support: 50, economy: 9 },
       income: 0,
       interest: [0.03],
+      interestCap: [INCOME_INTEREST_MAX],
       uids: [3],
     });
     expect(back._labOn).toBe(1);
@@ -1565,6 +1775,13 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
       expect(shadowDoubles(sim, t, { count: 2, spacing: 1.5, dmgMul: 0.6, duration: 8 }).length).toBeGreaterThan(0);
       for (const k of fields(sim)) keys.add(k);
     }
+    // (and Raika's Static Webs: the web list, created on her first web; src/sim/s5shapes.js)
+    let webs = false;
+    s5Run((sim) => {
+      if (sim.statics) webs = true;
+      for (const k of fields(sim)) keys.add(k);
+    });
+    expect(webs).toBe(true);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_SIM_KEYS).sort());
   });
 
@@ -1583,15 +1800,16 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (const t of mid.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and Ouka's banners and the rules she gives)
     for (const t of oukaRun().sim.towers) for (const k of Object.keys(t)) keys.add(k);
-    // (and Chigusa mid-wave: a held enemy, thorn beds, Bloom Rush; all of it ends at the wave clear)
-    const cg = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['chigusa', 'aoi'], hero: null, stats: {}, seed: 12 });
+    // (and Chigusa mid-wave: Bramble Road vines on the road, thorn beds, Bloom Rush; all of it ends at the wave clear)
+    // (power-neutral: balance round 5's rows off, so a walker lives long enough for a vine, beds and Bloom Rush)
+    const cg = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['chigusa', 'aoi'], hero: null, stats: { powerOff: true }, seed: 12 });
     cg.cash = 1e6;
     for (const a of autoPlan('1-1', ['chigusa', 'aoi'], { maxCopies: 1 })) if (a.action === 'place') cg.placeTower(a.unitId, a.x, a.y);
     const ch = cg.towers.find((t) => t.unitId === 'chigusa');
     for (const [p, n] of [[0, 3], [1, 2]]) for (let k = 0; k < n; k++) expect(cg.upgradeTower(ch.uid, p)).toBe(true);
     cg.startNextWave();
-    for (let i = 0; i < 60 * 60 && !(ch.vineHold && ch.beds?.length && ch.bloomT > 0); i++) cg.update(STEP);
-    expect(!!(ch.vineHold && ch.beds?.length && ch.bloomT > 0)).toBe(true);
+    for (let i = 0; i < 60 * 60 && !(ch.vines?.length && ch.beds?.length && ch.bloomT > 0); i++) cg.update(STEP);
+    expect(!!(ch.vines?.length && ch.beds?.length && ch.bloomT > 0)).toBe(true);
     for (const t of cg.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and Marumi mid-wave: balls on the road, Lob on, so every spec of hers exists)
     const mr = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['marumi', 'aoi'], hero: null, stats: {}, seed: 13 });
@@ -1603,6 +1821,80 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (let i = 0; i < 60 * 60 && !mb.balls?.length; i++) mr.update(STEP);
     expect(mb.balls?.length > 0).toBe(true);
     for (const t of mr.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and the attack shapes S1 mid-wave: Kage's spin index, Hotaru's halo memory and spec; they end at the wave clear)
+    const sh = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['kage', 'hotaru'], hero: null, stats: {}, seed: 15 });
+    sh.cash = 1e6;
+    for (const a of autoPlan('1-1', ['kage', 'hotaru'], { maxCopies: 1 })) if (a.action === 'place') sh.placeTower(a.unitId, a.x, a.y);
+    const kg = sh.towers.find((t) => t.unitId === 'kage');
+    const ht = sh.towers.find((t) => t.unitId === 'hotaru');
+    for (let k = 0; k < 5; k++) expect(sh.upgradeTower(kg.uid, 0)).toBe(true);
+    for (let k = 0; k < 3; k++) expect(sh.upgradeTower(ht.uid, 0)).toBe(true);
+    sh.startNextWave();
+    for (let i = 0; i < 60 * 60 && !(kg.spinK != null && ht.haloHits); i++) sh.update(STEP);
+    expect(kg.spinK != null && !!ht.haloHits && !!ht.haloSpec).toBe(true);
+    for (const t of sh.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and the attack shapes S2 mid-wave: Akane's and Umeko's held channels; they end at the wave clear)
+    const hd = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['akane', 'umeko'], hero: null, stats: {}, seed: 16 });
+    hd.cash = 1e6;
+    for (const a of autoPlan('1-1', ['akane'], { maxCopies: 1 })) if (a.action === 'place') hd.placeTower(a.unitId, a.x, a.y);
+    const ak = hd.towers.find((t) => t.unitId === 'akane');
+    // (Umeko on the free spot nearest Akane, and a walker parked on the road nearest her: the planner keeps a support back)
+    const road = hd.pathData.flatMap((p) => samplePath(p, 0.5));
+    let spot = null;
+    for (let y = 0.5; y < hd.map.height; y += 0.5) for (let x = 0.5; x < hd.map.width; x += 0.5) {
+      if (!hd.canPlace('umeko', x, y).ok) continue;
+      const d = (x - ak.x) * (x - ak.x) + (y - ak.y) * (y - ak.y);
+      if (!spot || d < spot.d) spot = { x, y, d };
+    }
+    const um = hd.placeTower('umeko', spot.x, spot.y);
+    for (let k = 0; k < 4; k++) expect(hd.upgradeTower(ak.uid, 1)).toBe(true);
+    for (let k = 0; k < 4; k++) expect(hd.upgradeTower(um.uid, 0)).toBe(true);
+    hd.startNextWave();
+    const near = road.filter((r) => !r.hidden).reduce((b, r) => ((r.x - um.x) ** 2 + (r.y - um.y) ** 2 < b.dd ? { dd: (r.x - um.x) ** 2 + (r.y - um.y) ** 2, r } : b), { dd: Infinity }).r;
+    const parked = hd.spawnEnemy('slime_green', { pathIndex: near.pathIndex, dist: near.d, hpMul: 1e4 });
+    parked.baseSpeed = 0;
+    let seenA = false;
+    let seenU = false;
+    for (let i = 0; i < 60 * 90 && !(seenA && seenU); i++) {
+      hd.update(STEP);
+      if (hd.state === 'between') hd.startNextWave();
+      if (ak.ch && !seenA) for (const k of Object.keys(ak)) keys.add(k);
+      if (um.ch && !seenU) for (const k of Object.keys(um)) keys.add(k);
+      seenA ||= !!ak.ch;
+      seenU ||= !!um.ch;
+    }
+    expect(seenA && seenU).toBe(true);
+    // (and the attack shapes S3 mid-wave: Yuki's spike rows and Kanna's quake rings; they end at the wave clear)
+    const gd = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['yuki'], hero: 'kanna', stats: {}, seed: 17 });
+    gd.cash = 1e6;
+    for (const a of autoPlan('1-1', ['yuki'], { maxCopies: 1 })) if (a.action === 'place') gd.placeTower(a.unitId, a.x, a.y);
+    const yk = gd.towers.find((t) => t.unitId === 'yuki');
+    for (let k = 0; k < 4; k++) expect(gd.upgradeTower(yk.uid, 1)).toBe(true);
+    const groad = gd.pathData.flatMap((p) => samplePath(p, 0.5)).filter((r) => !r.hidden);
+    let kspot = null;
+    for (let y = 0.5; y < gd.map.height; y += 0.5) for (let x = 0.5; x < gd.map.width; x += 0.5) {
+      if (!gd.canPlace('kanna', x, y).ok) continue;
+      const d = groad.reduce((m, r) => Math.min(m, (r.x - x) ** 2 + (r.y - y) ** 2), Infinity);
+      if (d > 0.8 && (!kspot || d < kspot.d)) kspot = { x, y, d };
+    }
+    const kn = gd.placeTower('kanna', kspot.x, kspot.y);
+    gainHeroXp(gd, kn, xpToReach(kn.def.hero, 24), 'restore');
+    expect(kn.stats.quake).toBeTruthy();
+    gd.startNextWave();
+    // (a walker parked on the road nearest her, two more beside it: Yuki clears the rest before they reach her)
+    const knear = groad.reduce((b, r) => ((r.x - kn.x) ** 2 + (r.y - kn.y) ** 2 < b.dd ? { dd: (r.x - kn.x) ** 2 + (r.y - kn.y) ** 2, r } : b), { dd: Infinity }).r;
+    for (const dd of [0, 0.4, 0.8]) gd.spawnEnemy('slime_green', { pathIndex: knear.pathIndex, dist: knear.d + dd, hpMul: 1e4 }).baseSpeed = 0;
+    let seenY = false;
+    let seenK = false;
+    for (let i = 0; i < 60 * 90 && !(seenY && seenK); i++) {
+      gd.update(STEP);
+      if (gd.state === 'between') gd.startNextWave();
+      if (yk.spikeRows?.length && !seenY) for (const k of Object.keys(yk)) keys.add(k);
+      if (kn.quakes?.length && !seenK) for (const k of Object.keys(kn)) keys.add(k);
+      seenY ||= !!yk.spikeRows?.length;
+      seenK ||= !!kn.quakes?.length;
+    }
+    expect(seenY && seenK).toBe(true);
     // (and Azami in Spread mode: her road cursor)
     const az = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['azami', 'aoi'], hero: null, stats: {}, seed: 14 });
     az.cash = 1e6;
@@ -1615,6 +1907,8 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (const t of az.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and the gear team: Pierce carries, club trick counts, Big Beat on traps and drones)
     for (const t of gearRun().towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and the gear sets: Big Cheer's, Right Angle's and Confetti Burst's counts, Bake Sale's coin fraction)
+    for (const t of setsRun().towers) for (const k of Object.keys(t)) keys.add(k);
     // (and an Archery trap girl: Follow-Through's trap count)
     for (const t of ftTrapRun().towers) for (const k of Object.keys(t)) keys.add(k);
     // (and Tenka with a lab team: her record and her frag / field weapons; T2 review saves-2)
@@ -1625,18 +1919,16 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (const t of duoRun().sim.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and the staff heroes: Norika's barricades, Hold the Line and One-Way Street; Kogane's Overdrive)
     for (const id of ['norika', 'kogane']) for (const t of staffRun(id, 25).sim.towers) for (const k of Object.keys(t)) keys.add(k);
-    // (and Iroha at Mirror Hall tier 5 mid-cast: Infinite Reflection's second mirror, gone at the wave clear)
-    const ir = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['iroha', 'aoi'], hero: null, stats: {}, seed: 15 });
-    ir.cash = 1e6;
-    for (const a of autoPlan('1-1', ['iroha', 'aoi'], { maxCopies: 1 })) if (a.action === 'place') ir.placeTower(a.unitId, a.x, a.y);
-    const iro = ir.towers.find((t) => t.unitId === 'iroha');
-    for (let k = 0; k < 5; k++) expect(ir.upgradeTower(iro.uid, 0)).toBe(true);
-    ir.startNextWave();
-    ir.update(STEP);
-    iro.abil.cd = 0;
-    expect(ir.castAbility(iro.uid, { aim: [iro.ox, iro.oy] }).ok).toBe(true);
-    expect(iro.mirror2).toBeTruthy();
-    for (const t of ir.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and Iroha at Mirror Hall tier 5 mid-cast with a mirror placed: her placed slots and her mirrors)
+    for (const t of irohaRun().sim.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and the attack shapes S5 mid-wave: Miko's wheel turn, Suzu's toll rings, Midori's mist, Luna's moonbeam pass, Raika's
+    // first-bolt chain, the attack scratch and shape damage)
+    const s5Keys = new Set();
+    s5Run((sim) => {
+      for (const t of sim.towers) for (const k of Object.keys(t)) s5Keys.add(k);
+    });
+    for (const k of ['shapeDealt', '_struck', '_lead', 'wheelK', 'tolls', '_chain', 'mist', 'moon']) expect(s5Keys.has(k), k).toBe(true);
+    for (const k of s5Keys) keys.add(k);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_TOWER_KEYS).sort());
   });
 
@@ -1745,7 +2037,8 @@ describe('battle save and co-op freeplay: a solo save never carries freeplay sta
 
 describe('Marumi\'s ricochet and the battle save', () => {
   it('a ball mid-bounce ends at the wave clear: the save round-trips with no ball and replays no blast', () => {
-    const c = { stageId: '1-1', difficulty: 'normal', towers: ['marumi', 'aoi'], hero: null, stats: {}, seed: 2110 };
+    // (power-neutral: balance round 5's rows off, so a ball is still bouncing when the wave is checked)
+    const c = { stageId: '1-1', difficulty: 'normal', towers: ['marumi', 'aoi'], hero: null, stats: { powerOff: true }, seed: 2110 };
     const sim = makeSim(c);
     sim.cash = 1e6;
     for (const a of autoPlan('1-1', c.towers, { maxCopies: 1 })) if (a.action === 'place') sim.placeTower(a.unitId, a.x, a.y);

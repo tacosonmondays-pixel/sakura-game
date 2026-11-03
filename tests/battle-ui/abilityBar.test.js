@@ -4,6 +4,7 @@
 // globe for map scope, the aim kinds, never an ally's girl or a hero; the keys (Digit / Numpad, Shift, paused,
 // typing); the co-op command arguments; a refusal line for every reason; the first-unlock toast once per id and the
 // ally chip at most every 3 s.
+import { POWER } from '../../src/data/balance.js';
 import { describe, it, expect, afterEach } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import {
@@ -544,7 +545,8 @@ describe('a tap with none of her copies selected fires the ready copy with the m
 
   it('through the bar in co-op: the `abil` command names the in-reach copy, and it casts on the CoopSim', () => {
     restoreDom = installFakeDom();
-    const st = { seed: 5, stageId: '1-2', difficulty: 'normal', players: [{ slot: 0, uid: 'a', name: 'A', loadout: [{ unitId: 'aoi' }], hero: null }, { slot: 1, uid: 'b', name: 'B', loadout: [{ unitId: 'rei' }], hero: null }] };
+    // (Aoi's balance round 5 row divided back out, src/data/balance.js: the scenario needs an enemy to reach her second copy)
+    const st = { seed: 5, stageId: '1-2', difficulty: 'normal', players: [{ slot: 0, uid: 'a', name: 'A', loadout: [{ unitId: 'aoi', stats: { damageMul: 1 / POWER.aoi.dmg } }], hero: null }, { slot: 1, uid: 'b', name: 'B', loadout: [{ unitId: 'rei' }], hero: null }] };
     const c = createCoopSim(st, { mySlot: 0 });
     const snap = c.snapshot();
     snap.wallets = [1e6, 1e6];
@@ -586,7 +588,8 @@ describe('a tap with none of her copies selected fires the ready copy with the m
 describe('the co-op cast path (coopCastCheck, clearPendingFor)', () => {
   /** A CoopSim: player 0 has two Aois at tier 3, player 1 a Rei at tier 3, a wave running. */
   function coop() {
-    const st = { seed: 5, stageId: '1-2', difficulty: 'normal', players: [{ slot: 0, uid: 'a', name: 'A', loadout: [{ unitId: 'aoi' }], hero: null }, { slot: 1, uid: 'b', name: 'B', loadout: [{ unitId: 'rei' }], hero: null }] };
+    // (Aoi's balance round 5 row divided back out, src/data/balance.js: the scenario needs an enemy to reach her second copy)
+    const st = { seed: 5, stageId: '1-2', difficulty: 'normal', players: [{ slot: 0, uid: 'a', name: 'A', loadout: [{ unitId: 'aoi', stats: { damageMul: 1 / POWER.aoi.dmg } }], hero: null }, { slot: 1, uid: 'b', name: 'B', loadout: [{ unitId: 'rei' }], hero: null }] };
     const c = createCoopSim(st, { mySlot: 0 });
     const snap = c.snapshot();
     snap.wallets = [1e6, 1e6];

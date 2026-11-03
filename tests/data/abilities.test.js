@@ -3,6 +3,7 @@
 // that ranks up at Lv 17, the shared vocabulary, cooldowns and durations in whole ticks, a text row
 // for every ability whose templates fill completely, names that clash with nothing, our own words
 // only, a ⚡ tip per girl, and the attach hook. The sim reads it in one place, src/sim/abilities.js (A1).
+import { POWER } from '../../src/data/balance.js';
 import { describe, test, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -94,7 +95,7 @@ const silence = (duration) => ({ type: 'silence', duration });
 const reveal = (duration) => ({ type: 'reveal', duration });
 const ground = (duration) => ({ type: 'ground', duration });
 const hold = (duration) => ({ type: 'hold', duration });
-const curse = (burstMul, radius, duration) => ({ type: 'curse', burstMul, radius, duration });
+const curse = (burstMul, radius, duration, rot) => ({ type: 'curse', burstMul, radius, duration, rot });
 const hex = (pct, duration) => ({ type: 'hex', pct, duration });
 const SPEC_TOWERS = {
   aoi: {
@@ -293,17 +294,17 @@ const SPEC_TOWERS = {
     t5: { cooldown: 42, duration: 14, effect: { lifeMax: 5 } },
   },
   iroha: {
-    // (an aimed deploy with the mirror redirect: A6)
-    path: 'hall', id: 'iroha.mirrorShift', kind: 'deploy', scope: 'local', cooldown: 30, duration: 8,
-    effect: { deploy: 'mirror', count: 1, reflect: true },
+    // (Laser Web, the mirror network's ⚡: docs/specs/IROHA_MIRRORS.md §5; the id is Mirror Shift's)
+    path: 'hall', id: 'iroha.mirrorShift', kind: 'deploy', scope: 'local', cooldown: 30, duration: 6,
+    effect: { deploy: 'mirror', web: true, dmgMul: 0.8, reflect: true },
     auto: { when: 'enemies', min: 5 },
-    t5: { cooldown: 25, duration: 10, effect: { count: 2, permanentReflect: true } },
+    t5: { cooldown: 25, duration: 9, effect: { dmgMul: 2, permanentReflect: true } },
   },
   ena: {
     path: 'bloom', id: 'ena.omenCard', kind: 'debuff', scope: 'local', cooldown: 40, duration: 0,
-    effect: { reachMul: 1.5, status: [curse(3, 1.6, 6)] },
+    effect: { reachMul: 1.5, status: [curse(3, 1.6, 6, 0.6)] },
     auto: { when: 'enemies', min: 6 },
-    t5: { cooldown: 32, effect: { reachMul: 2, status: [curse(4, 1.6, 6)] } },
+    t5: { cooldown: 32, effect: { reachMul: 2, status: [curse(4, 1.6, 6, 0.8)] } },
   },
   // the duo (DUO_LR §1.4): 8 shells over 2 s (12 at tier 5), 3× (4×) her shell hit, splash 1.15, 2 (3) shards of 1×
   // at splash 0.6, Brittle +10% (+15%) for 4 s, 45 s (38 s); the LR form adds a 6× Twin Star, splash 1.6
@@ -398,7 +399,7 @@ const EFFECT_KEYS = {
   rally: ['radius', 'inAura', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'cleanse', 'ward', 'target', 'pierceAdd', 'stunImmune', 'lifeEvery', 'lifeRadius', 'lifeMax'],
   debuff: ['pick', 'count', 'casterStatus', 'rally', 'dmgMul', 'reachMul', 'reachAdd', ...STATUS_LIST],
   econ: ['coins'],
-  deploy: ['deploy', 'count', 'spacing', 'dmgMul', 'arm', 'hits', 'reachMul', 'reflect', 'permanentReflect'],
+  deploy: ['deploy', 'count', 'spacing', 'dmgMul', 'arm', 'hits', 'reachMul', 'reflect', 'permanentReflect', 'web'],
   // (Marumi's Giant Strike: a runner type, its length and speed in tiles, body segments, push; Ruri's River Rush)
   runner: ['runner', 'length', 'speed', 'segments', 'gap', 'dmgMul', 'knockback', 'allPaths', 'toSpawn', 'push', ...STATUS_LIST],
   // (A5: Fuu's Backdraft Fan, Ruri's Star Snatch)
@@ -475,7 +476,7 @@ function defErrors(d, where) {
   if ('lifeEvery' in e && !(e.lifeRadius > 0 && 'lifeMax' in e)) errs.push(`${where}: lives need a radius and a cap`);
   if ('reach' in e && e.reach !== 'map') errs.push(`${where}: reach is 'map' or a reachMul`);
   if ('reachMul' in e && 'reachAdd' in e) errs.push(`${where}: a reachMul or a reachAdd, not both`);
-  for (const k of ['fromOrigin', 'noBossStatus', 'stunImmune', 'reflect', 'permanentReflect']) if (k in e && e[k] !== true) errs.push(`${where}: ${k} is true or absent`);
+  for (const k of ['fromOrigin', 'noBossStatus', 'stunImmune', 'reflect', 'permanentReflect', 'web']) if (k in e && e[k] !== true) errs.push(`${where}: ${k} is true or absent`);
   if (e.fallback) {
     // Kaze's Swoop with no flyer up: another strike pick, a whole count, ground-only or not
     const f = e.fallback;
@@ -785,7 +786,8 @@ describe('numbers', () => {
 
   test('ability hits scale with her hit at the ⚡ tier-3 build (spec §5.1 examples)', () => {
     const at3 = (id) => { const u = UNIT_MAP[id]; const [, d, s] = states(u)[0]; return abilityValues(d, s); };
-    expect(at3('aoi').dmg).toBe(24); // 6 × 4 at 0-3-0
+    // (× her balance round 5 row, src/data/balance.js: Aoi's damage row; Shiro and Tenka have none)
+    expect(at3('aoi').dmg).toBe(Math.round(24 * POWER.aoi.dmg)); // 6 × 4 at 0-3-0 (24 before the round)
     expect(at3('shiro').dmg).toBe(295); // 5 × 59 at 3-0-0
     expect(at3('aoi').reach).toBe(5.4); // 1.5 × 3.6 tiles
     expect(at3('tenka').dmg).toBe(320); // 40 × (3 + 5) at 0-3-0
@@ -804,10 +806,10 @@ describe('numbers', () => {
 
   test('the returning girls at their unlock builds (§5.2 examples, base stats)', () => {
     const v = (id, i = 0) => { const [, d, s] = states(UNIT_MAP[id])[i]; return abilityValues(d, s); };
-    expect(v('hana').dmg).toBe(6 * 5); // 6 × her hit at 3-0-0 (4 + 1)
+    expect(v('hana').dmg).toBe(Math.round(30 * POWER.hana.dmg)); // 6 × her hit at 3-0-0 (4 + 1) × her round 5 row (30 before)
     expect(v('ruri').reach).toBe(4.4); // her range + 2 tiles, from Kon
     expect(v('ruri').hits).toBe(3);
-    expect(v('ena').curseBurst).toBe(36); // 3 × her hit at 3-0-0 (12)
+    expect(v('ena').curseBurst).toBe(Math.round(36 * POWER.ena.dmg)); // 3 × her hit at 3-0-0 (12) × her round 5 row (36 before)
     expect(v('yoriko').reach).toBe(Math.round((resolveStats(UNIT_MAP.yoriko, { heroLevel: 7 }).range + 1) * 10) / 10);
     expect(v('seiran', 1)).toMatchObject({ count: 12, dmgMul: 4, cd: 25 }); // Lv 17
     expect(v('noa', 1)).toMatchObject({ lifeMax: 5, dur: 14, cd: 42 }); // tier 5
@@ -876,16 +878,16 @@ describe('text (src/data/abilityText.js, UI only)', () => {
   test('the returning girls read right at their unlock builds', () => {
     const fill = (id, i = 0) => { const [, d, s] = states(UNIT_MAP[id])[i]; return fillAbilityText(abilityText(d.id).desc, abilityValues(d, s)); };
     // (M3 review round 2: he dives only within her reach; the rest take a strike from the sky — the card says so)
-    expect(fill('hana')).toBe('Kaze strikes up to 4 flyers still in the sky anywhere on the map (casters, bosses and elites first): he dives on the ones near Hana and strikes the rest from the sky. 30 damage each, and they are grounded for 4s. With no flyer up, he takes the 2 strongest walkers instead.');
-    expect(fill('ena')).toBe('Every enemy within 4.8 tiles draws a cursed card: when it falls it bursts for 36 damage (3× her hit) within 1.6 tiles and passes a weaker curse on, so a dense wave chain-reacts.');
+    expect(fill('hana')).toBe(`Kaze strikes up to 4 flyers still in the sky anywhere on the map (casters, bosses and elites first): he dives on the ones near Hana and strikes the rest from the sky. ${Math.round(30 * POWER.hana.dmg)} damage each, and they are grounded for 4s. With no flyer up, he takes the 2 strongest walkers instead.`);
+    expect(fill('ena')).toBe(`Every enemy within 4.8 tiles draws a cursed card: its Omen Rot eats 60% of her hit a second and the curse spreads to its neighbours while it lives, and when it falls it bursts for ${Math.round(36 * POWER.ena.dmg)} damage (3× her hit) within 1.6 tiles, so a dense wave chain-reacts.`);
     expect(fill('noa')).toMatch(/^Girls within 4 tiles of her, your ally's too, are cleansed and can't be sabotaged or stunned for 10s\. Meanwhile every 10 enemies that fall within 3 tiles of her bring back a life \(at most 3;/);
     expect(fill('ruri')).toMatch(/^Kon leaps from his spot at the strongest enemy within 4\.4 tiles of him: 3 bites of \d+ damage, then he holds it for 1\.5s/);
   });
 
-  test('Aoi at 0-3-0 reads like the spec example (24 damage, 5.4 tiles)', () => {
+  test('Aoi at 0-3-0 reads like the spec example (24 damage × her round 5 row, 5.4 tiles)', () => {
     const [, d, s] = states(UNIT_MAP.aoi)[0];
     expect(fillAbilityText(abilityText(d.id).desc, abilityValues(d, s))).toBe(
-      'Rains arrows on up to 6 enemies within 5.4 tiles, picked by her target mode: 24 damage each and a 0.5s pin.',
+      `Rains arrows on up to 6 enemies within 5.4 tiles, picked by her target mode: ${Math.round(24 * POWER.aoi.dmg)} damage each and a 0.5s pin.`,
     );
   });
 

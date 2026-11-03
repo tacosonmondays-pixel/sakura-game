@@ -91,6 +91,8 @@
    "a_plus10_1": [{"id":"gems", "count": 50}, {"id":"gearbox_superRare", "count": 1}, {"id":"dice_reroll", "count": 2}],
    "a_plus10_10": [{"id":"gems", "count": 100}, {"id":"gearbox_superRare", "count": 2}],
    "a_leg_plus10": [{"id":"gems", "count": 200}, {"id":"gearbox_mythic", "count": 1}, {"id":"dice_prism", "count": 1}],
+   "a_lr_first": [{"id":"lens_nightglass", "count": 1}],
+   "a_lr_form": [{"id":"lens_nightglass", "count": 1}],
    "a_salvage_100": [{"id":"lock_pin", "count": 1}, {"id":"dice_reroll", "count": 3}],
    "a_family_1": [{"id":"gems", "count": 20}, {"id":"gearbox_rare", "count": 1}],
    "a_family_6": [{"id":"gems", "count": 100}, {"id":"gearbox_superRare", "count": 2}],

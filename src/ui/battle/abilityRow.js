@@ -74,6 +74,8 @@ const FACT = {
   reach: (v) => (v.reach > 0 ? tiles(v.reach) : null),
   length: (v) => (v.length > 0 ? `${r1(v.length)} tiles` : null),
   dmgMul: (v, def) => (def.kind === 'runner' && v.dmgMul > 0 ? `${r1(v.dmgMul)}× hit` : null),
+  // (Iroha's Laser Web: beams at a multiple of her hit; her mirrors are her own, so no count)
+  web: (v, def) => (def.effect?.web && v.dmgMul > 0 ? `beams ${r1(v.dmgMul)}× hit` : null),
   dur: (v) => (v.dur > 0 ? secs(v.dur) : null),
 };
 const ORDER = {
@@ -82,7 +84,7 @@ const ORDER = {
   boost: ['rateMul', 'range', 'chain', 'spiralPierce', 'shred', 'dur'],
   rally: ['rateMulPct', 'dmgMulPct', 'rangeMulPct', 'pierceAdd', 'radius', 'dur', 'lifeMax'],
   debuff: ['count', 'curseBurst', 'hexPct', 'silence', 'hold', 'markPct', 'reveal', 'slowPct', 'dmg', 'rangeMulPct', 'reach', 'dur'],
-  deploy: ['count', 'dur', 'reach'],
+  deploy: ['count', 'web', 'dur', 'reach'],
   runner: ['length', 'dmgMul', 'push', 'soak'],
   move: ['count', 'push', 'carry', 'ground', 'reach'],
 };

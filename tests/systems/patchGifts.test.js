@@ -28,7 +28,9 @@ describe('patch notes data', () => {
   it('v0.1.30 counts match what players could see and earn in v0.1.30 (the launch wave; later waves add rows)', () => {
     const text = PATCH_NOTES.find((n) => n.id === 'v0.1.30').added.join('\n');
     const titles = text.match(/(\d+) titles/);
-    if (titles) expect(Number(titles[1])).toBe(liveTitles().filter((t) => t.wave === 'launch').length);
+    // (titles added to launch rows later do not count: Bravest of Them All, Cosmetics 2)
+    const LATER = new Set(['a_mirror_mirror']);
+    if (titles) expect(Number(titles[1])).toBe(liveTitles().filter((t) => t.wave === 'launch' && !LATER.has(t.id)).length);
     const goals = text.match(/(\d+) goals/);
     if (goals) expect(Number(goals[1])).toBe(ACHIEVEMENTS.filter((a) => achievementLive(a) && (a.shipped || a.wave === 'launch')).length);
   });

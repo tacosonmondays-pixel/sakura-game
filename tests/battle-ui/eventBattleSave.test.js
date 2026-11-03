@@ -16,7 +16,7 @@ import { createRng } from '../../src/core/rng.js';
 import { STAGE_MAP } from '../../src/data/stages.js';
 
 const T = (iso) => Date.parse(iso);
-const END = T('2026-11-02T01:00:00Z'); // Sun Nov 1, 7 PM CST
+const END = T('2026-11-16T01:00:00Z'); // Sun Nov 15, 7 PM CST (extended two weeks, owner Oct 30)
 const BEFORE = END - 10 * 60000; // 6:50 PM: the battle starts
 const AFTER = END + 5 * 60000; // 7:05 PM: it is continued and won
 

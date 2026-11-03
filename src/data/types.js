@@ -75,7 +75,7 @@ export const STATUSES = {
   ground: { name: 'Grounded', desc: 'A flyer knocked out of the sky: ground-only attacks can hit it. Bosses take 25% duration.' },
   hex: { name: 'Hexed', desc: 'Loses a share of its max HP every second and cannot regenerate (less on minibosses and bosses; one hex takes at most 10% of their HP).' },
   hold: { name: 'Held', desc: 'Held by vines: cannot move, but can still use abilities. Minibosses take 50% duration; bosses and flyers are immune.' },
-  curse: { name: 'Cursed', desc: 'Bursts when it falls: nearby enemies take a share of the cursing hit and catch a weaker curse (60%, at most two more times).' },
+  curse: { name: 'Cursed', desc: 'A spreading curse: its Omen Rot eats a share of the cursing hit every second (bosses and minibosses take half) and it passes a weaker curse to the nearest uncursed enemy every second (80%, up to four times). When it falls it bursts: nearby enemies take a share of the cursing hit and catch a weaker curse (60%, at most two more times).' },
 };
 
 // ---------------------------------------------------------------------------
@@ -120,7 +120,7 @@ export const ROLES = {
   mortar: { name: 'Mortar', category: 'frag', goodAgainst: 'Clumps anywhere on the map', limitation: '1 s delay; fast foes escape; no flyers', desc: 'Aimed shells with a warning ring.' },
   prism: { name: 'Beam Caster', category: 'dps', goodAgainst: 'Long straights and lined-up crowds', limitation: 'Weak where the path twists', desc: 'Piercing prism beams that build focus.' },
   mirror: { name: 'Mirror Caster', category: 'dps', goodAgainst: 'A second lane or a far bend', limitation: 'Needs a good mirror spot', desc: 'Bolts fired from a placed mirror.' },
-  hexer: { name: 'Hex Caster', category: 'dps', goodAgainst: 'Dense waves that fall together', limitation: 'Curses need kills to spread', desc: 'Curses that burst and spread on death.' },
+  hexer: { name: 'Curse Caster', category: 'dps', goodAgainst: 'Dense waves, even when others land the kills', limitation: 'Lone enemies and bosses (half the rot) feel it least', desc: 'Curses that rot, pass on to neighbours while they live, and burst on death.' },
   champion: { name: 'Champion', category: 'hero', goodAgainst: 'Elites and armored bosses', limitation: 'Melee; no flyers', desc: 'Melee hero whose drum rhythm cracks armor.' },
   puppeteer: { name: 'Puppeteer', category: 'hero', goodAgainst: 'Fast waves and leaks', limitation: 'Low damage', desc: 'Hero whose threads slow two foes; her finale sends the wave back.' },
   // the new girls (UNIT_GAPS §5)

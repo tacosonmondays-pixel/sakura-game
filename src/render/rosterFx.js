@@ -16,13 +16,16 @@ import { runnerSegment } from '../sim/runners.js';
 import { pointAt } from '../sim/path.js';
 import { MirrorFx } from './mirrorFx.js';
 import { panelSpot } from './mirrorPanel.js';
+import { loadTripoProp, getTripoProp } from './tripoProps.js';
 
 const TAU = Math.PI * 2;
 const _spot = { x: 0, y: 0, beside: false };
 
 /** Caps (keep draw calls and quads modest on phones). */
 const MAX_WARN = 48;
-const MAX_PROPS = 24;
+const MAX_PROPS = 64;
+/** Iroha's reflected-beam lines a frame (every girl together; low graphics: half). */
+export const BEAMS_PER_FRAME = 48;
 /** Body beads: one per sim segment and one between each two (the body reads as one serpent), all dragons together. */
 const MAX_DRAGON_SEGS = 96;
 const MAX_DRAGON_HEADS = 6;
@@ -40,6 +43,17 @@ const ROAR_POP = 0.3;
 const CLOUD_EVERY = 0.07;
 const RIBBON_PTS = 5;
 const MAX_CURSE_PER_FRAME = 10;
+/**
+ * Ena's spreading curse ('curseSpread'): a thin red card-thread from the passing enemy to the one that caught it, drawn
+ * a little above the ground for SPREAD_LIFE s (shorter with Reduce motion, and drawn whole at once instead of running
+ * out from the source). Alpha-blended ground quads only, no additive sprite and no flash, so the flash guard never
+ * counts it; at most SPREAD_MAX live threads (the oldest gives way).
+ */
+const SPREAD_LIFE = 0.5;
+const SPREAD_LIFE_RM = 0.3;
+const SPREAD_MAX = 24;
+const SPREAD_W = 0.06;
+const SPREAD_RGB = [0.86, 0.12, 0.24];
 /** A warning ring with no shellLand (wave clear, sold girl) disappears this long after its delay. */
 const WARN_GRACE = 0.25;
 /**
@@ -59,6 +73,11 @@ const COL = {
   mirror: '#d8c4f0',
   aimMortar: '#ffa040',
   aimMirror: '#d8b4ff',
+  // Iroha's reflected legs (hers; an ally's copy), the Laser Web and the mirror being placed
+  mirrorBeam: '#efe4ff',
+  mirrorAlly: '#bfe6ff',
+  mirrorWeb: '#c99cff',
+  aimPick: '#ffd84a',
   aimUlt: '#9fd8ff',
   curse: '#b46cff',
   cursePetal: '#e9a8ff',
@@ -127,7 +146,7 @@ function mirrorGeometry() {
  * Dragon head (facing +z): light-blue skull and long snout, an open jaw, gold antler horns, a gold mane fanning back,
  * cheek frills and whisker roots (the long whiskers are ribbons drawn each frame, medium/high graphics).
  */
-function dragonHeadGeometry() {
+export function dragonHeadGeometry() {
   const S = '#9fd8ff';
   const D = '#6fb4e8';
   const L = '#e8f6ff';
@@ -252,6 +271,7 @@ export class RosterFx {
      * { pathIndex, dist, speed (sim tiles/s), segments, gap, end, rem (real s left to reach START), head }
      */
     this._ghosts = [];
+    this._spreads = []; // the spreading curse's live threads ('curseSpread', _drawSpreads)
     this._frame = 0;
     this._nh = 0; // heads / beads written this frame
     this._nb = 0;
@@ -271,6 +291,11 @@ export class RosterFx {
   setQuality(q) {
     this.quality = q;
     this.mirrors.setQuality(q);
+  }
+
+  /** Iroha's mirror being placed (aimControl.js; null: none): her reach ring, that mirror pulsing yellow. */
+  setMirrorPick(uid, k = -1) {
+    this.mirrorPick = uid == null ? null : { uid, k };
   }
 
   /** Test / e2e probe: the sky dragon meshes drawn this frame. */
@@ -333,9 +358,30 @@ export class RosterFx {
         return true;
       }
       case 'ability':
-        // Mirror Shift opens her echo window (the generic ability FX still draws the cast)
+        // Laser Web opens her echo window (the generic ability FX still draws the cast); the beams are drawn every
+        // frame while it runs (_drawWebs)
         if (ev.id === 'iroha.mirrorShift') this.mirrors.ability(ev, this._tower(ev.towerUid));
         return false;
+      case 'mirrorGlint': {
+        // a bounce's glint (src/sim/mirrors.js): a thin flash from the mirror to the enemy it struck (the same budget)
+        const cap = this.quality === 'low' ? BEAMS_PER_FRAME / 2 : BEAMS_PER_FRAME;
+        if (this._beamsThisFrame >= cap) return true;
+        this._beamsThisFrame++;
+        this.fx.beam([ev.x, ev.y], [ev.tx, ev.ty], 0.03, COL.mirrorBeam, { life: 0.12, y: 0.8 });
+        return true;
+      }
+      case 'mirrorBounce': {
+        // a bolt reflected off one of Iroha's mirrors (src/sim/mirrors.js): the leg it just flew as a bright line, and a
+        // glint on the glass (capped per frame; low graphics halves it)
+        const cap = this.quality === 'low' ? BEAMS_PER_FRAME / 2 : BEAMS_PER_FRAME;
+        if (this._beamsThisFrame >= cap) return true;
+        this._beamsThisFrame++;
+        this.fx.beam([ev.fx, ev.fy], [ev.x, ev.y], 0.05, ev.ownerUid === ev.towerUid ? COL.mirrorBeam : COL.mirrorAlly, { life: 0.18, y: 0.7 });
+        if (this.quality !== 'low') this.fx.flash(ev.x, 0.9, ev.y, '#ffffff', 0.45, 0.12);
+        // her first mirror turns toward the reflected bolt (mirrorFx's flip and glint)
+        if (ev.mirror === 0) this.mirrors.shot(ev.towerUid, ev.x - ev.fx, ev.y - ev.fy);
+        return true;
+      }
       case 'aim':
         if (ev.x != null) {
           const t = this._tower(ev.towerUid);
@@ -353,6 +399,13 @@ export class RosterFx {
       }
       case 'curseBurst':
         this._curse(ev);
+        return true;
+      case 'curseSpread':
+        if (this._spreads.length >= SPREAD_MAX) this._spreads.shift();
+        // at the two enemies' own height (an overpass deck: e.elev), each read once
+        // (a target that died the same frame is gone from the list: it takes the source's height)
+        const h0 = this._elevOf(ev.from, 0);
+        this._spreads.push({ x0: ev.x0, y0: ev.y0, x1: ev.x1, y1: ev.y1, h0, h1: this._elevOf(ev.to, h0), age: 0 });
         return true;
       case 'ult':
         // the renderer keeps its screen flash + shake; the map-wide ring is skipped for these two
@@ -537,8 +590,21 @@ export class RosterFx {
       m.frustumCulled = false;
       this.root.add(m);
     }
-    this._dragon = { head, body, tail, mat };
+    this._dragon = { head, body, tail, mat, tripoHead: false };
+    loadTripoProp('seiran_dragon_head'); // her Tripo head (batch 2); the procedural one until it arrives
     return this._dragon;
+  }
+
+  /** Swaps the procedural head for the Tripo one once its file is in (body beads and tail stay procedural). */
+  _swapDragonHead(D) {
+    if (D.tripoHead) return;
+    const prop = getTripoProp('seiran_dragon_head');
+    if (!prop) return;
+    D.tripoHead = true;
+    D.head.geometry.dispose();
+    D.head.geometry = prop.geometry;
+    D.head.material = prop.material;
+    D.head.name = 'tripo:seiran_dragon_head';
   }
 
   _dropProp(uid) {
@@ -554,10 +620,13 @@ export class RosterFx {
   update(dt) {
     this.time += dt;
     this._curseThisFrame = 0;
+    this._beamsThisFrame = 0;
     this.mirrors.update(dt);
+    this._drawSpreads(dt);
     this._drawWarns();
     this._syncProps(dt);
     this._drawAims();
+    this._drawWebs();
     this._drawDragons(dt);
   }
 
@@ -605,44 +674,39 @@ export class RosterFx {
       const t = sim.towers[i];
       const relay = t.stats?.relay;
       if (!relay || !t.origin) continue;
-      seen.add(t.uid);
-      let p = this.props.get(t.uid);
-      if (!p) {
-        if (this.props.size >= MAX_PROPS) continue;
-        this._ensureGeo();
-        const kind = relay.kind === 'mirror' ? 'mirror' : 'familiar';
-        const mesh = new THREE.Mesh(kind === 'mirror' ? this._geo.mirror : this._geo.fox, kind === 'mirror' ? this._mats.mirror : this._mats.fox);
-        mesh.frustumCulled = false;
-        // yaw first, then the tip about the panel's own axis (mirrorFx flips)
-        mesh.rotation.order = 'YXZ';
-        this.root.add(mesh);
-        p = { kind, mesh, x: t.ox, y: t.oy, beside: false };
-        if (kind === 'mirror') {
-          const s = this._mirrorSpot(t, t.ox, t.oy);
-          p.x = s.x;
-          p.y = s.y;
+      // Iroha's mirror network: one panel per mirror (mirror 0 is her relay origin and keeps the flips; the others
+      // are keyed `${uid}#k` and sway idle). Mirror 0 is drawn where _mirrorSpot puts it (beside her when it would
+      // stand on her), as the 'relay' event places it.
+      const ms = relay.kind === 'mirror' && t.mirrors ? t.mirrors : null;
+      for (let k = 0; k < (ms ? ms.length : 1); k++) {
+        const key = k === 0 ? t.uid : `${t.uid}#${k}`;
+        // (slot 0 is her relay origin t.ox / t.oy: towers.js updateRelayOrigin sets it from her first mirror)
+        let tx = ms && k > 0 ? ms[k].x : t.ox;
+        let ty = ms && k > 0 ? ms[k].y : t.oy;
+        let beside = false;
+        if (k === 0 && relay.kind === 'mirror') {
+          const s = this._mirrorSpot(t, tx, ty);
+          tx = s.x;
+          ty = s.y;
+          beside = s.beside;
         }
-        this.props.set(t.uid, p);
+        seen.add(key);
+        let p = this.props.get(key);
+        if (!p) {
+          if (this.props.size >= MAX_PROPS) continue;
+          this._ensureGeo();
+          const kind = relay.kind === 'mirror' ? 'mirror' : 'familiar';
+          const mesh = new THREE.Mesh(kind === 'mirror' ? this._geo.mirror : this._geo.fox, kind === 'mirror' ? this._mats.mirror : this._mats.fox);
+          mesh.frustumCulled = false;
+          // yaw first, then the tip about the panel's own axis (mirrorFx flips)
+          mesh.rotation.order = 'YXZ';
+          this.root.add(mesh);
+          p = { kind, mesh, x: tx, y: ty, k, beside };
+          this.props.set(key, p);
+        }
+        p.beside = beside;
+        this._glideProp(t, p, tx, ty, dt);
       }
-      // glide to the sim origin (snaps when far: a new placement); her panel glides to where it is drawn
-      let tx = t.ox;
-      let ty = t.oy;
-      if (p.kind === 'mirror') {
-        const s = this._mirrorSpot(t, tx, ty);
-        tx = s.x;
-        ty = s.y;
-        p.beside = s.beside;
-      }
-      const dd = Math.hypot(tx - p.x, ty - p.y);
-      if (dd > 6) {
-        p.x = tx;
-        p.y = ty;
-      } else {
-        const k = 1 - Math.exp(-12 * dt);
-        p.x += (tx - p.x) * k;
-        p.y += (ty - p.y) * k;
-      }
-      this._drawProp(t, p);
     }
     for (const uid of this.props.keys()) if (!seen.has(uid)) this._dropProp(uid);
   }
@@ -666,6 +730,20 @@ export class RosterFx {
       }
     }
     return panelSpot(t.x, t.y, ox, oy, fx, fz, this.sim.placement?.pathDistance || null, _spot);
+  }
+
+  /** Glides a prop to its sim spot (snaps when far: a new placement) and draws it. */
+  _glideProp(t, p, tx, ty, dt) {
+    const dd = Math.hypot(tx - p.x, ty - p.y);
+    if (dd > 6) {
+      p.x = tx;
+      p.y = ty;
+    } else {
+      const k = 1 - Math.exp(-12 * dt);
+      p.x += (tx - p.x) * k;
+      p.y += (ty - p.y) * k;
+    }
+    this._drawProp(t, p);
   }
 
   _drawProp(t, p) {
@@ -702,7 +780,13 @@ export class RosterFx {
       // idle, the glass faces the camera side (the sim's mirror has no facing) with a slow sway; each relayed
       // bolt flips it toward the shot with a glint (mirrorFx)
       m.position.set(x, 0.02, y);
-      this.mirrors.pose(t, m, x, y, 0.25 * Math.sin(this.time * 0.7 + t.uid));
+      const sway = 0.25 * Math.sin(this.time * 0.7 + t.uid + (p.k || 0) * 1.3);
+      if (!p.k) this.mirrors.pose(t, m, x, y, sway);
+      else {
+        // (her other mirrors: the idle camera-facing sway, a little smaller than her first)
+        m.rotation.set(0, this.reduceMotion ? 0 : sway, 0);
+        m.scale.setScalar(1.6 * 0.85);
+      }
       this.b.groundN.push(x, 0.06, y, 0.55, 0.55, R.shadow, 0.05, 0.05, 0.1, 0.35);
       this.b.groundA.push(x, 0.07, y, 0.6, 0.6, R.ring, c[0], c[1], c[2], 0.45, this.time * 0.5);
       // a soft sheen on the glass and a glint sweeping over it
@@ -712,6 +796,43 @@ export class RosterFx {
     }
     // dashed tether from the girl to her prop (ground dashes flowing outward)
     if (!self) this._tether(t.x, t.y, x, y, c, p.kind === 'mirror' ? 0.6 : 0.7);
+  }
+
+  /** An enemy's road height by uid (`fallback` when gone); the uid map is built at most once a frame, only when a pass came. */
+  _elevOf(uid, fallback) {
+    if (this._elevFrame !== this.time) {
+      this._elevFrame = this.time;
+      const m = this._elevMap || (this._elevMap = new Map());
+      m.clear();
+      for (const e of this.sim.enemies || []) m.set(e.uid, e.elev || 0);
+    }
+    const h = this._elevMap.get(uid);
+    return h === undefined ? fallback : h;
+  }
+
+  /** The spreading curse's threads (see SPREAD_LIFE): one stretched ground quad each, fading out. */
+  _drawSpreads(dt) {
+    const list = this._spreads;
+    if (!list.length) return;
+    const life = this.reduceMotion ? SPREAD_LIFE_RM : SPREAD_LIFE;
+    const R = this.R;
+    let n = 0;
+    for (let i = 0; i < list.length; i++) {
+      const t = list[i];
+      t.age += dt;
+      if (t.age >= life) continue;
+      list[n++] = t;
+      const f = t.age / life;
+      // the thread runs out from the passing enemy over its first third (whole at once with Reduce motion)
+      const run = this.reduceMotion ? 1 : Math.min(1, f * 3);
+      const dx = (t.x1 - t.x0) * run;
+      const dy = (t.y1 - t.y0) * run;
+      const len = Math.hypot(dx, dy);
+      if (len < 0.05) continue;
+      const a = 0.85 * (1 - f);
+      this.b.groundN.push(t.x0 + dx / 2, 0.12 + t.h0 + ((t.h1 - t.h0) * run) / 2, t.y0 + dy / 2, len, SPREAD_W, R.white, SPREAD_RGB[0], SPREAD_RGB[1], SPREAD_RGB[2], a, Math.atan2(-dy, dx));
+    }
+    list.length = n;
   }
 
   _tether(x0, y0, x1, y1, c, a) {
@@ -732,9 +853,55 @@ export class RosterFx {
     }
   }
 
+  /** Iroha's Laser Web while it runs: a pulsing beam between every pair of her mirrors (ground + a raised core). */
+  _drawWebs() {
+    const sim = this.sim;
+    const R = this.R;
+    for (let i = 0; i < sim.towers.length; i++) {
+      const t = sim.towers[i];
+      const ms = t.mirrors;
+      if (!ms || ms.length < 2 || !(t.abil?.active > 0) || t.abil.id !== 'iroha.mirrorShift') continue;
+      const [r, g, b] = RGB.mirrorWeb;
+      const a = this.reduceMotion ? 0.75 : 0.6 + 0.25 * Math.sin(this.time * 12 + t.uid);
+      for (let p = 0; p < ms.length; p++) {
+        for (let q = p + 1; q < ms.length; q++) {
+          const dx = ms[q].x - ms[p].x;
+          const dy = ms[q].y - ms[p].y;
+          const len = Math.hypot(dx, dy);
+          if (len < 0.05) continue;
+          const rot = Math.atan2(-dy, dx);
+          const cx = (ms[p].x + ms[q].x) / 2;
+          const cy = (ms[p].y + ms[q].y) / 2;
+          this.b.groundA.push(cx, 0.1, cy, len, 0.5, R.glow, r, g, b, a * 0.45, rot);
+          this.b.groundA.push(cx, 0.105, cy, len, 0.1, R.white, 1, 1, 1, a, rot);
+        }
+      }
+    }
+  }
+
   _drawAims() {
     const sim = this.sim;
     const R = this.R;
+    // Iroha selected: a ring and a number of dots under each of her mirrors (mirror k: k + 1 dots), a filled centre on
+    // the ones her player placed; while one is being placed, her reach ring and that mirror pulsing yellow
+    for (let i = 0; i < sim.towers.length; i++) {
+      const t = sim.towers[i];
+      if (!t.mirrors || (this.selectedUid !== t.uid && this.mirrorPick?.uid !== t.uid)) continue;
+      const pick = this.mirrorPick?.uid === t.uid ? this.mirrorPick.k : -1;
+      if (pick >= 0) {
+        const r2 = t.stats.relay.reach * 2;
+        const [yr, yg, yb] = RGB.aimPick;
+        this.b.groundA.push(t.x, 0.085, t.y, r2, r2, R.ringDashed || R.ring, yr, yg, yb, 0.7, this.time * 0.2);
+      }
+      for (let k = 0; k < t.mirrors.length; k++) {
+        const m = t.mirrors[k];
+        const c = k === pick ? RGB.aimPick : RGB.aimMirror;
+        const s = k === pick ? 0.85 + 0.1 * Math.sin(this.time * 8) : 0.7;
+        this.b.groundA.push(m.x, 0.09, m.y, s, s, R.reticle || R.ringDashed, c[0], c[1], c[2], 0.9, this.time * 0.8);
+        if (t.mirrorAim?.[k]) this.b.groundA.push(m.x, 0.092, m.y, 0.14, 0.14, R.dot, c[0], c[1], c[2], 0.95);
+        for (let d = 0; d <= k; d++) this.b.groundA.push(m.x - 0.09 * k + 0.18 * d, 0.093, m.y + 0.5, 0.09, 0.09, R.dot, c[0], c[1], c[2], 0.95);
+      }
+    }
     for (let i = 0; i < sim.towers.length; i++) {
       const t = sim.towers[i];
       if (!t.aim) continue;
@@ -755,6 +922,7 @@ export class RosterFx {
     const ghosts = this._ghosts;
     if (!has && !ghosts.length && !this._dragon) return;
     const D = this._ensureDragon();
+    this._swapDragonHead(D);
     const frame = ++this._frame;
     this._nh = 0;
     this._nb = 0;
@@ -974,7 +1142,8 @@ export class RosterFx {
     }
     if (this._dragon) {
       for (const m of [this._dragon.head, this._dragon.body, this._dragon.tail]) {
-        m.geometry.dispose();
+        // (a Tripo head's geometry and material are shared, freed by clearTripoProps)
+        if (!m.name.startsWith('tripo:')) m.geometry.dispose();
         m.dispose();
       }
       this._dragon.mat.dispose();

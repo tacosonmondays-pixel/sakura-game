@@ -490,3 +490,31 @@ export function armbandBody() {
   s += `<polygon points="${starPoints(32, 33.5, 5, 2.2)}" fill="#ffb627" stroke="#7a1f3a" stroke-width="1"/>`;
   return s + rarityFront('mythic');
 }
+
+// --- the gear update's tools (docs/specs/GEAR_UPDATE.md §4, §6) ------------------------------------------------
+
+/** Tie Pin (a gold tie bar) and Collar Pin (a round collar stud): the pin family beside the Lock Pin. */
+export function gearPinBody(kind) {
+  const tie = kind === 'tie';
+  const rarity = tie ? 'legendary' : 'mythic';
+  const id = tie ? 'itp' : 'icp';
+  let s = rarityBack(id, rarity);
+  if (tie) {
+    s += '<rect x="10" y="27" width="44" height="10" rx="3" fill="#ffd166" stroke="#7a5200" stroke-width="2.4"/>';
+    s += '<path d="M14 30h34" stroke="#fff6c4" stroke-width="1.8" opacity="0.8"/><circle cx="48" cy="32" r="3.2" fill="#fff" stroke="#7a5200" stroke-width="1.4"/>';
+  } else {
+    s += '<path d="M14 18L32 28 50 18" fill="none" stroke="#8a94a6" stroke-width="3"/>';
+    s += '<circle cx="32" cy="36" r="13" fill="#ff8fb1" stroke="#7a1f3a" stroke-width="2.4"/><circle cx="32" cy="36" r="6" fill="#ffd166" stroke="#7a5200" stroke-width="1.6"/><circle cx="28" cy="31" r="2.6" fill="#fff" opacity="0.7"/>';
+  }
+  return s + rarityFront(rarity);
+}
+
+/** Nightglass Lens: a navy lens with a white-gold rim and a star glint. */
+export function lensBody() {
+  const id = 'inl';
+  let s = rarityBack(id, 'legendary');
+  s += `<defs>${radGrad(`${id}-g`, [[0, '#4b5fa8'], [1, '#141a3a']])}</defs>`;
+  s += `<circle cx="32" cy="32" r="19" fill="url(#${id}-g)" stroke="#f4e3b0" stroke-width="3.2"/><circle cx="32" cy="32" r="19" fill="none" stroke="#7a5200" stroke-width="1" opacity="0.6"/>`;
+  s += `<polygon points="${starPoints(38, 26, 6, 2.4)}" fill="#fff6c4"/><path d="M22 38a12 12 0 0 0 8 6" fill="none" stroke="#fff" stroke-width="1.6" opacity="0.5"/>`;
+  return s + rarityFront('legendary');
+}

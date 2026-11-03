@@ -147,7 +147,8 @@ export function createTowerBar(ctx) {
         // wave 0, not deployed yet: the card pulses (it is armed on load, see controller.js)
         c.card.classList.toggle('bt-card-hero-arm', !deployed && sim.wave === 0 && sim.state === 'prep');
       }
-      const afford = sim.cash >= price;
+      // (co-op: less the coins my orders in flight hold, ctx.spendable: a card dims while they are spoken for)
+      const afford = (ctx.spendable ? ctx.spendable() : sim.cash) >= price;
       if (afford !== c.lastAfford) {
         c.card.classList.toggle('bt-poor', !afford);
         c.lastAfford = afford;

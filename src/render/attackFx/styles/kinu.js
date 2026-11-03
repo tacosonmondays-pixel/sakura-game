@@ -10,7 +10,7 @@
 //   P2 Pin Cushion: more pins (the burst gets more spokes); T4+ each orbiting pair of scissors
 //                flashes two crossing blades and a glint where the sim has it
 import { lookAt } from '../flair.js';
-import { flash, sparks } from '../patterns/bursts.js';
+import { flash, sparks, toonSlash } from '../patterns/bursts.js';
 import { spokes, streak, statusCue } from '../patterns/academy.js';
 import { HEAT_RING_SPEED, STEP, RING_DIRS, SCISSOR_STEPS, SCISSOR_REACH } from '../../../sim/constants.js';
 import { CORE, DECOR } from '../context.js';
@@ -71,6 +71,7 @@ export const kinu = {
   },
 
   view(p, rec, _t, v, ctx) {
+    v.ownTrail = true; // (her own trail: the styled ribbon skips her shots)
     v.skip = true;
     const vl = Math.hypot(p.vx, p.vy) || 1;
     const ux = p.vx / vl;
@@ -119,6 +120,7 @@ export const kinu = {
       return;
     }
     if (rec.kind === 'blade' || (lk && lookAt(lk, 1) >= 3)) {
+      if (toonSlash(ctx, x, 0.4, y, 0.5, ctx.col(lk ? bladeHex(lk) : SILVER), rec.uid * 1.7)) return;
       const p = ctx.spr(ctx.b.bbA, CORE, ctx.R.slash, x, 0.4, y, 0.35, 0.5, 0.12, ctx.col(lk ? bladeHex(lk) : SILVER), 1);
       if (p) {
         p.asp = 2;

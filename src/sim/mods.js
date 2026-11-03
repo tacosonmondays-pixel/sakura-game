@@ -11,8 +11,10 @@
 import { DEFAULT_UNIT_STATS } from './constants.js';
 import { HERO_GROWTH } from '../data/heroTracks.js';
 import { potentialFold } from '../data/potential.js';
-import { BREW_TARGETS_MAX } from './constants.js';
-import { BLAST_PER_PIERCE, PIERCE_K_MAX } from './gearRules.js';
+import { BREW_TARGETS_MAX, HARVEST_LIVES_PER_WAVE, SPIN_TURN, SPIN_LOCK, STREAM_HALF, STREAM_TURN, SWEEP_ARC, SWEEP_SWING, SWEEP_TURN } from './constants.js';
+import { powerFor } from '../data/balance.js';
+import { BLAST_PER_PIERCE, PIERCE_K_MAX, PIERCE_MAX_EXTRA } from './gearRules.js';
+import { splitCrit, critCeilOf, BLAST_K_MAX } from './setRules.js';
 import { BARRICADES_PER_HERO } from './constants.js';
 
 const ADD_KEYS = ['range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'projectileSpeed', 'silence', 'reveal', 'knockback', 'gather'];
@@ -115,6 +117,93 @@ function normRing(t = {}) {
 const RING_FLAGS = ['turn', 'heat', 'double', 'sparks'];
 
 /**
+ * Attack shapes S1 (docs/specs/ATTACK_SHAPES.md §5; src/sim/wheels.js). Unlike the kits above these
+ * blocks may first appear on a tier (a path that turns into a shape): the first mod that names one
+ * creates it, later mods add the counts and replace `lead`, `mul`, `turn` and `lock` (each tier states
+ * its own: the per-tier DPS parity numbers of the bench, docs/specs/ATTACK_SHAPES.md addendum).
+ *   wheel  spokes (shots a Blossom Wheel), lead × the aimed spoke's hit, mul × every other spoke's
+ *   spin   arms (Pinwheel Stream arms), mul × the spinning arms' parity damage, fold × the folded stream's
+ *          (one enemy in range), turn / lock table steps a shot
+ *   halo   pieces (Petal Halo pieces), reach tiles past HALO_REACH, mul × each cut (× her rate)
+ * S2 "Held" (src/sim/held.js), every field stated per tier:
+ *   stream kind (held.js STREAM_KINDS; only 'fire' in use), half (half-angle, table steps), turn (table steps a
+ *          sim step), mul × each tick's parity share, cap (victims a tick at most, nearest first)
+ *   sweep  arc (table steps either side of the centre), swing (table steps a sim step), turn (the centre's table
+ *          steps a sim step), mul × each hit's parity share, cap (enemies a pass at most; 0: her maxTargets)
+ * S3 "Ground" (src/sim/ground.js), every field stated per tier:
+ *   spike  count (spikes a row), gap (tiles between two spikes along the road), r (a spike's radius, tiles), delay
+ *          (steps between two spikes rising), mul × her hit on each enemy the row strikes
+ *   quake  rings (rings a strike), gap (steps between two rings starting), speed (tiles a second), mul × her plain hit
+ *          for the first ring, later × for the others, status (statuses the last ring adds to hers)
+ * S4 "Links" (src/sim/links.js), every field stated per tier:
+ *   ret    per (fans a throw: her projectiles × per), mul × her hit on the first enemy a leg cuts, cut × on the others,
+ *          pierce (enemies a leg cuts), reach (× her range: how far a fan flies out)
+ *   tether links (enemies tied to her target), reach (tiles from one tied enemy to the next), dur (s), share (each other
+ *          member's share of a hit), pull (on expiry: the gap to the lead closed, 0 = none)
+ */
+function normWheel() {
+  return { spokes: 0, lead: 1, mul: 1 };
+}
+function normSpin() {
+  return { arms: 0, mul: 1, fold: 1, turn: SPIN_TURN, lock: SPIN_LOCK };
+}
+function normHalo() {
+  return { pieces: 0, reach: 0, mul: 1 };
+}
+function normStream() {
+  return { kind: 'fire', half: STREAM_HALF, turn: STREAM_TURN, mul: 1, cap: 6 };
+}
+function normSweep() {
+  return { arc: SWEEP_ARC, swing: SWEEP_SWING, turn: SWEEP_TURN, mul: 1, cap: 0 };
+}
+function normSpike() {
+  return { count: 4, gap: 0.5, r: 0.3, delay: 3, mul: 1 };
+}
+function normQuake() {
+  return { rings: 2, gap: 12, speed: 6, mul: 1, later: 0.6, status: [] };
+}
+function normRet() {
+  return { per: 0.5, mul: 1, cut: 0, pierce: 1, reach: 1 };
+}
+function normTether() {
+  return { links: 2, reach: 1.5, dur: 3, share: 0.2, pull: 0 };
+}
+// attack shapes S5a (docs/specs/ATTACK_SHAPES_S5.md, src/sim/s5shapes.js): Charm Wheel (charms.n spokes on top of her
+// throw, turned charms.turn table steps a throw, × mul), Crescent Return (out = tiles past her range, cuts a leg, × mul),
+// Bell Toll (every = steps between a bell's tolls, r = a ring's reach in tiles, × mul of her trap hit)
+function normCharms() {
+  return { n: 0, turn: 0, mul: 0 };
+}
+function normCres() {
+  return { out: 0, cuts: 1, mul: 0 };
+}
+function normToll() {
+  return { every: 90, r: 1, mul: 0 };
+}
+// attack shapes S5b: Spore Mist (half = half-angle in table steps, len = × her range, cap = victims a tick, × mul a tick,
+// dot = × her poison as the spore status), Moonbeam Sweep (beams, arc = table steps either side, × mul a strike), Static
+// Web (dur s, every = steps between zaps, share = of a bolt-second a zap)
+function normMist() {
+  return { half: 30, len: 0.75, cap: 24, mul: 0, dot: 0 };
+}
+function normMoon() {
+  return { beams: 0, arc: 30, mul: 0 };
+}
+function normWeb() {
+  return { dur: 2, every: 15, share: 0 };
+}
+const SHAPE_NORM = { wheel: normWheel, spin: normSpin, halo: normHalo, stream: normStream, sweep: normSweep, spike: normSpike, quake: normQuake, ret: normRet, tether: normTether, charms: normCharms, cres: normCres, toll: normToll, mist: normMist, moon: normMoon, web: normWeb };
+const SHAPE_ADDS = { wheel: ['spokes'], spin: ['arms'], halo: ['pieces', 'reach'], stream: [], sweep: [], spike: [], quake: [], ret: [], tether: [], charms: [], cres: [], toll: [], mist: [], moon: [], web: [] };
+const SHAPE_SETS = {
+  wheel: ['lead', 'mul'], spin: ['mul', 'fold', 'turn', 'lock'], halo: ['mul'],
+  stream: ['kind', 'half', 'turn', 'mul', 'cap'], sweep: ['arc', 'swing', 'turn', 'mul', 'cap'],
+  spike: ['count', 'gap', 'r', 'delay', 'mul'], quake: ['rings', 'gap', 'speed', 'mul', 'later', 'status'],
+  ret: ['per', 'mul', 'cut', 'pierce', 'reach'], tether: ['links', 'reach', 'dur', 'share', 'pull'],
+  charms: ['n', 'turn', 'mul'], cres: ['out', 'cuts', 'mul'], toll: ['every', 'r', 'mul'],
+  mist: ['half', 'len', 'cap', 'mul', 'dot'], moon: ['beams', 'arc', 'mul'], web: ['dur', 'every', 'share'],
+};
+
+/**
  * The buff thrower (Wakaba, UNIT_GAPS §5.6; src/sim/drinks.js): what her sports drink does. Bonuses
  * add (dmg 0.2 = +20% damage); only a girl whose base declares `drink` carries it.
  *   splash  tiles around the target girl     shots  attacks a drink lasts
@@ -205,18 +294,28 @@ const HUB_FLAGS = ['detection', 'airGrant', 'cleanse'];
 const HUB_ADDS = ['radiusAdd', 'cutAdd'];
 
 /**
- * The nature caster (Chigusa, UNIT_GAPS §5.7; src/sim/vines.js): her Creeping Vine, thorn beds, Bloom
- * Rush and harvest lives. Only a girl whose base declares `vine` carries it. Every number adds.
- *   every (s per vine) · hold (s) · dps (vine damage a second while it holds)
+ * The nature caster (Chigusa, UNIT_GAPS §5.7; src/sim/vines.js): her Bramble Road vines (attack shapes S3), thorn
+ * beds, Bloom Rush and harvest lives. Only a girl whose base declares `vine` carries it. Every number adds.
+ *   every (s per vine) · hold (s her vine holds the first walker it reaches) · dps (a lash's damage a second, on
+ *   each walker on the vine; 0 = no lash) · lash (s between lashes) · cap (walkers a lash hits, lead first; 0 = all)
+ *   len (tiles a vine grows) · grow (tiles a second) · life (s a vine stands) · slow (on the walkers on it) · max
+ *   (her vines standing at once)
  *   beds (hits per thorn bed; 0 = none) · bedDmg · bedTtl (s)
  *   bloom (Bloom Rush cap, 0.6 = +60% attack speed) · bloomPer (a second of attacking) · bloomIdle (s)
- *   lives (a wave cleared) · livesCap (a battle)
+ *   lives (a wave cleared) · livesCap (the most at one wave clear, her copies together; HARVEST_LIVES_PER_WAVE)
  */
 function normVine(t = {}) {
   return {
     every: t.every ?? 6,
     hold: t.hold ?? 1,
     dps: t.dps ?? 0,
+    lash: t.lash ?? 1,
+    cap: t.cap ?? 0,
+    len: t.len ?? 2,
+    grow: t.grow ?? 4,
+    life: t.life ?? 3,
+    slow: t.slow ?? 0.2,
+    max: t.max ?? 1,
     beds: t.beds ?? 0,
     bedDmg: t.bedDmg ?? 2,
     bedTtl: t.bedTtl ?? 8,
@@ -224,7 +323,7 @@ function normVine(t = {}) {
     bloomPer: t.bloomPer ?? 0.05,
     bloomIdle: t.bloomIdle ?? 2,
     lives: t.lives ?? 0,
-    livesCap: t.livesCap ?? 30,
+    livesCap: t.livesCap ?? HARVEST_LIVES_PER_WAVE,
   };
 }
 /**
@@ -334,7 +433,7 @@ const DUO_MAX = ['shards', 'beamSilence', 'shardSlow', 'slowTime', 'vulnTime', '
 const DUO_MIN = ['every', 'fullEvery'];
 const BALL_ADDS = ['travel', 'speed', 'through', 'share', 'lobMul', 'pins', 'pinDmg', 'pinPierce', 'bounce', 'reach', 'finish'];
 const BALL_FLAGS = ['hook', 'lob', 'pushBig'];
-const VINE_ADDS = ['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap'];
+const VINE_ADDS = ['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap', 'len', 'grow', 'life', 'slow', 'lash', 'cap', 'max'];
 
 /**
  * Kaede's blade arts (her AoE rework; src/sim/towers.js bladeArt): only a girl whose base declares
@@ -403,6 +502,25 @@ function normLastLine(l = {}) {
  * @param {object[]} list mutated
  * @param {object[]} specs
  */
+
+/**
+ * A girl's relay (ROSTER_SPEC §6.2: a familiar or a mirror). A mirror girl (Iroha) also carries her network
+ * (docs/specs/IROHA_MIRRORS.md §4): mirrors, bounces per bolt, damage per bounce, a bounce splash, shards per bounce and
+ * the bounces an ally's reflected shot makes.
+ */
+function normRelay(r) {
+  const o = { kind: r.kind, reach: r.reach ?? 3 };
+  if (r.kind === 'mirror') {
+    o.mirrors = r.mirrors ?? 2;
+    o.bounces = r.bounces ?? 2;
+    o.bounceMul = r.bounceMul ?? 0;
+    o.bounceSplash = r.bounceSplash ?? 0;
+    o.shards = r.shards ?? 0;
+    o.allyBounces = r.allyBounces ?? 1;
+  }
+  return o;
+}
+
 export function mergeStatusList(list, specs) {
   for (const spec of specs || []) {
     if (!spec || !spec.type) continue;
@@ -468,7 +586,7 @@ export function normalizeBase(base = {}, unitDef = {}) {
     airMul: b.airMul ?? 1,
     gather: b.gather ?? 0,
     // both: she also fires from her own spot (Iroha's two firing points)
-    relay: b.relay ? { kind: b.relay.kind, reach: b.relay.reach ?? 3, ...(b.relay.both ? { both: true } : {}) } : null,
+    relay: b.relay ? normRelay(b.relay) : null,
     // new girls (UNIT_GAPS §5): present only on a girl whose base declares the block
     ...(b.strip ? { strip: normStrip(b.strip) } : null),
     ...(b.ring ? { ring: normRing(b.ring) } : null),
@@ -624,6 +742,12 @@ export function applyModSet(s, mods, acc) {
       for (const k of RING_ADDS) if (v[k] != null) s.ring[k] += v[k];
       for (const k of RING_FLAGS) if (v[k]) s.ring[k] = true;
       if (v.scissorMul != null) s.ring.scissorMul *= v.scissorMul;
+    } else if (SHAPE_NORM[key]) {
+      // an attack shape block: created by the first mod that names it (src/sim/wheels.js)
+      if (!s[key]) s[key] = SHAPE_NORM[key]();
+      const o = s[key];
+      for (const k of SHAPE_ADDS[key]) if (v[k] != null) o[k] += v[k];
+      for (const k of SHAPE_SETS[key]) if (v[k] != null) o[k] = v[k];
     } else if (key === 'drink') {
       // only a drink girl's drink changes (src/sim/drinks.js)
       if (!s.drink) continue;
@@ -733,8 +857,17 @@ export function applyModSet(s, mods, acc) {
     } else if (key === 'lastLine') {
       s.lastLine = normLastLine(v); // replace: one Last Line
     } else if (key === 'relay') {
-      // only a girl who already has a familiar / mirror can extend its reach
-      if (s.relay) s.relay.reach += v.reach ?? 0;
+      // only a girl who already has a familiar / mirror can extend its reach; Iroha's mirror network (docs/specs/
+      // IROHA_MIRRORS.md §4): her mirror count and ally bounces keep the most, the bounce numbers add up
+      if (s.relay) {
+        s.relay.reach += v.reach ?? 0;
+        if (s.relay.kind === 'mirror') {
+          const r = s.relay;
+          if (v.mirrors != null) r.mirrors = Math.max(r.mirrors, v.mirrors);
+          if (v.allyBounces != null) r.allyBounces = Math.max(r.allyBounces, v.allyBounces);
+          for (const f of ['bounces', 'bounceMul', 'bounceSplash', 'shards']) if (v[f] != null) r[f] += v[f];
+        }
+      }
     } else if (key === 'dotMul') {
       // Tryout Day's Weather Report (src/sim/tryout/pep.js): her burns and poisons × v (absent everywhere else)
       for (const list of [s.status, s.trap?.status, s.turret?.status]) {
@@ -800,10 +933,16 @@ export function applyUnitStats(s, us = DEFAULT_UNIT_STATS) {
   s.damage *= u.damageMul;
   s.rate *= u.rateMul;
   s.range *= u.rangeMul;
-  s.crit.chance = Math.min(1, s.crit.chance + (u.critChance || 0));
+  // crit chance above 100 % (Geometry Set's set cap, five Blank LR pieces): the part over 1 is her super-crit chance
+  const [crit, superCrit] = splitCrit(s.crit.chance + (u.critChance || 0), critCeilOf(u));
+  s.crit.chance = crit;
+  if (superCrit > 0) s.crit.super = superCrit;
   s.crit.mul *= u.critMul || 1;
   s.armorPen += u.armorPen || 0;
   if (s.trap) s.trap.damage *= u.damageMul;
+  // her average crit on damage that cannot crit (GEAR_UPDATE.md §8.3 lever 1): traps that never crit (no strip)
+  const avg = u.avgCrit > 1 ? u.avgCrit : 1;
+  if (s.trap && !s.strip && avg > 1) s.trap.damage *= avg;
   // Azami's Charged Strips / Detonation Line blasts follow her level, stars, gear ATK and Potential's whole-girl
   // damage step like her strips do (copy-on-write: a strip block is never shared after this)
   if (s.strip && s.strip.boom > 0) s.strip = { ...s.strip, boom: s.strip.boom * u.damageMul };
@@ -839,7 +978,8 @@ export function applyUnitStats(s, us = DEFAULT_UNIT_STATS) {
  * %-of-max-HP part). Shots, beams, sweeps, chains and drones take Pierce per attack (towers.js).
  */
 function applyGearReach(s, u) {
-  const pk = Math.min(PIERCE_K_MAX, Math.max(0, Math.floor(u.pierceK || 0)));
+  // blasts read `blastK` when Party Popper's set cap lifts her Pierce for them (setRules.js), else her capped Pierce
+  const pk = Math.max(Math.min(PIERCE_K_MAX, Math.max(0, Math.floor(u.pierceK || 0))), Math.min(BLAST_K_MAX, Math.max(0, Math.floor(u.blastK || 0))));
   if (pk > 0) {
     const blast = 1 + BLAST_PER_PIERCE * (pk / 100);
     if (s.splash > 0 && (s.behavior === 'projectile' || s.behavior === 'turret')) s.splash *= blast;
@@ -855,13 +995,62 @@ function applyGearReach(s, u) {
     if (typeof a.range === 'number') a.range *= (u.rangeMul || 1) * Math.max(1, u.auraRangeMul || 1);
     s.aura = a;
   }
-  const dm = Math.max(1, u.dotMul || 1);
+  // her burns and poisons: gear ATK's share (dotMul) and her average crit (they cannot crit)
+  const dm = Math.max(1, u.dotMul || 1) * (u.avgCrit > 1 ? u.avgCrit : 1);
   if (dm > 1) {
     const grow = (list) => (list || []).map((st) => ((st.type === 'burn' || st.type === 'poison') && typeof st.dps === 'number' ? { ...st, dps: st.dps * dm } : st));
     if (s.status) s.status = grow(s.status);
     if (s.trap?.status) s.trap = { ...s.trap, status: grow(s.trap.status) };
     if (s.turret?.status) s.turret = { ...s.turret, status: grow(s.turret.status) };
   }
+}
+
+/** Status types whose duration is crowd control (a power row's `ctl` stretches them). */
+const CTL_TYPES = ['slow', 'freeze', 'stun', 'hold', 'ground'];
+
+/**
+ * Balance round 5 (src/data/balance.js) after her unit stats: her burns and poisons follow her
+ * damage row (their flat part; the %-of-max-HP part never moves), `boss` multiplies her bossMul, `buff` grows
+ * the bonus part of her aura / brew / link / drink and her Brittle, `reach` her aura's reach and `ctl` how long
+ * her crowd control lasts. Coins, discounts and income never move. Copy-on-write: no block is shared after this.
+ */
+function applyPower(s, pw) {
+  const lists = (fn) => {
+    s.status = fn(s.status);
+    if (s.trap?.status) s.trap = { ...s.trap, status: fn(s.trap.status) };
+    if (s.turret?.status) s.turret = { ...s.turret, status: fn(s.turret.status) };
+  };
+  if (pw.dmg !== 1 || pw.ctl !== 1 || pw.buff !== 1) {
+    lists((list) => (list || []).map((st) => {
+      let o = st;
+      if (pw.dmg !== 1 && (st.type === 'burn' || st.type === 'poison') && typeof st.dps === 'number') o = { ...o, dps: st.dps * pw.dmg };
+      if (pw.ctl !== 1 && CTL_TYPES.includes(st.type) && typeof st.duration === 'number') o = { ...o, duration: st.duration * pw.ctl };
+      if (pw.buff !== 1 && st.type === 'vulnerable' && typeof st.bonus === 'number') o = { ...o, bonus: st.bonus * pw.buff };
+      return o;
+    }));
+  }
+  if (pw.boss !== 1) s.bossMul *= pw.boss;
+  const grow = (v) => (typeof v === 'number' && v > 1 ? 1 + (v - 1) * pw.buff : v);
+  if (pw.buff !== 1) {
+    if (s.aura) {
+      const a = { ...s.aura };
+      for (const k of ['dmgMul', 'rateMul', 'rangeMul']) a[k] = grow(a[k]);
+      for (const k of ['armorPen', 'critChance', 'foeVuln']) if (typeof a[k] === 'number' && a[k] > 0) a[k] *= pw.buff;
+      s.aura = a;
+    }
+    for (const key of ['brew', 'link']) {
+      if (!s[key]) continue;
+      const l = { ...s[key] };
+      l.dmgMul = grow(l.dmgMul);
+      l.rateMul = grow(l.rateMul);
+      if (l.armorPen > 0) l.armorPen *= pw.buff;
+      if (l.critChance > 0) l.critChance *= pw.buff;
+      s[key] = l;
+    }
+    if (s.drink) s.drink = { ...s.drink, dmg: s.drink.dmg * pw.buff, rate: s.drink.rate * pw.buff, range: s.drink.range * pw.buff };
+    if (s.hub) s.hub = { ...s.hub, dmgMul: grow(s.hub.dmgMul), rateMul: grow(s.hub.rateMul), rangeMul: grow(s.hub.rangeMul) };
+  }
+  if (pw.reach !== 1 && s.aura && typeof s.aura.range === 'number') s.aura = { ...s.aura, range: s.aura.range * pw.reach };
 }
 
 /**
@@ -888,14 +1077,18 @@ function potentialTail(s, pot, acc) {
  * Full stat resolution for a tower/hero.
  * @param {object} def UnitDef
  * @param {{ tiers?: number[], heroLevel?: number, unitStats?: object, heroMastery?: number,
- *   extra?: object|object[]|null }} opts unitStats.potential (1…6) adds her Potential steps; `extra`
+ *   extra?: object|object[]|null, noPower?: boolean }} opts unitStats.potential (1…6) adds her Potential steps; `extra`
  *   (a ModSet or a list of them: a running ability boost, src/sim/abilities.js) applies after every
  *   other set and before the damage is resolved. No `extra`: bit-identical to before it existed.
  */
-export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats = null, heroMastery = 0, extra = null } = {}) {
+export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats = null, heroMastery = 0, extra = null, noPower = false } = {}) {
   const s = normalizeBase(def.base, def);
   const acc = { damageAdd: 0, damageMul: 1 };
   const us = { ...DEFAULT_UNIT_STATS, ...(unitStats || {}) };
+  // balance round 5 (src/data/balance.js): her damage row folds in like level and gear ATK (`noPower`: the menus' kit
+  // numbers, src/ui/girlView.js, read her without it; `unitStats.powerOff`: a titan battle reads no row and no hero curve)
+  const pw = noPower ? null : powerFor(def, heroLevel, { rows: !us.powerOff, lr: us.lr === true, tiers });
+  if (pw && pw.dmg !== 1) us.damageMul *= pw.dmg;
   for (const m of collectModSets(def, tiers, heroLevel, !!us.awakenPassive, heroMastery)) applyModSet(s, m, acc);
   // Kaede's maple splash keys on her focus cap before Potential (a Potential cap raise never delays it)
   if (s.blade) s.blade.capMax = s.ramp ? s.ramp.max : 0;
@@ -906,7 +1099,9 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
   for (const m of pot.sets) applyModSet(s, m, acc);
   if (extra) for (const m of Array.isArray(extra) ? extra : [extra]) applyModSet(s, m, acc);
   s.damage = (s.damage + acc.damageAdd) * acc.damageMul;
-  applyUnitStats(s, pot.level > 1 ? { ...us, damageMul: us.damageMul * pot.damageMul, rateMul: us.rateMul * pot.rateMul, rangeMul: us.rangeMul * pot.rangeMul } : us);
+  const ub = pierceBand(s, us);
+  applyUnitStats(s, pot.level > 1 ? { ...ub, damageMul: ub.damageMul * pot.damageMul, rateMul: ub.rateMul * pot.rateMul, rangeMul: ub.rangeMul * pot.rangeMul } : ub);
+  if (pw) applyPower(s, pw);
   if (s.income && pot.incomeMul !== 1) s.income.perWave *= pot.incomeMul;
   if (s.hub && pot.incomeMul !== 1) s.hub.costCut *= pot.incomeMul; // (Ouka's coins track: her discount)
   if (pot.level > 1) potentialTail(s, pot, acc);
@@ -935,6 +1130,9 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
   if (s.vine) {
     s.vine.every = Math.max(1, s.vine.every);
     s.vine.beds = Math.max(0, Math.round(s.vine.beds));
+    s.vine.max = Math.max(1, Math.round(s.vine.max));
+    s.vine.cap = Math.max(0, Math.round(s.vine.cap));
+    s.vine.lash = Math.max(0.1, s.vine.lash);
   }
   if (s.hub) {
     // her office: the strongest radius plus its adds; her range is the radius (the ring the board draws)
@@ -955,6 +1153,19 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
     br.lineAdd = Math.max(0, Math.round(br.lineAdd));
   }
   return s;
+}
+
+/**
+ * A hero whose blasts come with her levels (`pierceAtkMul`, src/systems/progression.js unitBattleStats; Kogane from
+ * Lv 15): while the build she stands at has no blast or splash trap her Pierce can widen (the test of applyGearReach),
+ * her Pierce stops at the 200 % a shot uses and the band above it is ATK (× pierceAtkMul); once it has one, all of it
+ * widens her splash. Read at stat build only (a level-up re-resolves her), never per frame.
+ */
+function pierceBand(s, us) {
+  if (!(us.pierceAtkMul > 1)) return us;
+  const widens = (s.splash > 0 && (s.behavior === 'projectile' || s.behavior === 'turret')) || s.trap?.splash > 0;
+  if (widens) return us;
+  return { ...us, damageMul: us.damageMul * Math.min(2, us.pierceAtkMul), pierceK: Math.min(us.pierceK || 0, 100 * PIERCE_MAX_EXTRA) };
 }
 
 /**

@@ -346,6 +346,25 @@ Kon (Ruri), Kaze (Hana) and Yoriko's doll are separate figures now, never part o
 * **Yoriko**: `marionette` keeps the control bar (and the glove's thread node); the doll and its four threads are gone.
 * `EXTRA_PARTS` no longer lists `falcon` (Hana) or `foxFamiliar` (Ruri), so a `--force-procedural` rebuild matches.
 
+## Imported Tripo figures (Kogane, Norika; batch 1, Oct 31)
+
+Kogane and Norika are no longer procedural stand-ins: their Tripo `text_to_model` figures, rigged by Tripo's
+`animate_rig` (biped), are built by `tools/tripo/build_tripo_chibi.py` (`source: 'tripo'` in the manifest; the
+Blender builder skips them like the Meshy ones). Tripo's own UVs and base colour are kept (its charts are large,
+so no re-unwrap or bake), the bones are renamed to the readable set (`tools/tripo/tripolib/rig.py`), the clips are
+authored on the rig (`tripolib/clips_staff.py`: `idle walk attack_wrench|attack_sign cheer hurt`, chin up 14° / 20°
+for the brims) and the files are phone-packed by `tools/meshy/lib/pack.py`. Battle height 1.224 like Hikari. No eye
+boxes yet (no blink). The same batch gave the Brigade enemies their own models (`public/models/enemies/tripo/`,
+`glbEnemy.js` `TRIPO_ENEMIES`) and Big Yellow, Norika's barricade and Suzu's bells (`src/render/tripoProps.js`,
+drawn by `staffFx.js`). Task ids, credits, sizes and how to rebuild: `docs/art/tripo/batch-1.md`.
+
+**Superseded (Nov 1, `fix/staff-models`):** both figures are Blender builds now (`tools/blender/build_characters.py`
+`_build_staff`, `tools/blender/lib/staff.py`): adults built to the owner's proportion references (about 2.8 heads
+tall, legs a third of the height) from the cast's own head, face atlas and hair, a hard hat that sits back on the head,
+work uniforms, a rigid prop on `hand_R`, the full Blender clip set (`idle walk attack_sign|attack_wrench cheer victory
+hurt pickup`). The manifest entries are Blender ones (no `source`). Numbers, routes and checks:
+`docs/art/tripo/staff-models.md`.
+
 ## Judging quality
 
 Always judge with three.js screenshots (Blender's EEVEE needs a GPU): round head, big eyes placed low,
@@ -572,6 +591,10 @@ old SVG drawing (`src/art/icons/items.js`) inside `<span class="ia">`, so every 
   and cached re-renders never show it. The ten small cuts (the HUD and the currency pills on nearly every screen)
   are fetched at boot (`preloadSmallItemArt`, from `src/main.js`). A key with no baked art returns the bare
   drawing (`hasItemArt`, `itemArtUrl`, `itemArtSVG`, `itemIconSVG`).
+- Gear (`gearIcon`, `gearArtKey`): `gear_<slot>_<rarity>` and `gear_<slot>_ur`, drawn from the gear tables in
+  `tools/blender/items/catalog.py` (a design row per slot and a shared rarity ladder in which the shape and trim grow
+  with rarity). A gear set gets one look per slot, `gear_<set>_<slot>` (rarity on the tile and the UR ring);
+  `{ set: g.set }` (the piece's gear set id, never its club) picks it when baked and the default look otherwise.
 - `crown_rainbow` ships the owner-approved file as is (PLAN C11, `models.SHIPPED` in the item pipeline), because
   the rebuild lost its iridescent band.
 - The item tile (`itemTile` in `src/ui/components.js`, CSS in `base.css` "Items") is the owner's slanted plate: a

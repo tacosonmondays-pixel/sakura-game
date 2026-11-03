@@ -224,19 +224,19 @@ const FUU = {
   personality: 'Breezy, carefree and impossible to pin down; hums while she fights and never walks when she can twirl.',
   quote: 'Back you go~ Again! And again!',
   tips: [
-    'Her gusts push enemies back into your kill zone; each enemy can only be pushed once every 1.5 seconds.',
+    'Her gusts push enemies back into your kill zone; each enemy can only be pushed once every 1.2 seconds.',
     'Gathering Dance pulls the enemies ahead of her target back into a clump for splash girls.',
     'Bosses barely move: pair her with damage, not instead of it.',
     '⚡ Returning Gale tier 3 teaches Backdraft Fan: one great sweep that blows a whole crowd back up the road.',
   ],
-  base: stats({ cost: 260, damage: 2, rate: 0.7, range: 3.0, projectiles: 3, projectileSpeed: 13, knockback: 0.45, canHitAir: true }),
+  base: stats({ cost: 260, damage: 2, rate: 0.7, range: 3.0, projectiles: 3, projectileSpeed: 13, knockback: 0.6, canHitAir: true }),
   paths: [
     path('gale', 'Returning Gale', 'Push-back', [
-      tier('Brisk Fans', 90, 'Gusts push 0.1 tiles further.', { knockback: 0.1 }),
+      tier('Brisk Fans', 90, 'Gusts push 0.15 tiles further.', { knockback: 0.15 }),
       tier('Twin Gusts', 240, 'One more gust per sweep.', { projectiles: 1 }),
-      tier('Gale Wall', 700, 'Push +0.15 tiles; gusts slow by 25% for 1s.', { knockback: 0.15, status: [S.slow(0.25, 1)] }),
-      tier('Typhoon Fans', 2200, 'Two more gusts, push +0.2 tiles, +6 damage.', { projectiles: 2, knockback: 0.2, damage: 6 }),
-      tier('Heaven\'s Gate Wind', 14000, 'Two more gusts, push +0.3 tiles, +14 damage, +40% attack speed.', { projectiles: 2, knockback: 0.3, damage: 14, rateMul: 1.4 }),
+      tier('Gale Wall', 700, 'Push +0.2 tiles; gusts slow by 25% for 1s.', { knockback: 0.2, status: [S.slow(0.25, 1)] }),
+      tier('Typhoon Fans', 2200, 'Two more gusts, push +0.25 tiles, +6 damage. Homecoming Throw: her gusts become fans that fly through her targets and come back to her hand: half her hit on the way out (with her push and slow), half again on the way home.', { projectiles: 2, knockback: 0.25, damage: 6, behavior: 'return', ret: { per: 1, mul: 0.5, cut: 0, pierce: 0, reach: 1 } }),
+      tier('Heaven\'s Gate Wind', 14000, 'Two more fans, push +0.4 tiles, +14 damage, +40% attack speed.', { projectiles: 2, knockback: 0.4, damage: 14, rateMul: 1.4 }),
     ]),
     path('gather', 'Gathering Dance', 'Clump the wave', [
       tier('Light Steps', 80, '+0.4 range.', { range: 0.4 }),
@@ -253,7 +253,7 @@ const FUU = {
       tier('Sky Sweeper', 15000, '×1.4 against flyers, +18 damage, two more gusts, +30% attack speed.', { airMul: 1.4, damage: 18, projectiles: 2, rateMul: 1.3 }),
     ]),
   ],
-  awakenPassive: { name: 'Tailwind', desc: 'Gusts push 0.05 tiles further and +0.2 range.', mods: { knockback: 0.05, range: 0.2 } },
+  awakenPassive: { name: 'Tailwind', desc: 'Gusts push 0.1 tiles further and +0.2 range.', mods: { knockback: 0.1, range: 0.2 } },
 };
 
 const HANA = {
@@ -459,44 +459,48 @@ const IROHA = {
     hairStyle: 'buns', bangs: 'straight', accessory: 'hairpin', outfit: 'sailor', weapon: 'mirror',
     halo: 'ring', eyeStyle: 'sleepy', expression: 'calm',
   },
-  bio: 'An art club second-year. Black hair in buns with a round silver ornament, a charcoal sailor uniform with a plum scarf, a long plum cardigan and black tights. She carries a smart hand mirror on a lanyard and sets a hovering mirror panel on a little drone easel beside a far lane; her bolts fire from her own mirror and from the panel at once.',
+  bio: 'An art club second-year. Black hair in buns with a round silver ornament, a charcoal sailor uniform with a plum scarf, a long plum cardigan and black tights. She carries a smart hand mirror on a lanyard and sets little hovering mirror panels on drone easels along the lanes; her bolts bounce from mirror to mirror, striking everything on the way.',
   personality: 'Reserved, elegant and a perfectionist; can spend an hour polishing a single spot.',
   quote: 'Look closer. The mirror sees what you missed.',
   tips: [
-    'She fires from two places: where she stands and from her mirror panel.',
-    'Aim the panel beside a lane she cannot reach; without an aim it goes to the nearest lane edge.',
-    'The second range ring is centred on the panel.',
-    '⚡ Mirror Hall tier 3 teaches Mirror Shift: her panel jumps where you aim and splits the team\'s shots in two.',
+    'Her bolts fly to a mirror, bounce to the next and then on to an enemy, hitting everything on every leg.',
+    'Place each mirror yourself (her MIRROR row), or let her spread them along the road.',
+    'Mirrors on both sides of a bend make long legs over the road.',
+    '⚡ Mirror Hall tier 3 teaches Laser Web: beams join every pair of her mirrors for a few seconds.',
   ],
   base: stats({
-    cost: 600, damage: 4, rate: 0.7, range: 2.3, projectiles: 2, projectileSpeed: 15, canHitAir: true,
-    relay: { kind: 'mirror', reach: 3.7, both: true },
+    cost: 600, damage: 4, rate: 0.7, range: 2.3, projectiles: 3, pierce: 1, projectileSpeed: 18, canHitAir: true,
+    relay: { kind: 'mirror', reach: 3.7, mirrors: 2, bounces: 2 },
   }),
   paths: [
-    path('hall', 'Mirror Hall', 'More reflections', [
+    path('hall', 'Mirror Hall', 'More mirrors, more bounces', [
       tier('Bright Glass', 160, '+1 damage.', { damage: 1 }),
-      tier('Second Pane', 360, 'One more bolt from each point.', { projectiles: 1 }),
-      tier('Mirror Hall', 1200, 'Bolts pierce 2 more enemies and reveal veils for 1.5s.', { pierce: 2, reveal: 1.5 }),
-      tier('Hall of Reflections', 3600, 'Two more bolts, +4 damage.', { projectiles: 2, damage: 4 }),
-      tier('Infinite Reflection', 26000, 'Two more bolts, +12 damage, pierce +2, +30% attack speed.', { projectiles: 2, damage: 12, pierce: 2, rateMul: 1.3 }),
+      tier('Second Pane', 360, 'A third mirror; bolts bounce once more; +1 damage.', { relay: { mirrors: 3, bounces: 1 }, damage: 1 }),
+      tier('Mirror Hall', 1200, '+2 damage; bolts pierce 1 more enemy on every leg and reveal veils for 1.5s.', { damage: 2, pierce: 1, reveal: 1.5 }),
+      tier('Hall of Reflections', 3600, 'A fourth mirror, one more bounce, two more bolts, +4 damage.', { relay: { mirrors: 4, bounces: 1 }, projectiles: 2, damage: 4 }),
+      tier('Infinite Reflection', 26000, 'A fifth mirror, one more bounce, two more bolts, +14 damage, +30% attack speed; allies\' shots reflect off her mirrors for good, bouncing twice.', { relay: { mirrors: 5, bounces: 1, allyBounces: 2 }, projectiles: 2, damage: 14, rateMul: 1.3 }),
     ]),
-    path('silver', 'Silver Reflection', 'Reach and precision', [
-      tier('Long Frame', 130, 'The panel can stand 0.6 tiles further away.', { relay: { reach: 0.6 } }),
-      tier('Clear Silver', 340, '+0.3 range.', { range: 0.3 }),
-      tier('Silver Reflection', 1100, 'Veil Sight; the panel reaches 0.8 tiles further.', { detection: true, relay: { reach: 0.8 } }),
-      tier('Moonlit Looking-Glass', 3500, '+0.6 range, +5 damage, ignores 3 armor.', { range: 0.6, damage: 5, armorPen: 3 }),
-      tier('Mirror of Truth', 25000, '+14 damage, +50% against elites, silences for 0.8s, ignores 3 more armor.', { damage: 14, eliteMul: 1.5, silence: 0.8, armorPen: 3 }),
+    path('silver', 'Silver Reflection', 'Polish: every bounce hits harder', [
+      tier('Long Frame', 130, 'Her mirrors can stand 0.6 tiles further away.', { relay: { reach: 0.6 } }),
+      tier('Clear Silver', 340, '+0.3 range; each bounce adds 15% damage.', { range: 0.3, relay: { bounceMul: 0.15 } }),
+      tier('Silver Reflection', 1100, 'Veil Sight; mirrors reach 0.8 tiles further; each bounce adds 15% more.', { detection: true, relay: { reach: 0.8, bounceMul: 0.15 } }),
+      tier('Moonlit Looking-Glass', 3500, 'A fourth mirror and two more bounces, +0.6 range, +5 damage, ignores 3 armor; each bounce adds 10% more.', { relay: { mirrors: 4, bounces: 2, bounceMul: 0.1 }, range: 0.6, damage: 5, armorPen: 3 }),
+      tier('Mirror of Truth', 25000, 'One more bounce, +9 damage, +50% against elites, silences for 0.8s, ignores 3 more armor; each bounce adds 10% more.', { relay: { bounces: 1, bounceMul: 0.1 }, damage: 9, eliteMul: 1.5, silence: 0.8, armorPen: 3 }),
     ]),
-    path('shard', 'Shattered Glass', 'Splash and control', [
+    path('shard', 'Shattered Glass', 'Kaleidoscope: every bounce shatters', [
       tier('Quick Polish', 140, '+12% attack speed.', { rateMul: 1.12 }),
-      tier('Splintered Glass', 320, 'Bolts splash 0.4 tiles.', { splash: 0.4 }),
-      tier('Glass Shards', 1150, 'Wider splash; 20% slows for 1s.', { splash: 0.3, status: [S.slow(0.2, 1)] }),
-      tier('Glass Storm', 3600, '+5 damage, wider splash; 15% stun for 0.3s.', { damage: 5, splash: 0.4, status: [S.stun(0.3, 0.15)] }),
-      tier('Kaleidoscope Burst', 27000, '+13 damage, splash +0.6, +30% attack speed.', { damage: 13, splash: 0.6, rateMul: 1.3 }),
+      tier('Splintered Glass', 320, 'Every bounce splashes 0.8 tiles; bolts splash 0.4 tiles where they land.', { splash: 0.4, relay: { bounceSplash: 0.8 } }),
+      tier('Glass Shards', 1150, 'Wider splashes; 20% slows for 1s.', { splash: 0.3, relay: { bounceSplash: 0.4 }, status: [S.slow(0.2, 1)] }),
+      tier('Glass Storm', 3600, 'A fourth mirror and two more bounces, +8 damage, wider splashes, 15% stun for 0.3s; every bounce throws a glass shard at another enemy.', { relay: { mirrors: 4, bounces: 2, bounceSplash: 0.3, shards: 1 }, damage: 8, splash: 0.4, status: [S.stun(0.3, 0.15)] }),
+      tier('Kaleidoscope Burst', 27000, 'One more bounce, +14 damage, wider landing splash (+0.6), +30% attack speed.', { relay: { bounces: 1 }, damage: 14, splash: 0.6, rateMul: 1.3 }),
     ]),
   ],
   awakenPassive: { name: 'Polished Silver', desc: 'Bolts pierce 1 more enemy and +6% damage.', mods: { pierce: 1, damageMul: 1.06 } },
 };
+
+// Ena's spreading curse (Omen Rot): a curse that rots for `rot` × the cursing hit a second and passes on while its enemy lives
+// (src/sim/Sim.js _curseTick); it still bursts when the enemy falls
+const hex = (burstMul, radius, duration, rot) => ({ ...S.curse(burstMul, radius, duration), rot });
 
 const ENA = {
   id: 'ena',
@@ -521,23 +525,23 @@ const ENA = {
     hairStyle: 'braid', bangs: 'split', accessory: 'flower', outfit: 'blazer', weapon: 'cards',
     halo: 'moon', eyeStyle: 'sharp', expression: 'smug',
   },
-  bio: 'The occult club\'s fortune-teller. Rose-pink hair with a braid and a red rose ornament, a black academy blazer with a crimson tie, a long black cardigan and a wrist launcher that deals holo curse cards on red threads of light. When a cursed enemy falls, the curse blooms onto its neighbours.',
+  bio: 'The occult club\'s fortune-teller. Rose-pink hair with a braid and a red rose ornament, a black academy blazer with a crimson tie, a long black cardigan and a wrist launcher that deals holo curse cards on red threads of light. Her curse spreads: its Omen Rot eats at a cursed enemy, creeps on to its neighbours and blooms when the enemy falls.',
   personality: 'Teasing, dramatic and fond of ominous predictions, which are usually about lunch.',
   quote: 'Draw a card. Oh dear... that one\'s for you.',
   tips: [
-    'Cursed enemies burst when they fall, hurting their neighbours and passing on a weaker curse.',
-    'A curse spreads at most two more times: dense waves chain beautifully.',
+    'Her curse spreads: its Omen Rot takes a share of her hit every second, even when another girl lands the kill (bosses and minibosses take half), and every second it passes a weaker curse to the nearest uncursed enemy within 1.2 tiles, up to four times.',
+    'Cursed enemies still burst when they fall, hurting their neighbours and passing on a weaker curse (at most two more times).',
     'Withering Script stops regeneration like poison.',
-    '⚡ Cursed Bloom tier 3 teaches Omen Card: a cursed card for every enemy around her, so a dense wave bursts in a chain.',
+    '⚡ Cursed Bloom tier 3 teaches Omen Card: a spreading curse for every enemy around her, so a dense wave rots and bursts in a chain.',
   ],
-  base: stats({ cost: 580, damage: 12, rate: 1.0, range: 3.2, projectileSpeed: 14, canHitAir: true, status: [S.curse(0.8, 1.1, 4)] }),
+  base: stats({ cost: 580, damage: 12, rate: 1.0, range: 3.2, projectileSpeed: 14, canHitAir: true, status: [hex(0.8, 1.1, 4, 0.15)] }),
   paths: [
-    path('bloom', 'Cursed Bloom', 'Bigger bursts', [
-      tier('Deeper Ink', 150, 'Curse bursts for 120% of the cursing hit.', { status: [S.curse(1.2, 1.1, 4)] }),
-      tier('Wider Bloom', 340, 'Bursts reach 1.4 tiles.', { status: [S.curse(1.2, 1.4, 4)] }),
-      tier('Cursed Bloom', 1100, 'Bursts for 200% of the hit within 1.6 tiles; cards splash 0.4 tiles.', { status: [S.curse(2.0, 1.6, 5)], splash: 0.4 }),
-      tier('Red Spider Lily', 3400, 'Bursts reach 1.9 tiles; +14 damage.', { status: [S.curse(2.0, 1.9, 5)], damage: 14 }),
-      tier('Garden of Calamity', 24000, 'Bursts for 220% within 2.3 tiles; +40 damage, +30% attack speed.', { status: [S.curse(2.2, 2.3, 6)], damage: 40, rateMul: 1.3 }),
+    path('bloom', 'Cursed Bloom', 'Bigger bursts, deeper rot', [
+      tier('Deeper Ink', 150, 'Curse bursts for 120% of the cursing hit; Omen Rot eats 20% of it a second.', { status: [hex(1.2, 1.1, 4, 0.2)] }),
+      tier('Wider Bloom', 340, 'Bursts reach 1.4 tiles; Omen Rot eats 25% of the hit a second.', { status: [hex(1.2, 1.4, 4, 0.25)] }),
+      tier('Cursed Bloom', 1100, 'Bursts for 200% of the hit within 1.6 tiles; Omen Rot eats 40% of it a second; cards splash 0.4 tiles.', { status: [hex(2.0, 1.6, 5, 0.4)], splash: 0.4 }),
+      tier('Red Spider Lily', 3400, 'Bursts reach 1.9 tiles; Omen Rot eats 50% of the hit a second; +14 damage.', { status: [hex(2.0, 1.9, 5, 0.5)], damage: 14 }),
+      tier('Garden of Calamity', 24000, 'Bursts for 220% within 2.3 tiles; Omen Rot eats 60% of the hit a second; +40 damage, +30% attack speed.', { status: [hex(2.2, 2.3, 6, 0.6)], damage: 40, rateMul: 1.3 }),
     ]),
     path('withering', 'Withering Script', 'Anti-heal and armor', [
       tier('Fine Stylus', 130, '+1 damage.', { damage: 1 }),
@@ -550,11 +554,11 @@ const ENA = {
       tier('Quick Deal', 140, '+12% attack speed.', { rateMul: 1.12 }),
       tier('Lucky Card', 320, '5% crits for ×1.5.', { crit: { chance: 0.05, mul: 1.5 } }),
       tier('Shared Fate', 1050, 'Brittle +12% for 3s; silences for 0.5s.', { status: [S.vulnerable(0.12, 3)], silence: 0.5 }),
-      tier('Red Threads', 3500, 'One more card; Brittle +18%; +12 damage.', { projectiles: 1, status: [S.vulnerable(0.18, 3)], damage: 12 }),
-      tier('Threads of Destiny', 25000, 'Two more cards, Brittle +25%, 15% stun for 0.4s, +40 damage.', { projectiles: 2, status: [S.vulnerable(0.25, 3), S.stun(0.4, 0.15)], damage: 40 }),
+      tier('Red Threads', 3500, 'One more card; Brittle +18%; +12 damage. Spirit Tether: every deal ties her target to the two enemies nearest it, one after another, for 3s; a hit from any girl on a tied enemy is shared, each other tied enemy taking 20% of it (her own hits are split among them, not added).', { projectiles: 1, status: [S.vulnerable(0.18, 3)], damage: 12, tether: { links: 2, reach: 1.5, dur: 3, share: 0.2, pull: 0 } }),
+      tier('Threads of Destiny', 25000, 'Two more cards, Brittle +25%, 15% stun for 0.4s, +40 damage; her threads tie three enemies for 4s at 25% each, and pull tight as they fade, dragging the enemies ahead of her target back toward it.', { projectiles: 2, status: [S.vulnerable(0.25, 3), S.stun(0.4, 0.15)], damage: 40, tether: { links: 3, reach: 1.8, dur: 4, share: 0.25, pull: 0.25 } }),
     ]),
   ],
-  awakenPassive: { name: 'Lingering Hex', desc: 'Curses burst for the whole hit within 1.2 tiles and last 5s.', mods: { status: [S.curse(1.0, 1.2, 5)] } },
+  awakenPassive: { name: 'Lingering Hex', desc: 'Curses burst for the whole hit within 1.2 tiles, their Omen Rot eats 20% of it a second, and they last 5s.', mods: { status: [hex(1.0, 1.2, 5, 0.2)] } },
 };
 
 /** The nine returning girls, in roster order (heroes first, then towers by rarity). */

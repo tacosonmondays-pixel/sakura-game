@@ -166,6 +166,20 @@ describe('local holds: freeze the struck, not the world', () => {
     expect(src).toMatch(/if \(v\.holdLeft > 0 && this\._hold\(v, dt\)\) continue;/);
   });
 
+  it('a monster with a face made of geometry (glbEnemy rigidFace) pops evenly on a hit: its eyes are never squashed', () => {
+    const a = view(1, 3);
+    a.model.userData.rigidFace = true;
+    const h = host([a]);
+    a.sqA = 0.8;
+    a.sqT = 0;
+    a.anim = { moving: true, speed: 1 };
+    h.holdEnemy(1, 3);
+    h._hold(a, F, true);
+    expect(a.model.scale.y).toBeLessThan(1.12); // it still reacts…
+    expect(a.model.scale.x).toBeCloseTo(a.model.scale.y, 10); // …evenly
+    expect(a.model.scale.z).toBeCloseTo(a.model.scale.y, 10);
+  });
+
   it('a real monster, struck and held as the renderer does it: every held frame shows the flash and the squash, at 60 and 30 fps', () => {
     const def = { id: 'goblin_runner', family: 'goblin', tier: 'normal', size: 1, color: '#7bd389', accent: '#3fa35b', traits: {}, model: { base: 'goblin', variant: 'basic', props: [] } };
     const lookOf = (m) => {

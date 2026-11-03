@@ -176,7 +176,8 @@ describe('GEAR_FIT and the one live-ability rule (Skill Haste, owner #34 / Q2)',
       expect(fillStats('yuzuha').has(s), s).toBe(false);
       expect(fillStats('suzu').has(s), s).toBe(true);
     }
-    expect([...fillStats('azami')]).toEqual(['auraPct']);
+    // (+ the gear update's support stats her kit cannot use: Aura Radius with no aura, Buff Duration with no timed buff)
+    expect([...fillStats('azami')]).toEqual(['auraPct', 'auraRangePct', 'buffDurPct']);
     const p = createProfile();
     p.units.azami = { ...p.units.aoi, gear: { charm: null, ribbon: null, shoes: null } };
     equipGear(p, 'azami', piece(p, 'ribbon', 'legendary', ['critChance', 0.2], [['critDmg', 0.3]]));

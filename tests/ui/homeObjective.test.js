@@ -148,6 +148,14 @@ describe('the news chip\'s pages (home layout B: turned by hand only; what shows
     expect(ids(homeChipPages({ objective: homeObjective(without('save', 'event')), news: news('exchange') }))).toEqual(['event', 'objective:login', 'bosses']);
   });
 
+  it('[build coach] the Main girl\'s next step is a filler page after the objective and the event, before the bosses', () => {
+    const coach = { id: 'coach' };
+    expect(ids(homeChipPages({ objective: homeObjective(without('save')), news: news(null), coach }))).toEqual(['objective:login', 'weekly', 'coach']);
+    expect(ids(homeChipPages({ objective: homeObjective(without('save')), news: news('active'), coach }))).toEqual(['event', 'objective:login', 'coach']);
+    // no Main (or no step ready): the chip is as before
+    expect(ids(homeChipPages({ objective: homeObjective(without('save')), news: news('active'), notice }))).toEqual(['event', 'objective:login', 'bosses']);
+  });
+
   it('a saved battle leads before the event', () => {
     expect(ids(homeChipPages({ objective: homeObjective(ALL), news: news('active') }))).toEqual(['objective:continue', 'event', 'bosses']);
   });

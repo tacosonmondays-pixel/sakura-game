@@ -168,6 +168,10 @@ export const LAB_SLOW_MAX = 0.5;
 export const LAB_ECON_SHARE = 0.3;
 /** A girl's interest at a wave clear (stats.income.interest × coins) pays at most this many coins (Momo). */
 export const INCOME_INTEREST_MAX = 150;
+/** Treasurer's 5-piece set cap lifts a girl's interest to at most this a wave (GEAR_UPDATE.md §3.2, r3 L16). */
+export const INCOME_INTEREST_SET_MAX = 5000;
+/** The most cash (pooled or one player's wallet) a battle holds: an overflow guard like Freeplay's hpMax (r3 L16). */
+export const CASH_MAX = 1e12;
 
 /** Seconds before the next wave auto-starts when options.autoStart is on. */
 export const AUTO_START_DELAY = 1.0;
@@ -210,6 +214,18 @@ export const DEFAULT_UNIT_STATS = Object.freeze({
   potential: 1,
   // [banners G6] an LR unit after Limit Break (her LR ability form reads it: src/sim/abilities.js isLr)
   lr: false,
+  // the gear update (docs/specs/GEAR_UPDATE.md §2.4, §3.4, src/sim/setRules.js): her set (4+ pieces) and its LR Set
+  // Form, Buff Duration and Control Strength, her ⚡ ability's haste (half her Skill Haste; Power Bank's set cap lifts
+  // it), her blasts' Pierce (Party Popper's set cap) and her average crit on damage that cannot crit
+  set: null,
+  setN: 0,
+  setLr: false,
+  buffDurMul: 1,
+  controlMul: 1,
+  abilHaste: 0,
+  blastK: 0,
+  avgCrit: 1,
+  critCeil: 1,
 });
 
 // ---------------------------------------------------------------------------
@@ -227,8 +243,8 @@ export const MORTAR_AIM_SLACK = 0.5;
 export const MORTAR_SCATTER = [[0, 0], [0.6, 0], [-0.3, 0.52], [-0.3, -0.52], [0, 0.6], [0, -0.6]];
 /** A familiar / un-aimed mirror stops this far short of the nearest lane sample. */
 export const FAMILIAR_STANDOFF = 0.7;
-/** Iroha's reflecting mirror (Mirror Shift / Infinite Reflection, src/sim/mirrors.js): a shot whose step passes within this many tiles of it splits. */
-export const MIRROR_RADIUS = 0.5;
+/** Iroha's reflecting mirrors (her Laser Web / Infinite Reflection, src/sim/mirrors.js): an ally's shot whose step passes within this many tiles of one splits. */
+export const MIRROR_RADIUS = 0.8;
 /** A split copy with no other target flies at the original's, fanned this many radians to one side. */
 export const SPLIT_FAN = 0.18;
 /** Lane sampling step for relay origins (tiles). */
@@ -250,6 +266,20 @@ export const ROLE_TARGET_MODE = { sniper: 'elite', falconer: 'air', stormrider: 
  * next step, so a dense cursed wave falling at once never costs O(deaths × victims) in one step.
  */
 export const CURSE_BURSTS_PER_TICK = 32;
+/**
+ * The spreading curse (Ena's Omen Rot, owner Oct 30): a curse that rots (`rotDps` > 0) also spreads while its
+ * enemy lives. Every CURSE_SPREAD_STEPS sim steps a cursed enemy passes it to the nearest uncursed, visible
+ * enemy within CURSE_SPREAD_RADIUS tiles, its burst and rot × CURSE_SPREAD_DECAY, while the generation stays
+ * ≤ CURSE_SPREAD_MAX_DEPTH (the on-death burst keeps CURSE_DECAY and CURSE_MAX_DEPTH). At most
+ * CURSE_SPREADS_PER_TICK passes a step; an enemy over the budget tries again next step. Bosses and minibosses
+ * take CURSE_ROT_BOSS_MUL of the rot (they still catch and pass the curse).
+ */
+export const CURSE_SPREAD_STEPS = 60;
+export const CURSE_SPREAD_RADIUS = 1.2;
+export const CURSE_SPREAD_DECAY = 0.8;
+export const CURSE_SPREAD_MAX_DEPTH = 4;
+export const CURSE_SPREADS_PER_TICK = 64;
+export const CURSE_ROT_BOSS_MUL = 0.5;
 /**
  * Hex (UNIT_GAPS P-15): each second a hexed enemy loses pct × its max HP × this tier factor and
  * cannot regenerate; one application never takes more than HEX_BOSS_CAP of a miniboss's or
@@ -274,6 +304,17 @@ export const STRIP_SPACING = 0.45;
 export const STRIP_AIM_RADIUS = 0.5;
 /** Opening burst: she lays this many times faster in the first strip.opening s of each wave. */
 export const STRIP_OPENING_MUL = 4;
+/**
+ * Road objects for a boss (docs/BALANCE.md "Suzu and Azami on bosses"): while a boss or miniboss is in her range,
+ * Suzu and Azami also set one under it (the free road spot nearest it, at or ahead of it) with each bell or strip,
+ * outside their caps, while fewer than BOSS_TRAPS of theirs wait there. A bell set for a boss rides on it once it goes
+ * off and rings for her trap's hit every BOSS_BELL_EVERY steps (flying or not) until it dies or leaves her range; a
+ * boss on a strip laid for it is struck again every STRIP_BOSS_EVERY steps until the strip's hits run out. Their road
+ * bells and strips work as ever.
+ */
+export const BOSS_BELL_EVERY = 60;
+export const STRIP_BOSS_EVERY = 6;
+export const BOSS_TRAPS = 2;
 /** Straight shots (Kinu's pins, blades and sparks; src/sim/rings.js): per girl, per player, per sim. */
 export const STRAIGHT_PER_GIRL = 60;
 export const STRAIGHT_PER_PLAYER = 200;
@@ -326,6 +367,94 @@ export const BOUNCE_MAX_T = 1;
 export const FINALE_RADIUS = 1.5;
 
 // ---------------------------------------------------------------------------
+// Attack shapes, batch S1 "Wheels" (docs/specs/ATTACK_SHAPES.md §5.1, §5.2, §5.5; src/sim/wheels.js).
+// Every timer is an integer of sim steps; their straight shots share Kinu's caps (STRAIGHT_PER_*).
+// ---------------------------------------------------------------------------
+/** Blossom Wheel: spoke flight speed (tiles/s); a spoke flies her range. */
+export const WHEEL_SPEED = 12;
+/** Pinwheel Stream: a shot per arm every attack; the arms turn SPIN_TURN table steps an attack (18°: one
+ *  turn in 20 attacks), only SPIN_LOCK while an arm has an enemy within SPIN_HALF_WIDTH of its line. */
+export const SPIN_TURN = 12;
+export const SPIN_LOCK = 0;
+export const SPIN_HALF_WIDTH = 0.3;
+export const SPIN_SPEED = 10;
+/** Pinwheel Stream with a single enemy in range: the folded stream turns at most this many table steps a shot. */
+export const SPIN_FOLD_TURN = 20;
+/** Blade Cyclone in battle: every attack is her aimed volley (her shuriken at her targets) and the arms on top at this
+ *  share of their damage (src/sim/wheels.js attackSpin; the owner, Oct 30: never below the attack she had before). */
+export const SPIN_ARMS_SHARE = 0.25;
+/** Petal Halo: table steps per sim step (one turn in 2 s), orbit radius, contact radius (tiles), the
+ *  re-hit gap per piece (steps), a piece's memory (entries, oldest dropped) and pieces per girl at most. */
+export const HALO_STEPS = 2;
+export const HALO_REACH = 1.2;
+export const HALO_RADIUS = 0.35;
+export const HALO_GAP = 15;
+export const HALO_HITS = 32;
+export const HALO_MAX = 16;
+
+// ---------------------------------------------------------------------------
+// Attack shapes, batch S2 "Held" (docs/specs/ATTACK_SHAPES.md §4.3, §5.3, §5.9; src/sim/channel.js,
+// src/sim/held.js). Every timer is an integer of sim steps; every angle an integer of table steps (1.5°).
+// ---------------------------------------------------------------------------
+/** A held channel's damage tick: every CH_TICK steps (0.1 s); it stays CH_GRACE steps aimed where it was after
+ *  losing its enemy, then lets go; a channel's re-hit memory keeps at most CH_HITS [uid, step] pairs. */
+export const CH_TICK = 6;
+export const CH_GRACE = 12;
+export const CH_HITS = 32;
+/** COS2 covers half-angles 0…COS2_MAX table steps (0°…90°). */
+export const COS2_MAX = 60;
+/** Hearth Stream: damage × STREAM_TIP at the cone's tip (× 1 at her, linear in d²); the default half-angle and turn
+ *  (table steps; a turn is per sim step). */
+export const STREAM_TIP = 0.85;
+export const STREAM_HALF = 12;
+export const STREAM_TURN = 3;
+/** Searchlight Sweep: the beam is tested every SWEEP_TICK steps; its half-width (tiles); the default arc either side
+ *  of its centre, swing (table steps a sim step) and centre turn (table steps a sim step). Its re-hit gap is one pass. */
+export const SWEEP_TICK = 2;
+export const SWEEP_HALF_WIDTH = 0.25;
+export const SWEEP_ARC = 30;
+export const SWEEP_SWING = 1;
+export const SWEEP_TURN = 1;
+
+// ---------------------------------------------------------------------------
+// Attack shapes, batch S3 "Ground" (docs/specs/ATTACK_SHAPES.md §5.4, §5.7, §5.8; src/sim/ground.js,
+// src/sim/vines.js). Every timer is an integer of sim steps; road objects test by path distance (onRoad).
+// ---------------------------------------------------------------------------
+/** onRoad's shared stretch (Marumi's rule, src/sim/balls.js): a walker on another path is on a road object's
+ *  stretch when its spot is within ROAD_SHARED tiles of that stretch's centreline and its road runs the same way
+ *  there (unit direction dot > ROAD_SAME_DIR). A crossing or an overpass meets at an angle and is ignored. */
+export const ROAD_SHARED = 0.3;
+export const ROAD_SAME_DIR = 0.95;
+/** Bramble Road: a vine tests its stretch every VINE_STEP steps (0.1 s); its slow lasts VINE_SLOW_T s, so a
+ *  walker stays slowed while it is on the vine and a moment after; vines per girl and per sim (oldest first). */
+export const VINE_STEP = 6;
+export const VINE_SLOW_T = 0.25;
+export const VINES_PER_GIRL = 4;
+export const VINES_PER_SIM = 48;
+/** Rising Spikes: spike rows per girl and per sim (oldest first); a spike stays up SPIKE_UP steps after it
+ *  rises (drawing only: it strikes once, as it rises). */
+export const SPIKE_ROWS_PER_GIRL = 8;
+export const SPIKE_ROWS_PER_SIM = 96;
+export const SPIKE_UP = 15;
+/** Ripple Quake: rings per girl and per sim (oldest first); a ring's re-hit memory (it hits each enemy once). */
+export const QUAKES_PER_GIRL = 8;
+export const QUAKES_PER_SIM = 64;
+
+// ---------------------------------------------------------------------------
+// Attack shapes, batch S4 "Links" (docs/specs/ATTACK_SHAPES.md §5.6, §5.10; src/sim/links.js). Every timer is an
+// integer of sim steps.
+// ---------------------------------------------------------------------------
+/** Homecoming Throw: a fan's way home may be up to RET_HOME × as long as its way out (+ 1 tile) before it ends uncaught
+ *  (it bends round its target on the way). */
+export const RET_HOME = 3;
+/** Spirit Tether: tether groups per girl and per sim (her oldest first; a full sim ties no new group). */
+export const TETHERS_PER_GIRL = 6;
+export const TETHERS_PER_SIM = 64;
+/** Spirit Tether: shared hits a sim step at most (the curse queue's budget pattern, CURSE_BURSTS_PER_TICK); the
+ *  shares of a hit past it are dropped, never queued (a share is a slice of a hit that already landed). */
+export const TETHER_SHARES_PER_STEP = 256;
+
+// ---------------------------------------------------------------------------
 // The duo (Kohaku & Tsubaki, docs/specs/DUO_LR.md §1; src/sim/duo.js)
 // ---------------------------------------------------------------------------
 
@@ -346,11 +475,15 @@ export const PRISM_BEAM_TICK = 6;
 export const PRISM_SILENCE_TICKS = 120;
 /** Kohaku's clip and sound: her beam's `attack` event on a lock-on, and again every PRISM_CLIP_TICKS damage ticks (1.5 s) a beam holds. */
 export const PRISM_CLIP_TICKS = 15;
-/** The long beam (Grand Spectrum, and the duo's LR form): a held beam's line runs through its enemy on to the map
- *  edge, hitting at most PRISM_EDGE_PIERCE enemies on it (a perf guard, not a game limit); a hit past her reach is
- *  × PRISM_EDGE_MUL (the per-hit knob that keeps her DPS where the capped beam had it: docs/specs/DUO_LR.md §6). */
+/** The long beam (Prism Corridor from tier 3, and the duo's LR form; owner, Oct 29-30: one laser across the map): her
+ *  beams lock on within her reach, a beam left free anywhere on the map, and each line runs edge to edge through her
+ *  prism and her enemy, hitting at most PRISM_EDGE_PIERCE enemies on it (a perf guard, not a game limit). Her enemy
+ *  and what her short beam would hit (her reach, her pierce) take the full tick; every other enemy on the line the
+ *  tick × PRISM_EDGE_MUL, × PRISM_EDGE_MUL_LR in her LR form (docs/specs/DUO_LR.md §7: Grand Spectrum about 1.4-1.9×
+ *  the best Kage tier 5 on a crowd; the LR form about 2.5-3×). */
 export const PRISM_EDGE_PIERCE = 64;
-export const PRISM_EDGE_MUL = 0.03;
+export const PRISM_EDGE_MUL = 0.08;
+export const PRISM_EDGE_MUL_LR = 0.25;
 /** The duo's LR form (her battle stats carry `lr: true`): her shells, shards and beam × DUO_LR_MUL (src/sim/duo.js). */
 export const DUO_LR_MUL = 1.1;
 
@@ -389,6 +522,16 @@ export const DETOUR_NO_FORK_MUL = 1.5;
 /** Bright Sash: a held enemy is revealed for this long, refreshed every step it is held (s). */
 export const HELD_REVEAL = 0.25;
 
+// Balance round 5 (src/data/balance.js; players' request "stronger wind push-back for Fuu"): the girls whose pushes
+// are wind (Fuu only). Her wind locks a normal or elite enemy for WIND_LOCK instead of PUSH_LOCK and spends
+// WIND_KB_COST of a tile of a Freeplay enemy's knockback budget (Resolve, src/sim/freeplay.js) per tile, so her gusts
+// still move late Freeplay walkers. Every other push (Marumi's ball blast, Giant Strike, gathers, heroes) is unchanged.
+export const WIND_KITS = Object.freeze(['fuu']);
+export const WIND_LOCK = Object.freeze({ normal: 1.2, elite: 1.2, miniboss: 3.0, boss: 3.0 });
+export const WIND_KB_COST = 0.5;
+// Harvest lives (Chigusa, src/sim/vines.js; players' request): the most lives her copies give back at one wave clear,
+// together (no cap for the whole battle; never above the starting lives).
+export const HARVEST_LIVES_PER_WAVE = 5;
 // ---------------------------------------------------------------------------
 // The A4 deploys (src/sim/deploys.js; ABILITIES_SPEC §4 deploy): Kage's shadow doubles, Suzu's Bell Carpet
 // traps and Chika's surge drones. Each lives beyond its girl's own limit; these sim-wide caps keep the work
@@ -401,3 +544,40 @@ export const DOUBLES_PER_SIM = 36;
 export const BELL_TRAPS_PER_SIM = 96;
 /** Surge drones flying at once (every Chika, both players). */
 export const SURGE_DRONES_PER_SIM = 48;
+// ---------------------------------------------------------------------------
+// Attack shapes S5 (docs/specs/ATTACK_SHAPES_S5.md; src/sim/s5shapes.js). Every girl keeps her live attack and the shape
+// goes on top; shape objects have their own caps and never take room from a live object (rule 5).
+// ---------------------------------------------------------------------------
+/** Charm Wheel (Miko): straight charms a girl may have in the air at once (her oldest charm goes first). */
+export const CHARMS_PER_GIRL = 48;
+/** Charm Wheel: a charm's speed, tiles a second. */
+export const CHARM_SPEED = 10;
+/** Crescent Return (Rei): crescents a girl may have in the air at once (her oldest crescent goes first). */
+export const CRESCENTS_PER_GIRL = 8;
+/** Crescent Return: a crescent's speed (tiles a second) and its half-width (tiles, the swept hit's reach). */
+export const CRESCENT_SPEED = 9;
+export const CRESCENT_HALF_WIDTH = 0.45;
+/** Crescent Return: the nearest walkers (d², uid) whose lines a crescent's aim weighs, besides her lead's (crescentAim). */
+export const CRESCENT_AIMS = 24;
+/** Bell Toll (Suzu): toll rings a girl / the sim may have rolling at once (a full cap defers a toll; nothing is evicted). */
+export const TOLLS_PER_GIRL = 32;
+export const TOLLS_PER_SIM = 128;
+/** Bell Toll: a toll ring's growth, tiles a second. */
+export const TOLL_SPEED = 6;
+/** Spore Mist (Midori, S5b): a tick every MIST_TICK steps; the mist's turn toward her enemy (table steps a step) and grace. */
+export const MIST_TICK = 6;
+export const MIST_TURN = 2;
+export const MIST_GRACE = 12;
+/** Moonbeam Sweep (Luna, S5b): a pass lasts at most MOON_PASS steps (shorter when her volleys come faster); a beam test
+ * every MOON_TICK steps, within MOON_HALF_WIDTH tiles of the beam; a finished pass stays drawn MOON_LINGER steps. */
+export const MOON_PASS = 36;
+export const MOON_TICK = 2;
+export const MOON_HALF_WIDTH = 0.25;
+export const MOON_LINGER = 12;
+/** Static Web (Raika, S5b): members a web holds, webs per girl (her oldest first) and per sim (no new web past it), zaps a
+ * step (past it a web's zap waits a step), and a link's reach × her chain jump before it snaps. */
+export const STATIC_MEMBERS = 12;
+export const STATIC_PER_GIRL = 4;
+export const STATIC_PER_SIM = 48;
+export const STATIC_ZAPS_PER_STEP = 128;
+export const STATIC_REACH = 1.5;

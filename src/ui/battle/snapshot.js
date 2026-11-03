@@ -48,6 +48,10 @@
 // The duo (src/sim/duo.js; additive): her Refraction counter, her volley count and Kohaku's beam tick timer (`du`).
 // A save without it restores her with fresh counters.
 //
+// Iroha's mirror network (src/sim/mirrors.js, docs/specs/IROHA_MIRRORS.md §6; additive): the spots her player placed,
+// by slot (`mr`: [x, y] or 0 for an Auto slot), replayed through setAim after her tiers. An older save's `am` (her one
+// panel, her relay origin) becomes her mirror 0; a save with neither restores her mirrors on Auto.
+//
 // The staff heroes (BANNERS §D.6; additive): Norika's own barricades, their spots, budgets and rebuild timers (`br`;
 // at a calm point they all stand at full budget, since the wave clear refills them). Her Hold the Line barricades and
 // One-Way Street's count end at every wave clear, and Kogane's Overdrive ends with the wave, so a calm point holds
@@ -58,10 +62,12 @@
 // and writes a short, documented list of Sim fields; KNOWN_SIM_KEYS / KNOWN_TOWER_KEYS classify
 // every field the Sim has, and tests/battle-ui/snapshot.test.js fails when a new one appears that
 // is not classified here (add it to the table and, if it is state, to snapshotSim/restoreSim).
+import { BURST_BUDGET_MAX } from '../../sim/setRules.js';
 import { Sim } from '../../sim/Sim.js';
 import { gainHeroXp, xpToReach } from '../../sim/hero.js';
-import { restoreDrone, recomputeBuffs } from '../../sim/towers.js';
-import { FLIGHT_MODES, PRISM_BEAM_TICK } from '../../sim/constants.js';
+import { restoreDrone, recomputeBuffs, updateRelayOrigin } from '../../sim/towers.js';
+import { restoreMirrors } from '../../sim/mirrors.js';
+import { FLIGHT_MODES, PRISM_BEAM_TICK, INCOME_INTEREST_MAX, INCOME_INTEREST_SET_MAX } from '../../sim/constants.js';
 import { POP_BUDGET_MAX } from '../../sim/gearRules.js';
 import { BATTLE } from '../../data/types.js';
 import { createRng, hashString } from '../../core/rng.js';
@@ -128,6 +134,8 @@ export class StaleSaveError extends Error {
 export const KNOWN_SIM_KEYS = Object.freeze({
   data: 'config', stage: 'config', stageId: 'config', map: 'config', difficulty: 'config', diff: 'config', options: 'config',
   seed: 'config', pathData: 'config', paths: 'config', pathTiles: 'config', placement: 'config', loadout: 'config',
+  // balance round 5 is off in a titan battle (src/data/balance.js TITAN_POWER): set from the stage
+  _powerOff: 'config',
   heroConfigs: 'config', _heroConfig: 'config', endless: 'config', totalWaves: 'config', maxLives: 'config', cashScale: 'config', grid: 'config',
   rng: 'stream', _statusCtx: 'stream',
   lives: 'snap', cash: 'snap', state: 'snap', wave: 'snap', wavesCleared: 'snap', time: 'snap', towers: 'snap', traps: 'snap',
@@ -135,8 +143,8 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   _towerByUid: 'snap',
   // path cap (src/sim/buffs.js): the recent-DPS window's timer (which girl a brew / link picks)
   _dpsTimer: 'snap',
-  // gear (src/sim/gearRules.js): Finale Pop's budget for the whole battle
-  popBudget: 'snap',
+  // gear (src/sim/gearRules.js): Finale Pop's budget for the whole battle; Confetti Burst's (src/sim/setRules.js)
+  popBudget: 'snap', burstBudget: 'snap',
   enemies: 'calm', projectiles: 'calm', fields: 'calm', warnings: 'calm', _spawnQueue: 'calm', _spawnIndex: 'calm',
   _waveTime: 'calm', _waveHpMul: 'calm', _autoTimer: 'calm', _acc: 'calm',
   globalRateMul: 'derived', _buffTimer: 'derived', _buffsDirty: 'derived',
@@ -175,6 +183,8 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   // team damage multiplier follows the saved buffs ('db')
   shells: 'calm', _curseQueue: 'calm', _flushingCurses: 'calm', _curseCtx: 'scratch', _scratch3: 'scratch',
   _relaySamples: 'scratch', globalDmgMul: 'derived', runners: 'calm', _curseBudget: 'calm', _leadPt: 'scratch',
+  // the spreading curse: the living-spread budget refills every step (like the burst budget), its ctx is scratch
+  _spreadBudget: 'calm', _spreadCtx: 'scratch',
   // Tenka's lab team (src/sim/lab.js): how many girls have one follows their restored records (`lb`)
   _labOn: 'derived',
   // Tenka's wells and Last Line (src/sim/zones.js): every zone ends at the wave clear (the tier replay
@@ -184,6 +194,12 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   zones: 'calm', _nearExitOn: 'derived',
   // Norika's barricades (src/sim/barricades.js): how many heroes have them follows the restored hero
   _blockOn: 'derived',
+  // the attack shapes S4 (src/sim/links.js): Spirit Tether groups end at the wave clear (and their count with them), the
+  // share budget refills with the first group, the re-entrancy flag is down outside a hit; the Homecoming Throw's fans
+  // are straight shots (they end at the wave clear with `projectiles`)
+  tethers: 'calm', _tetherOn: 'calm', _shareBudget: 'calm', _sharing: 'scratch',
+  // attack shapes S5b (src/sim/s5shapes.js): Raika's static webs, made on her first web and emptied at the wave clear
+  statics: 'calm',
 });
 
 /** Every own field of a placed girl (TowerRT), classified like KNOWN_SIM_KEYS. */
@@ -215,11 +231,15 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   effProc: 'derived', effEcho: 'derived', trapSpecProc: 'derived',
   // abilities: her ability's state (`ak`); a boost runs only during a wave
   abil: 'snap', abilMods: 'calm',
-  // Iroha's tier-5 Mirror Shift: her second mirror stands only while the cast runs (it ends at the wave clear)
-  mirror2: 'calm',
+  // Iroha's mirror network (src/sim/mirrors.js): the spots her player placed travel ('mr', by slot); her mirrors follow
+  // from them, her tiers and the road (syncMirrors)
+  mirrorAim: 'snap', mirrors: 'derived',
   // gear (src/sim/gearRules.js): her Pierce carries (shots, drones), her club trick's count, Big Beat's
   // trap / drone counts and Follow-Through's trap count — only on a girl whose gear uses them
   pierceCarry: 'snap', droneCarry: 'snap', trickN: 'snap', trapBeatN: 'snap', droneBeatN: 'snap', trapFtN: 'snap',
+  // gear sets (src/sim/setRules.js): Big Cheer's step count, Right Angle's and Confetti Burst's attack counts, Bake
+  // Sale's coin fraction — only on a girl whose set uses them
+  cheerT: 'snap', angleN: 'snap', burstN: 'snap', bakeC: 'snap', bakeW: 'snap',
   // Kaede's blade arts: her strike count toward the next Maple Cleave ('kb')
   bladeN: 'snap',
   // roster B3: her aim point stays (a mirror's spot, a mortar's centre; GAPS §7.3), and her attack
@@ -227,9 +247,13 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   aim: 'snap', origin: 'derived', ox: 'derived', oy: 'derived', _globalDmg: 'derived',
   // the new girls (UNIT_GAPS §5): Azami's Spread cursor stays ('sc'); her flyer and blast specs follow
   // her stats (refreshEffective). Her carried strips ride in 'tr'.
-  stripCursor: 'snap', stripAirSpec: 'derived', stripBoomSpec: 'derived',
+  stripCursor: 'snap', stripAirSpec: 'derived', stripBoomSpec: 'derived', bossBellSpec: 'derived',
   // Kinu: her ring's turn stays ('rg'); heat rings end at the wave clear; the scissors' spec follows her stats
   ringTurn: 'snap', rings: 'calm', scissorSpec: 'derived',
+  // the attack shapes S1 (src/sim/wheels.js): a spin index and halo memory end at the wave clear; the halo spec follows her stats
+  spinK: 'calm', haloHits: 'calm', haloSpec: 'derived',
+  // the attack shapes S2 (src/sim/held.js): a held channel (lock, aim, ticks, a sweep's passes and memory) ends at the wave clear
+  ch: 'calm',
   // Wakaba: a girl's drink ends at the wave clear; the towel's spec follows her stats
   hydrated: 'calm', towelSpec: 'derived',
   // Yuzuha: sentries end at the wave clear; her nets stay ('nt'); the sentry, burst and net specs follow her stats
@@ -237,9 +261,16 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   // Ouka: her banners stay ('bn', planted again in order through setAim); a covered girl's rules follow
   // the hubs around her (recomputeBuffs)
   banners: 'snap', rules: 'derived',
-  // Chigusa: her vine timer starts over, her held enemy, thorn beds and Bloom Rush end at the wave clear;
-  // the vine and bed specs follow her stats
-  vineCd: 'calm', vineHold: 'calm', beds: 'calm', bloomT: 'calm', bloomIdle: 'calm', vineSpec: 'derived', bedSpec: 'derived',
+  // Chigusa: her vine timer starts over, her Bramble Road vines (attack shapes S3), thorn beds and Bloom Rush end at the
+  // wave clear; the vine and bed specs follow her stats
+  vineCd: 'calm', vines: 'calm', beds: 'calm', bloomT: 'calm', bloomIdle: 'calm', vineSpec: 'derived', bedSpec: 'derived',
+  // the attack shapes S3 (src/sim/ground.js): Yuki's spike rows and Kanna's quake rings end at the wave clear
+  spikeRows: 'calm', quakes: 'calm',
+  // attack shapes S5a (src/sim/s5shapes.js): her shape damage (a running total, as damageDealt), what her counted attack
+  // struck (per-attack scratch), the Charm Wheel's turn and her toll rings (both end at the wave clear)
+  shapeDealt: 'snap', _struck: 'scratch', _lead: 'scratch', wheelK: 'calm', tolls: 'calm',
+  // S5b: Raika's first-bolt chain (per-attack scratch), Midori's mist and Luna's moonbeam pass (both end at the wave clear)
+  _chain: 'scratch', mist: 'calm', moon: 'calm',
   // Marumi: her balls end at the wave clear; the ball, blast, pin and lob specs follow her stats
   balls: 'calm', ballSpec: 'derived', blastSpec: 'derived', pinSpec: 'derived', lobSpec: 'derived',
   // Tenka: her lab team's record travels (`lb`; the girls who joined are not on the field, and the tier
@@ -317,6 +348,7 @@ export function snapshotSim(sim) {
     ...(sim._globalBuffs.some((b) => b.left > 0 && b.kind === 'dmg') ? { db: sim._globalBuffs.filter((b) => b.left > 0 && b.kind === 'dmg').map((b) => [b.mul, b.left, b.src ?? -1]) } : {}),
     dps: sim._dpsTimer,
     ...(sim.popBudget != null && sim.popBudget !== POP_BUDGET_MAX ? { pb: sim.popBudget } : {}),
+    ...(sim.burstBudget != null && sim.burstBudget !== BURST_BUDGET_MAX ? { bb: sim.burstBudget } : {}),
     towers,
     kills: { ...sim.kills },
     enc: [...sim.encountered],
@@ -335,6 +367,8 @@ function packTower(sim, t) {
     uid: t.uid, u: t.unitId, x: t.x, y: t.y, tiers: [...t.tiers], tm: t.targetMode, spent: t.spent,
     kills: t.kills, dmg: t.damageDealt, cd: t.cooldown, dis: t.disabled, face: t.facing, bt: t.buildTimer,
   };
+  // (attack shapes S5: her shape damage, only when she has some, so other girls' rows are unchanged)
+  if (t.shapeDealt) o.sd = t.shapeDealt;
   if (t.isHero) Object.assign(o, { xp: t.xp, lvl: t.level, ultOn: t.ultUnlocked, ult: t.ultCooldown, ls: t.levelSpent || 0, lb: t.levelsBought || 0, mc: t.moveCd || 0, ml: t.moveLock || 0 });
   if (t.turrets.length) {
     o.dr = t.turrets.map((d) => (d.n != null
@@ -359,6 +393,8 @@ function packTower(sim, t) {
   if (t.recentDps || t._dmgMark) o.rd = [t.recentDps, t._dmgMark];
   if (t.banners?.length) o.bn = t.banners.map((b) => [b.x, b.y]);
   else if (t.aim) o.am = [t.aim.x, t.aim.y];
+  // Iroha: each mirror her player placed, by slot (0 = Auto)
+  if (t.mirrorAim?.some(Boolean)) o.mr = t.mirrorAim.map((a) => (a ? [a.x, a.y] : 0));
   packPotential(t, o);
   // her ability: cooldown left (charge points), Auto, casts this battle
   if (t.abil) o.ak = [t.abil.cd, t.abil.auto ? 1 : 0, t.abil.n];
@@ -368,7 +404,11 @@ function packTower(sim, t) {
   // Tenka's lab team (never a hero's row, whose `lb` is her levels bought): rounds, members and coins per
   // class (LAB_CLASSES order), the joiners' wave income, who joined, the joiners' interest rates
   const lab = t.lab;
-  if (lab && !t.isHero) o.lb = [lab.rounds, LAB_CLASSES.map((k) => lab.members[k]), LAB_CLASSES.map((k) => lab.coins[k]), lab.income, lab.uids.slice(), (lab.interest || []).slice()];
+  if (lab && !t.isHero) {
+    o.lb = [lab.rounds, LAB_CLASSES.map((k) => lab.members[k]), LAB_CLASSES.map((k) => lab.coins[k]), lab.income, lab.uids.slice(), (lab.interest || []).slice()];
+    // (each joiner's own interest cap, only when one is lifted: Treasurer 5 on her)
+    if (lab.interestCap?.some((c) => c > INCOME_INTEREST_MAX)) o.lb.push(lab.interestCap.slice());
+  }
   // Tenka's well and Last Line timers (wave-time ticks; -1: she has none yet)
   if (t.wellCd != null || t.lastLineCd != null) o.zc = [t.wellCd ?? -1, t.lastLineCd ?? -1];
   // the duo: shells since the last split, volleys since the last full split, Kohaku's beam timer (ticks)
@@ -393,7 +433,14 @@ function unpackLab(row, maxRounds) {
   });
   lab.income = Math.max(0, r(row[3]));
   lab.uids = Array.isArray(row[4]) ? row[4].filter((v) => Number.isInteger(v)) : [];
-  lab.interest = Array.isArray(row[5]) ? row[5].filter((v) => typeof v === 'number' && v > 0 && v < 1) : [];
+  // the joiners' interest rates and, beside each, her interest cap (the default, or Treasurer 5's lifted one)
+  const rates = Array.isArray(row[5]) ? row[5] : [];
+  const caps = Array.isArray(row[6]) ? row[6] : [];
+  rates.forEach((v, i) => {
+    if (!(typeof v === 'number' && v > 0 && v < 1)) return;
+    lab.interest.push(v);
+    lab.interestCap.push(caps[i] === INCOME_INTEREST_SET_MAX ? INCOME_INTEREST_SET_MAX : INCOME_INTEREST_MAX);
+  });
   return lab;
 }
 
@@ -450,13 +497,15 @@ function unpackPotential(t, o) {
 
 /** Gear's counters on a girl (`gr`), each only when she has it: [key, value] pairs. */
 // index-coded in the save (`gr`): append only, never reorder
-const GEAR_FIELDS = ['pierceCarry', 'droneCarry', 'trickN', 'trapBeatN', 'droneBeatN', 'trapFtN'];
+const GEAR_FIELDS = ['pierceCarry', 'droneCarry', 'trickN', 'trapBeatN', 'droneBeatN', 'trapFtN', 'cheerT', 'angleN', 'burstN', 'bakeW'];
 function packGear(t, o) {
   const gr = [];
   GEAR_FIELDS.forEach((k, i) => { if (t[k] != null) gr.push(i, t[k]); });
   if (gr.length) o.gr = gr;
+  if (t.bakeC != null) o.bk = t.bakeC; // Bake Sale's carried fraction of a coin
 }
 function unpackGear(t, o) {
+  if (o.bk != null) t.bakeC = Math.max(0, Math.min(1, r(o.bk)));
   if (!Array.isArray(o.gr)) return;
   for (let j = 0; j + 1 < o.gr.length; j += 2) {
     const k = GEAR_FIELDS[o.gr[j]];
@@ -590,12 +639,19 @@ export function restoreSim(rec, profile = null) {
       if (o.du[2] >= 0) t.duoCd = Math.min(whole(o.du[2]), PRISM_BEAM_TICK);
     }
     if (o.tm) sim.setTargetMode(t.uid, o.tm);
-    if (Array.isArray(o.am) && Number.isFinite(o.am[0]) && Number.isFinite(o.am[1])) sim.setAim(t.uid, o.am[0], o.am[1]);
+    // Iroha (src/sim/mirrors.js restoreMirrors): her placed mirrors by slot, written back as saved (clamped, never pushed
+    // apart again, so the layout and the battle hash come back exactly); an older save's `am`, her one panel (her relay
+    // origin), becomes her mirror 0
+    if (t.mirrors && (Array.isArray(o.mr) || Array.isArray(o.am))) {
+      restoreMirrors(sim, t, Array.isArray(o.mr) ? o.mr.slice(0, 5) : [o.am]);
+      updateRelayOrigin(sim, t);
+    } else if (Array.isArray(o.am) && Number.isFinite(o.am[0]) && Number.isFinite(o.am[1])) sim.setAim(t.uid, o.am[0], o.am[1]);
     // Ouka's banners, oldest first (setAim keeps at most her count)
     if (Array.isArray(o.bn)) for (const b of o.bn.slice(0, 4)) if (Array.isArray(b) && Number.isFinite(b[0]) && Number.isFinite(b[1])) sim.setAim(t.uid, b[0], b[1]);
     t.spent = r(o.spent);
     t.kills = r(o.kills);
     t.damageDealt = r(o.dmg);
+    if (o.sd) t.shapeDealt = r(o.sd);
     t.cooldown = r(o.cd);
     t.disabled = r(o.dis);
     t.facing = r(o.face);
@@ -710,6 +766,7 @@ export function restoreSim(rec, profile = null) {
     if (cd > 0) sim.abilGroups.set(g[0], { cd, cdMax, rate });
   }
   sim.popBudget = s.pb != null ? Math.max(0, Math.min(POP_BUDGET_MAX, Math.floor(r(s.pb)))) : POP_BUDGET_MAX;
+  sim.burstBudget = s.bb != null ? Math.max(0, Math.min(BURST_BUDGET_MAX, Math.floor(r(s.bb)))) : BURST_BUDGET_MAX;
   recomputeBuffs(sim); // the brews / links held now multiply on top of the auras
   sim._uid = Math.max(r(s.uid), sim._uid);
   sim.cash = r(s.cash) + refunded;

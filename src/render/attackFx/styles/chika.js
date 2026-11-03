@@ -91,6 +91,7 @@ export const chika = {
   view(p, rec, _t, v, ctx) {
     if (rec.turretUid != null) {
       // drone bullet: a bright streak so each shot reads even when the drone is right there
+      v.ownTrail = true; // (the styled ribbon skips it)
       const vl = Math.hypot(p.vx, p.vy) || 1;
       const c = rec.tw.droneLook?.eye || ctx.col('#7fe3ff');
       v.scale = 1.3;
@@ -112,7 +113,15 @@ export const chika = {
     if (!ev.points || ev.points.length < 2) return false;
     const p2 = lookAt(tw.look, 2);
     const c = ctx.col(p2 >= 5 ? '#fff6c8' : '#bfe6ff');
-    chainBolt(ctx, t.x, HALO_H, t.y, ev.points, c, 0.018, ctx.q.zig, p2 >= 5 ? 0.26 : 0.2);
+    let styled = false;
+    if (ctx.lightning) {
+      // the styled bolt (src/render/vfx/lightning.js): ice blue, gold at the top of her Tesla path (nothing back: the old
+      // bolt below)
+      const pts3 = [[t.x, HALO_H, t.y]];
+      for (let k = 1; k < ev.points.length; k++) pts3.push([ev.points[k][0], 0.35, ev.points[k][1]]);
+      styled = !!ctx.lightning.strike(pts3, { preset: p2 >= 5 ? 'storm' : 'tesla' });
+    }
+    if (!styled) chainBolt(ctx, t.x, HALO_H, t.y, ev.points, c, 0.018, ctx.q.zig, p2 >= 5 ? 0.26 : 0.2);
     flash(ctx, t.x, HALO_H, t.y, 0.45, c, 0.1);
     // 1–2 docked drones flick a mini-arc down to her coil
     const g = ctx.drones.groups.get(t.uid);

@@ -6,7 +6,7 @@
 import { describe, test, expect } from 'vitest';
 import { makeSim, startEmptyWave, run, MECH_TOWER_IDS, TOWER_IDS } from './fixtures.js';
 import { activateUlt } from '../../src/sim/hero.js';
-import { CURSE_BURSTS_PER_TICK, PUSH_LOCK, PUSH_LOCK_KITS, HEX_BOSS_CAP, MORTAR_DELAY, STEP } from '../../src/sim/constants.js';
+import { CURSE_BURSTS_PER_TICK, CURSE_SPREAD_STEPS, CURSE_SPREAD_RADIUS, CURSE_SPREAD_DECAY, CURSE_SPREAD_MAX_DEPTH, CURSE_SPREADS_PER_TICK, CURSE_ROT_BOSS_MUL, PUSH_LOCK, PUSH_LOCK_KITS, HEX_BOSS_CAP, MORTAR_DELAY, STEP } from '../../src/sim/constants.js';
 import { aimMode, relayOrigin } from '../../src/sim/towers.js';
 import { runnerSegment } from '../../src/sim/runners.js';
 
@@ -51,13 +51,14 @@ describe('aim points', () => {
     expect(s.events.some((e) => e.type === 'aim' && e.x === null)).toBe(true);
   });
 
-  test('a mirror aim is clamped to her reach and moves her origin', () => {
+  test('a mirror aim is clamped to her reach and moves her origin (her mirror 0; src/sim/mirrors.js)', () => {
     const s = sim();
     const t = place(s, 'mirrorer');
-    expect(s.setAim(t.uid, t.x + 20, t.y)).toBe(true);
-    expect(Math.hypot(t.aim.x - t.x, t.aim.y - t.y)).toBeCloseTo(3.7, 2);
-    expect(t.ox).toBe(t.aim.x);
-    expect(t.oy).toBe(t.aim.y);
+    expect(s.setAim(t.uid, t.x + 20, t.y, 0)).toBe(true);
+    expect(Math.hypot(t.mirrorAim[0].x - t.x, t.mirrorAim[0].y - t.y)).toBeCloseTo(3.7, 2);
+    expect(t.ox).toBe(t.mirrors[0].x);
+    expect(t.oy).toBe(t.mirrors[0].y);
+    expect(t.mirrors[0]).toEqual(t.mirrorAim[0]);
   });
 });
 
@@ -102,31 +103,27 @@ describe('relay origins', () => {
     expect(relayOrigin(s._relaySamples, t.x, t.y, t.stats.relay)).toEqual(t.origin);
   });
 
-  test('two firing points: she volleys from the mirror and from where she stands', () => {
+  test('a mirror girl\'s bolts leave where she stands and bounce through her mirrors (src/sim/mirrors.js)', () => {
+    // (her old two firing points: the bounce is her second firing point now, docs/specs/IROHA_MIRRORS.md §2)
     const s = sim();
     const a = spawn(s, 'tank', 3, { speed: 0 });
-    const b = spawn(s, 'tank', 12, { speed: 0 });
     a.speed = 0;
-    b.speed = 0;
     const t = place(s, 'twinmirror', a.x - 0.5, a.y - 1.6);
-    expect(Math.hypot(a.x - t.x, a.y - t.y)).toBeLessThan(2.3);
-    s.setAim(t.uid, t.x + 3.6, a.y);
-    expect(Math.hypot(t.ox - t.x, t.oy - t.y)).toBeGreaterThan(3);
-    const hits = { a: a.hp, b: b.hp };
-    run(s, 2);
-    expect(a.hp).toBeLessThan(hits.a); // from her own spot
-    // the mirror's targets: whatever is in its range (b only when the panel reaches it)
-    const viaMirror = Math.hypot(b.x - t.ox, b.y - t.oy) <= t.eff.range;
-    if (viaMirror) expect(b.hp).toBeLessThan(hits.b);
-    // without "both", only the panel fires: the enemy beside her but out of the panel's range is safe
-    const s2 = sim();
-    const a2 = spawn(s2, 'tank', 3, { speed: 0 });
-    a2.speed = 0;
-    const m = place(s2, 'mirrorer', a2.x - 0.5, a2.y - 1.6);
-    s2.setAim(m.uid, m.x + 3.6, a2.y);
-    const a20 = a2.hp;
-    run(s2, 2);
-    if (Math.hypot(a2.x - m.ox, a2.y - m.oy) > m.eff.range) expect(a2.hp).toBe(a20);
+    s.setAim(t.uid, t.x + 3.6, a.y, 0);
+    const hp = a.hp;
+    const fromHer = new Set();
+    const bounced = new Set();
+    for (let i = 0; i < 120; i++) {
+      run(s, STEP);
+      for (const p of s.projectiles) {
+        if (p.ownerUid !== t.uid) continue;
+        if (p.route && p.ri === 0 && p.travel <= p.speed * STEP + 1e-9) fromHer.add(p.uid);
+        if (p.bounce > 0) bounced.add(p.uid);
+      }
+    }
+    expect(fromHer.size).toBeGreaterThan(0);
+    expect(bounced.size).toBeGreaterThan(0);
+    expect(a.hp).toBeLessThan(hp);
   });
 });
 
@@ -245,6 +242,177 @@ describe('curse spread and the burst budget', () => {
     s._removeDead();
     s._checkWaveEnd();
     expect(s._curseQueue.length).toBe(0);
+  });
+});
+
+describe('the spreading hex (a curse that rots spreads while its enemy lives)', () => {
+  const steps = (s, n) => {
+    for (let i = 0; i < n; i++) s._step(STEP);
+  };
+  /** Still enemies along the road at these distances (fixture tanks: 1e5 HP, no armor). */
+  const row = (s, dists, id = 'tank') => {
+    const list = dists.map((d) => spawn(s, id, d, { speed: 0 }));
+    s.grid.rebuild(s.enemies);
+    return list;
+  };
+  const hexOn = (s, e, { rot = 0.5, hit = 100, duration = 30, sourceUid = null } = {}) =>
+    s._applyStatusEvent(e, { type: 'curse', burstMul: 1, radius: 1, duration, rot }, { ...s._statusCtx, hitDamage: hit, curseDepth: 0, sourceUid });
+
+  test('rot: rot × the cursing hit a second, credited to the curser; bosses take CURSE_ROT_BOSS_MUL of it', () => {
+    const s = sim();
+    const t = place(s, 'curser', 2, 6.5);
+    t.disabled = 1e9; // she does not shoot: only the rot lands
+    const [a] = row(s, [3]);
+    hexOn(s, a, { rot: 0.5, hit: 100, sourceUid: t.uid });
+    expect(a.statuses.curse.rotDps).toBe(50);
+    const hp0 = a.hp;
+    const d0 = t.damageDealt;
+    steps(s, 60);
+    expect(hp0 - a.hp).toBeCloseTo(50, 6);
+    expect(t.damageDealt - d0).toBeCloseTo(50, 6);
+    const s2 = sim();
+    const [b] = row(s2, [3], 'bigboss');
+    hexOn(s2, b, { rot: 0.5, hit: 100 });
+    const b0 = b.hp;
+    steps(s2, 60);
+    expect(b0 - b.hp).toBeCloseTo(50 * CURSE_ROT_BOSS_MUL, 6);
+  });
+
+  test(`every ${CURSE_SPREAD_STEPS} steps it passes a weaker hex to the nearest uncursed enemy within ${CURSE_SPREAD_RADIUS} tiles`, () => {
+    const s = sim();
+    const [a, b, c, far] = row(s, [3, 3.5, 3.9, 9]);
+    expect(near(a, b.x, b.y)).toBeLessThan(near(a, c.x, c.y));
+    expect(near(a, c.x, c.y)).toBeLessThan(CURSE_SPREAD_RADIUS);
+    hexOn(s, a, { rot: 0.5, hit: 100 });
+    steps(s, CURSE_SPREAD_STEPS - 1);
+    expect(b.statuses.curse).toBeUndefined();
+    steps(s, 1);
+    // the nearest first, one at a time: b now, a and b again a full interval later
+    expect(b.statuses.curse).toMatchObject({ depth: 1 });
+    expect(b.statuses.curse.burst).toBeCloseTo(100 * CURSE_SPREAD_DECAY, 9);
+    expect(b.statuses.curse.rotDps).toBeCloseTo(50 * CURSE_SPREAD_DECAY, 9);
+    expect(c.statuses.curse).toBeUndefined();
+    steps(s, CURSE_SPREAD_STEPS);
+    expect(c.statuses.curse).toBeDefined();
+    expect(far.statuses.curse).toBeUndefined();
+  });
+
+  test(`a living chain stops at generation ${CURSE_SPREAD_MAX_DEPTH}`, () => {
+    const s = sim();
+    // 0.7 tiles apart: each enemy only reaches its neighbours
+    const list = row(s, Array.from({ length: CURSE_SPREAD_MAX_DEPTH + 3 }, (_, i) => 2 + i * 0.7));
+    expect(near(list[0], list[2].x, list[2].y)).toBeGreaterThan(CURSE_SPREAD_RADIUS);
+    hexOn(s, list[0], { rot: 0.1, hit: 10 });
+    steps(s, CURSE_SPREAD_STEPS * (CURSE_SPREAD_MAX_DEPTH + 3));
+    const depths = list.map((e) => e.statuses.curse?.depth ?? null);
+    expect(depths).toEqual([...Array.from({ length: CURSE_SPREAD_MAX_DEPTH + 1 }, (_, i) => i), null, null]);
+  });
+
+  test('two cursers: the rot is credited to the girl whose rot it is, the burst to the girl whose burst it is', () => {
+    const s = sim();
+    const big = place(s, 'curser', 2, 6.5);
+    const rotter = place(s, 'curser', 6, 6.5);
+    big.disabled = 1e9;
+    rotter.disabled = 1e9;
+    const [a, b] = row(s, [3, 3.4]);
+    // a big hit with little rot (her burst wins), then a small hit with much rot (her rot wins)
+    s._applyStatusEvent(a, { type: 'curse', burstMul: 1, radius: 1, duration: 30, rot: 0.01 }, { ...s._statusCtx, hitDamage: 1000, curseDepth: 0, sourceUid: big.uid });
+    s._applyStatusEvent(a, { type: 'curse', burstMul: 1, radius: 1, duration: 30, rot: 1 }, { ...s._statusCtx, hitDamage: 100, curseDepth: 0, sourceUid: rotter.uid });
+    expect(a.statuses.curse).toMatchObject({ sourceUid: big.uid, burst: 1000, rotUid: rotter.uid, rotDps: 100 });
+    const d0 = [big.damageDealt, rotter.damageDealt];
+    steps(s, CURSE_SPREAD_STEPS - 1);
+    expect(big.damageDealt - d0[0]).toBe(0);
+    expect(rotter.damageDealt - d0[1]).toBeCloseTo(100 * (CURSE_SPREAD_STEPS - 1) / 60, 6);
+    steps(s, 1);
+    // the passed curse keeps both: its rot is still hers
+    expect(b.statuses.curse).toMatchObject({ sourceUid: big.uid, rotUid: rotter.uid });
+  });
+
+  test('a cursed enemy inside a tunnel (hidden) keeps rotting but passes nothing on until it comes out', () => {
+    const s = sim();
+    const [a, b] = row(s, [3, 3.4]);
+    hexOn(s, a, { rot: 0.5, hit: 100 });
+    const hp0 = a.hp;
+    for (let i = 0; i < CURSE_SPREAD_STEPS * 2; i++) {
+      a.hidden = true;
+      s._step(STEP);
+    }
+    expect(b.statuses.curse).toBeUndefined();
+    expect(hp0 - a.hp).toBeCloseTo(100, 6);
+    expect(a.statuses.curse.spreadIn).toBe(0);
+    a.hidden = false;
+    s._step(STEP);
+    if (a.hidden) return; // (the fixture road has no tunnel: placement never hides it)
+    expect(b.statuses.curse).toMatchObject({ depth: 1 });
+  });
+
+  test('a curse without rot (the fixture curser\'s) never spreads while its enemy lives', () => {
+    const s = sim();
+    const [a, b] = row(s, [3, 3.4]);
+    s._applyStatusEvent(a, { type: 'curse', burstMul: 1, radius: 1, duration: 30 }, { ...s._statusCtx, hitDamage: 100, curseDepth: 0 });
+    steps(s, CURSE_SPREAD_STEPS * 3);
+    expect(b.statuses.curse).toBeUndefined();
+    expect(a.statuses.curse.rotDps).toBe(0);
+  });
+
+  test('a cursed boss catches and passes the hex like anyone else', () => {
+    const s = sim();
+    const [boss] = row(s, [3], 'bigboss');
+    const [b] = row(s, [3.5]);
+    hexOn(s, boss, { rot: 0.5, hit: 100 });
+    steps(s, CURSE_SPREAD_STEPS);
+    expect(b.statuses.curse).toMatchObject({ depth: 1 });
+    // and an on-death burst carries the rot on, CURSE_DECAY weaker
+    const s2 = sim();
+    const [x, y] = row(s2, [3, 3.3]);
+    hexOn(s2, x, { rot: 0.5, hit: 100 });
+    s2._killEnemy(x, null);
+    expect(y.statuses.curse.rotDps).toBeCloseTo(50 * 0.6, 9);
+  });
+
+  test(`at most ${CURSE_SPREADS_PER_TICK} passes a step; the rest pass on the next step`, () => {
+    const s = sim();
+    // 100 cursed enemies in one spot and 100 uncursed ones 0.3 tiles on: all 100 are due in the same step
+    const cursed = row(s, Array.from({ length: 100 }, () => 2));
+    const fresh = row(s, Array.from({ length: 100 }, () => 2.3));
+    for (const a of cursed) hexOn(s, a, { rot: 0.01, hit: 1 });
+    const caught = () => fresh.filter((b) => b.statuses.curse).length;
+    steps(s, CURSE_SPREAD_STEPS - 1);
+    expect(caught()).toBe(0);
+    steps(s, 1);
+    expect(caught()).toBe(CURSE_SPREADS_PER_TICK);
+    steps(s, 1);
+    expect(caught()).toBe(100);
+  });
+
+  test('the same contagion script twice gives the same state, with Math.random and Date.now unusable', () => {
+    const script = () => {
+      const s = sim();
+      const t = place(s, 'curser', 2, 6.5);
+      for (let i = 0; i < 40; i++) spawn(s, i % 7 === 0 ? 'bigboss' : 'tank', 0.5 + i * 0.35);
+      s.grid.rebuild(s.enemies);
+      for (let i = 0; i < 40; i += 9) hexOn(s, s.enemies[i], { rot: 0.4, hit: 300, sourceUid: t.uid });
+      const out = [];
+      for (let k = 0; k < 600; k++) {
+        s.update(STEP);
+        if (k % 60 === 0) out.push(JSON.stringify(s.enemies.map((e) => [e.uid, e.hp, e.statuses.curse?.depth ?? -1, e.statuses.curse?.spreadIn ?? -1]).concat([t.damageDealt])));
+      }
+      return { text: out.join('\n'), maxDepth: Math.max(...s.enemies.map((e) => e.statuses.curse?.depth ?? -1)), cursed: s.enemies.filter((e) => e.statuses.curse).length };
+    };
+    const r = Math.random;
+    const d = Date.now;
+    Math.random = () => { throw new Error('Math.random in the sim'); };
+    Date.now = () => { throw new Error('Date.now in the sim'); };
+    try {
+      const a = script();
+      expect(a).toEqual(script());
+      // the five cards spread to the whole row, generations deep
+      expect(a.cursed).toBe(40);
+      expect(a.maxDepth).toBeGreaterThanOrEqual(2);
+    } finally {
+      Math.random = r;
+      Date.now = d;
+    }
   });
 });
 

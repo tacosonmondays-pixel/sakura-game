@@ -2,7 +2,7 @@
 // Student Spotlight, Guardian Spotlight, Standard), each with its select girl, three SR rate-ups, the countdown
 // and look-ahead; the shared pity, the recruit points and spark (by the spark rules), the Legend Promise on the
 // LR tab, the rates page of each banner, history, 1×/10× recruit with gems or tickets, and the animated reveal
-// (anticipation → flips with rarity glow → SSR showcase → results).
+// (the Gate cinematic → flips with rarity glow → full-screen SSR / LR reveals → results; src/ui/recruit/).
 //
 // Results are written to the profile and saved BEFORE the animation starts, so a reload
 // mid-reveal never loses or double-charges a pull. A pull carries its banner id: a banner that rotated at
@@ -18,7 +18,7 @@ import { formatNumber, formatPct } from '../../core/util.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { GACHA, UNIT_RARITIES, ROLES } from '../../data/types.js';
 import { BANNER_KINDS, STANDARD_SSR } from '../../data/banners.js';
-import { portraitHTML, portraitUrl, artUrl, hasPortrait, portraitCutAspect } from '../../art/portraits.js';
+import { portraitHTML, hasPortrait, portraitCutAspect } from '../../art/portraits.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
 import { faceAnchor } from '../faceAnchors.js';
 import { uiIcon, itemIcon, currencyIcon, roleIcon } from '../../art/icons.js';
@@ -33,6 +33,8 @@ import { formatCountdown } from '../../core/reset.js';
 import { itemCount } from '../../systems/inventory.js';
 import { uiRng, card, cssVar } from './stage.js';
 import { cue } from '../../audio/cue.js'; // [audio]
+import { createCinematic, DEBUG_HOOKS } from '../recruit/cinematic.js';
+import '../styles/recruit-cinematic.css';
 import { MAX_POTENTIAL, potentialLevel, potentialNext, potentialRises, potentialDupesRule, dupePastMaxPay } from '../../systems/potential.js';
 import { revealTag, revealRibbon, showPotentialUp, spareText } from '../potential.js';
 import { spareFifths } from '../../systems/essence.js';
@@ -213,6 +215,8 @@ export function render(root, params = {}) {
   return () => {
     off();
     clearInterval(tick);
+    // leaving mid-reveal (back, a link): the cinematic stops for good (its loop, timers, sounds); the pull is saved
+    overlay?.teardown?.();
     overlay?.remove();
   };
 }
@@ -559,87 +563,77 @@ function showHistory() {
 const RANK = { R: 0, SR: 1, SSR: 2 };
 
 /**
- * Full-screen reveal. Anticipation (halo glows in the best rarity colour) → cards flip in
- * sequence → SSR showcase → readable results. Skip jumps straight to the results.
+ * Full-screen reveal. The Gate cinematic (src/ui/recruit/cinematic.js: blue; a rainbow surge for an SSR; the
+ * starlit Nightglass for an LR) → cards flip in sequence → a full-screen reveal for every SSR and LR → readable
+ * results. A tap speeds the Gate up; Skip all jumps straight to the results. Display only: the pull is saved.
  * @returns {HTMLElement} the overlay
  */
 function playReveal(results, { onClose, onAgain = null, againLabel = '', skipIntro = false, fixed = false } = {}) {
   const best = results.reduce((b, r) => (RANK[r.rarity] > RANK[b] ? r.rarity : b), 'R');
-  const reduce = !!store.profile.settings?.reduceMotion;
+  const settings = store.profile.settings || {};
+  const reduce = !!settings.reduceMotion;
   const timers = [];
   const later = (fn, ms) => timers.push(setTimeout(fn, reduce ? Math.min(ms, 60) : ms));
   let phase = 'intro';
+  let disposed = false; // torn down (closed, or the screen left mid-reveal): nothing more plays or sounds
+  const sound = (name, data) => { // [audio]
+    if (disposed) return;
+    if (DEBUG_HOOKS) ((window.__sakura ||= {}).recruitCues ||= []).push(name); // e2e: every reveal sound, in order
+    cue(name, data);
+  };
 
-  const overlay = h(`div.ma-gacha.best-${best}${results.length === 1 ? '.single' : ''}`, { role: 'dialog', 'aria-modal': 'true' });
+  const overlay = h(`div.ma-gacha.rc-on.best-${best}${results.length === 1 ? '.single' : ''}`, { role: 'dialog', 'aria-modal': 'true' });
   const stageEl = h('div.ma-gacha-stage');
-  const skip = h('button.ma-gacha-skip', { onclick: () => finish(), 'data-testid': 'reveal-skip' }, 'Skip', svgEl(uiIcon('ff'), 'ma-inline-icon'));
+  const skip = h('button.ma-gacha-skip', { onclick: (e) => { e.stopPropagation(); finish(); }, 'data-testid': 'reveal-skip' }, 'Skip all', svgEl(uiIcon('ff'), 'ma-inline-icon'));
   overlay.append(h('div.ma-gacha-sky'), stageEl, skip);
   document.body.appendChild(overlay);
-  cue('gacha.envelope', { best, count: results.length }); // [audio]
+  sound('gacha.envelope', { best, count: results.length }); // [audio]
 
-  // --- intro: a sealed academy letter (drawn) glowing in the best rarity's colour; its wax
-  // seal is tinted blue / gold / pink. Tap (or wait) → it pops open in a flash of light.
-  const intro = h('div.ma-gacha-intro', { 'data-testid': 'reveal-letter' },
-    h('div.ma-gacha-halo',
-      h('div.ma-env-glow'), h('div.ma-halo-ring.r1'), h('div.ma-halo-ring.r2'),
-      h('div.ma-env', h('img.ma-env-img', { src: artUrl('ui/envelope.webp'), alt: 'Sealed recruitment letter', draggable: false, decoding: 'async' }), h('i.ma-env-seal')),
-      h('i.ma-env-burst')),
-    h('div.ma-gacha-hint', 'Tap to open the letter'),
-  );
+  const cine = createCinematic(overlay, results, {
+    reduce,
+    effects: settings.hitEffects !== false, // Settings → Flashes & shake
+    skipGate: skipIntro,
+    isLegend: (id) => unitClass(id) === 'legend',
+    unitOf: (id) => UNIT_MAP[id],
+    kickerOf: showcaseKicker,
+    cue: sound,
+  });
+  const hint = skipIntro ? null : h('div.rc-gate-hint', { 'data-testid': 'reveal-gate' }, 'Tap to speed up');
+  if (hint) overlay.appendChild(hint);
+
   const cards = results.map((r, i) => revealCard(r, i));
   const grid = h(`div.ma-gacha-grid.n${results.length}`, cards.map((c) => c.el));
   const footer = h('div.ma-gacha-footer');
 
-  // the letter opens (scale + white burst) before the cards are dealt
-  const openLetter = () => {
-    if (phase !== 'intro') return;
-    phase = 'opening';
-    intro.classList.add('opening');
-    later(showGrid, 420);
-  };
+  // the Gate opens before the cards are dealt
   const showGrid = () => {
-    if (phase !== 'intro' && phase !== 'opening') return;
+    if (disposed || phase !== 'intro') return;
     phase = 'flip';
-    cue('gacha.open'); // [audio]
+    hint?.remove();
     clear(stageEl);
     stageEl.appendChild(grid);
     cards.forEach((c, i) => later(() => c.flip(), 350 + i * 170));
     later(() => showcase(0), 350 + results.length * 170 + 450);
   };
+  cine.playGate().then(showGrid);
 
-  const ssrs = results.filter((r) => r.rarity === 'SSR');
+  // every SSR and LR: her full-screen reveal (silhouette → art → name → mark), one after another
   const showcase = (i) => {
-    if (phase === 'done') return;
-    if (i >= ssrs.length) {
+    if (disposed || phase === 'done') return;
+    if (i >= cine.plan.reveals.length) {
       showResults();
       return;
     }
     phase = 'showcase';
-    const r = ssrs[i];
-    cue('gacha.showcase', { unitId: r.unitId }); // [audio]
-    const u = UNIT_MAP[r.unitId];
-    const full = portraitUrl(u, 'full');
-    const lr = unitClass(r.unitId) === 'legend';
-    const sc = h(`div.ma-showcase${lr ? '.is-lr-reveal' : ''}`, { onclick: () => { sc.remove(); showcase(i + 1); } },
-      full ? h('div.ma-showcase-paint', { style: { backgroundImage: `url("${full}")` } }) : null,
-      h('div.ma-showcase-rays'),
-      h(`div.ma-showcase-card${full ? '.drawn' : ''}`, { html: portraitHTML(u, full ? 'cut' : 'full', { eager: true }) }),
-      h('div.ma-showcase-text',
-        h('div.ma-showcase-kicker', { 'data-testid': 'showcase-kicker' }, showcaseKicker(r)),
-        lr ? h('div.bn-lr-reveal', { 'data-testid': 'lr-reveal' }, h('i.bn-lr-crest.unlit'), 'LR unit · Limit Break to awaken her LR form') : null,
-        h('div.ma-showcase-name', u.name),
-        h('div.ma-showcase-title', u.title),
-        h('div.ma-showcase-quote', `“${u.quote}”`),
-        h('div.ma-showcase-tap.muted', 'Tap to continue'),
-      ),
-    );
-    overlay.appendChild(sc);
+    cine.reveal(i).then(() => showcase(i + 1));
   };
 
   const showResults = () => {
-    if (phase === 'done') return;
+    if (disposed || phase === 'done') return;
     phase = 'done';
     timers.forEach(clearTimeout);
+    cine.settle();
+    hint?.remove();
     overlay.querySelectorAll('.ma-showcase').forEach((n) => n.remove());
     if (!grid.isConnected) {
       clear(stageEl);
@@ -648,7 +642,7 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
     cards.forEach((c) => c.flip(true));
     skip.remove();
     const newCount = results.filter((r) => r.isNew).length;
-    cue('gacha.results', { best, newCount }); // [audio]
+    sound('gacha.results', { best, newCount }); // [audio]
     // Ascension: a duplicate gives her 1 Essence; past her hold cap it is a spare (Mementos, Moonpearls, points)
     const essence = results.reduce((a, r) => a + (r.essence || 0), 0);
     const ready = new Set(results.filter((r) => r.readyStep).map((r) => r.unitId)).size;
@@ -692,23 +686,24 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
     showResults();
   }
 
-  function close(silent = false) {
+  /** Stops everything for good: timers, the cinematic (loop, listeners, canvases, debug hooks) and its sounds. */
+  function teardown() {
+    if (disposed) return;
+    disposed = true;
     timers.forEach(clearTimeout);
-    cue('gacha.close'); // [audio]
+    cine.dispose();
+    cue('gacha.close'); // [audio] the riser stems and the SSR duck go back to normal
+  }
+  overlay.teardown = teardown;
+
+  function close(silent = false) {
+    teardown();
     overlay.classList.add('closing');
     setTimeout(() => overlay.remove(), 200);
     if (!silent) onClose?.();
     potentialTip(results);
   }
 
-  if (skipIntro) {
-    stageEl.appendChild(intro);
-    later(showGrid, 200);
-  } else {
-    stageEl.appendChild(intro);
-    intro.addEventListener('click', openLetter);
-    later(openLetter, 1900);
-  }
   return overlay;
 }
 

@@ -1,8 +1,8 @@
 // End-to-end check of the returning girls (track 5): a profile that owns all nine.
 //   1. The girls list and each new girl's student page render (no "null"/"undefined"/"NaN").
 //   2. A battle with six of them (Fuu, Hana, Ruri, Noa, Iroha, Ena) and Seiran: each tower is placed
-//      and bought to tier 3 with her panel's buy button; Iroha is aimed through aim mode (Set aim →
-//      a tap on the map → her mirror panel moves), then Auto; Seiran levels to 3 and is aimed too.
+//      and bought to tier 3 with her panel's buy button; Iroha's mirrors are placed through aim mode (PLACE →
+//      a tap on the map per mirror), then Auto; Seiran levels to 3 and is aimed too.
 //   3. One battle each with Kanna and Yoriko as the hero, levelled to 3 with their ult fired.
 //   4. Catch-up joins: a save that cleared the campaign up to 7-5 (2-2, 4-2, 6-2, 6-5 and 7-5 among
 //      it) before Azami, Yuzuha, Noa, Wakaba and Hana could join there gets all five on its first load
@@ -176,23 +176,23 @@ try {
   const heroUid = await placeNear('seiran', 1.2);
   check(heroUid != null, 'Seiran placed');
 
-  log('\n--- aim mode: Iroha\'s mirror panel ---');
+  log('\n--- aim mode: Iroha\'s mirrors (PLACE walks them in order; e2e/iroha-mirrors.mjs covers the rest) ---');
   if (placed.iroha != null) {
     await page.evaluate((u) => window.__battle.ui.select(u), placed.iroha);
     await settle(300);
-    const before = await page.evaluate((u) => { const t = window.__battle.sim.getTower(u); return { ox: t.ox, oy: t.oy, x: t.x, y: t.y }; }, placed.iroha);
+    const before = await page.evaluate((u) => { const t = window.__battle.sim.getTower(u); return { n: t.mirrors.length, x: t.x, y: t.y }; }, placed.iroha);
     await page.locator('[data-testid="aim-set"]').first().click({ force: true });
     await settle(250);
-    check(await page.locator('[data-testid="aim-banner"]').isVisible(), 'Set aim shows the "tap the map" banner');
-    await tapWorld(before.x + 1.6, before.y + 1.2);
-    const after = await page.evaluate((u) => { const t = window.__battle.sim.getTower(u); return { aim: t.aim, ox: t.ox, oy: t.oy }; }, placed.iroha);
-    check(!!after.aim && (after.ox !== before.ox || after.oy !== before.oy), `the tap aims her mirror panel (${JSON.stringify(after.aim)})`);
-    check(!(await page.locator('[data-testid="aim-banner"]').isVisible()), 'the banner closes after the tap');
+    check(await page.locator('[data-testid="aim-banner"]').isVisible(), 'PLACE shows the "tap the map" banner');
+    for (let k = 0; k < before.n; k++) await tapWorld(before.x + 1.6 - k * 0.8, before.y + 1.2);
+    const after = await page.evaluate((u) => window.__battle.sim.getTower(u).mirrorAim, placed.iroha);
+    check(Array.isArray(after) && after.filter(Boolean).length === before.n, `each tap places the next mirror (${JSON.stringify(after)})`);
+    check(!(await page.locator('[data-testid="aim-banner"]').isVisible()), 'the banner closes after the last mirror');
     await page.locator('[data-testid="aim-auto"]').first().click({ force: true });
     await settle(250);
-    check(await page.evaluate((u) => window.__battle.sim.getTower(u).aim === null, placed.iroha), 'Auto clears her aim');
-    // aim again and keep it for the screenshot
-    await page.locator('[data-testid="aim-set"]').first().click({ force: true });
+    check(await page.evaluate((u) => window.__battle.sim.getTower(u).mirrorAim === null, placed.iroha), 'Auto puts her mirrors back on the road');
+    // place one again and keep it for the screenshot
+    await page.locator('[data-testid="mirror-chip-0"]').first().click({ force: true });
     await tapWorld(before.x + 1.2, before.y - 1.2);
   }
 

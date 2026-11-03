@@ -20,6 +20,144 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.73', version: '0.1.73', date: '2026-11-02', title: 'Path Looks and Inked Attack Effects',
+    added: [
+      'See each girl\'s upgrade path at a glance: coloured pips under her show how far each path goes, and from tier 3 she wears a piece for that path — wings, quivers, crowns and more — with a capstone look at tier 5. Rolling out now for Aoi, Akane, Luna, Rei, Yuki, Momo, Kage, Nami and Hikari; more girls soon.',
+    ],
+    changed: [
+      'Upgrade paths use one colour set everywhere: pink, cyan and gold.',
+      'Chain lightning is now a hand-drawn bolt with ink outlines: it zig-zags from girl to target, forks, crackles and breaks into dashes as it fades. Raika\'s and Chika\'s chains and Storm Lance get their own colours.',
+      'Beams look heavier: Luna\'s moon lance, Miko\'s holy ray, Raika\'s Overcharge lance and every other beam charge up, slam in wide and land with a star and bursting impact lines (looks only: damage is unchanged).',
+      'Sword slashes are inked crescents that sweep across and break apart, and pulses send out a crisp shockwave ring along the ground.',
+      'Shots in flight leave a short inked streak in their element\'s colour (girls with a trail of their own keep theirs).',
+      'Lower graphics settings keep these effects simpler, and with Reduce Motion they hold still and fade gently.',
+    ],
+  },
+  {
+    id: 'v0.1.72', version: '0.1.72', date: '2026-11-01', title: 'New Staff Models and a Fire Tornado',
+    added: [
+      'Akane\'s Starmine Barrage now whips up a swirling fire tornado where the shells fall thickest: it builds while the shells rain down and lifts away when the barrage ends.',
+    ],
+    changed: [
+      'Norika and Kogane have new models: proper chibi proportions with their faces clear under hard hats that sit back on the head, a bright STOP paddle and a big wrench, and smoother animations.',
+    ],
+  },
+  {
+    id: 'v0.1.71', version: '0.1.71', date: '2026-11-01', title: 'Lively Moves and Shots From the Weapon',
+    changed: [
+      'Luna, Nami, Kanna and Yoriko are re-rigged with lively new animations — no more T-poses; Kogane and Norika move more naturally.',
+      'Orcs, oni, goblins, bonewalkers, skinks, the Daimyo and the titans finally swing their arms, with new walks, flinches, falls and special moves.',
+      'The Green Slime returns as a brand-new jelly whose face never stretches, and the Goblin Runner is back with bright eyes and a friendly smile.',
+      'Girls with a weapon now shoot from it: arrows leave the bow, shells leave the barrel, and bolts leave the tip of the staff, spear or wand; shots land exactly where they did.',
+    ],
+    fixed: [
+      'Cleaner outlines: no more dark slivers around enemies\' eyes and mouths.',
+    ],
+  },
+  {
+    id: 'v0.1.70', version: '0.1.70', date: '2026-10-31', title: 'Your Own Gear in the Sandbox',
+    added: [
+      'Sandbox: a new "My gear" option in the Gear menu. Each girl wears a copy of the gear she has on in your save, so you can test your real builds. Nothing in your save or bag changes.',
+    ],
+    changed: [
+      'The Green Slime and the Goblin Runner are back to their round, cute chibi looks.',
+    ],
+  },
+  {
+    id: 'v0.1.69', version: '0.1.69', date: '2026-10-31', title: 'Co-op Sharing, Boss Traps and Fresh Portraits',
+    added: [
+      'Co-op sharing: tap the coin button by your ally\'s name to send them coins, or lend them one of your girls from her panel so they can upgrade and command her; you can take her back between waves.',
+      'If your co-op ally leaves or loses connection for 20 seconds, their girls and coins are shared out to you. If they come back, their girls go back to them; the coins stay shared.',
+    ],
+    changed: [
+      'Suzu and Azami can now take on bosses: with a boss in range they set their bells and strips right under it. A bell a boss sets off sticks to it and keeps ringing, even while it flies, and a boss on a spike strip keeps getting hit until the strip is used up.',
+      '24 girls have brand-new portraits: Akane, Aoi, Chika, Ena, Fuu, Hana, Hikari, Hotaru, Kaede, Kage, Kanna, Midori, Miko, Momo, Nami, Noa, Raika, Rei, Ruri, Shiro, Suzu, Umeko and Yuki get a fresh look in a place of their own, and Norika gets her first drawn portrait.',
+      'Cards, busts and thumbnails are re-framed around the new portraits; the full-body stands in the lobby are unchanged.',
+    ],
+    fixed: [
+      'Hikari’s eyes are teal, as they were always meant to be.',
+    ],
+  },
+  {
+    id: 'v0.1.68', version: '0.1.68', date: '2026-10-31', title: 'Set Boxes and Awakening',
+    added: [
+      'The More page in battle now shows every girl\'s real DPS, measured from the damage she actually deals, with a breakdown by source for attack shapes. Heroes like Luna get their full stat grid, and every kit piece has its own row.',
+      'The Sandbox catches up: every girl at her true max (with lower builds if you like), gear presets for every set up to LR, every map and mode including events and Titan Trials, and a start-wave picker up to wave 999. Sandbox runs still never touch your save.',
+      'Luna, Nami, Kanna and Yoriko now have their own 3D models, along with the bosses and titans, an enemy for every family and ten story landmarks.',
+      'Every gear set now has its own look across all five pieces, and every item has new 3D-style art, including the Tie Pin, Collar Pin, Nightglass Lens, Hair Clips and Necklaces.',
+      'Set Boxes are clearer: each box shows the set it opens and the five pieces inside, and only ever gives that set. New Set Boxes open with random main stats, and you can open several at once.',
+    ],
+    changed: [
+      'UR to LR is now an Awakening, just like Legendary to UR: a set piece awakens into an LR piece of the same set. Blank LR is still there as its own option on an LR set piece.',
+      'Set Boxes you already own keep working as Preset boxes, where you choose each piece\'s main stat.',
+      'Stickers are bigger in chat, messages and co-op battles.',
+      'Kohaku & Tsubaki\'s LR Refraction build hits harder: at tier 5, Refraction\'s LR bonus goes from ×2.0 to ×2.1, so every LR stays well ahead even in full set gear.',
+    ],
+    fixed: [
+      'Turning off other players\' stickers now stays off even after opening the game in an older tab.',
+    ],
+  },
+  {
+    id: 'v0.1.67', version: '0.1.67', date: '2026-10-31', title: 'Ribbons, Frames and Stickers',
+    added: [
+      'Stickers! Send one of 16 chibi stickers in co-op battles (the new button on the co-op bar), clan chat and messages. Four slime stickers are for everyone, recruiting Hikari, Aoi, Kage, Momo, Akane, Yuki, Miko, Ena, Iroha or Tenka unlocks hers, and two more are earned in co-op and the Halloween event. Don\'t want them? Settings → Online → Show stickers from other players, or mute one partner from the sticker button.',
+      'Every Honor Ribbon in your Case has new art: chunky 3D-style rosettes with pleats that catch the light, folded tails and a shiny medal face, in the same look as the gear icons.',
+      'Twelve new picture frames for your Sensei Profile, from Sakura and Laurel to Hundred Waves, Limit Break and Lantern Night. Each one says how to earn it in Edit Profile, and everything you have already done counts.',
+      'Every secret achievement now gives something to show off: four new secret ribbons, a new title and two secret picture frames. They stay secret until you find them. Already found one? Its new reward is waiting in your Case and your Edit Profile.',
+      '20 new Sensei Profile banners: academy places, Freeplay milestones, an LR banner, Pumpkin Lantern Night and four painted seasons you collect by logging in during spring, summer, autumn and winter. Anything you have already done counts.',
+      'Kogane and Norika now have their own 3D models, along with Big Yellow, Norika\'s barricade and Suzu\'s bells. The Gate Response Brigade also has its own 3D look.',
+    ],
+    changed: [
+      'Smoother co-op: fewer stalls on a slow or bumpy connection, and orders after a quiet spell land sooner.',
+      'In co-op, your orders show the moment you tap: the upgrade button says Ordered, the coins come off and a placed girl waits on her spot until it lands. Tapping again can\'t buy the same upgrade twice, even while your ally\'s connection catches up.',
+    ],
+  },
+  {
+    id: 'v0.1.66', version: '0.1.66', date: '2026-10-31', title: 'Mirrors, Curses and the Gear Update',
+    added: [
+      'Sixteen girls get new attack shapes, from wheels and returning throws to held streams and rising spikes. Ena’s curse now rots its target and spreads to nearby enemies, and Iroha places a network of mirrors her bolts bounce between.',
+      'The gear update: five-piece sets with their own passives, LR gear with Limit Break, Set Boxes, several saved loadouts per team, and the Build Coach to suggest what each girl should wear.',
+      'Kohaku & Tsubaki’s laser now reaches across the whole map.',
+    ],
+    changed: [
+      'LR girls are now stronger than every other build, so an LR form always leads the board.',
+      'Freeplay past wave 200 is easier, and a fully built team can now reach the Eclipse Wyrm at wave 250.',
+      'Iroha’s mirrors now keep stunned crowds where she and her allies can reach them. Her tier-4 Polish and Kaleidoscope upgrades add a fourth mirror, and two of her upgrades hit harder.',
+    ],
+  },
+  {
+    id: 'v0.1.65', version: '0.1.65', date: '2026-10-30', title: 'The Summoning Gate Opens',
+    added: [
+      'Recruiting now opens a summoning Gate: it glows blue, surges to a rainbow when an SSR is coming, and turns to a starlit Nightglass sky for an LR.',
+      'Every SSR and LR girl gets her own full-screen reveal: her silhouette, her art sweeping in, her stars, name and quote, then her mark stamping in. Tap to move on, or press Skip all to jump to your results.',
+      'Tryout Day: a Pep Talks list shows every Pep Talk you have taken this run, and you can open it any time; the Pep Talk cards get a fresh look too.',
+    ],
+    changed: [
+      'The Gate and reveals follow your Reduce motion setting (a calm fade instead of spins and sparks) and your Flashes & shake setting (no flashes or shake when it is off).',
+      'Gear has new icons: chunkier 3D-style pieces whose shape and trim grow fancier with rarity.',
+    ],
+    fixed: [
+      'A ribbon from a Mailbox gift now reads “Earned: Yes · a gift” in your Honor Ribbon Case instead of naming a title you haven’t earned yet.',
+    ],
+  },
+  {
+    id: 'v0.1.64', version: '0.1.64', date: '2026-10-30', title: 'A Ribbon for the Night Watch',
+    added: [
+      'Reached wave 200 or beyond in Freeplay (any difficulty, solo or co-op)? A letter in your Mailbox holds the Starlight Vigil Ribbon for your Honor Ribbon Case. The Eclipse Wyrm at wave 250 turned out far stronger than intended, so nobody could earn it. Claim it by Nov 30; reach wave 200 before then and it comes to you too.',
+      'The Starlight Vigil achievement itself stays open, with its gems and title still to win.',
+    ],
+    fixed: [
+      'Your Sensei Profile now updates on its own a few seconds after you upgrade gear, level up or change your showcase, so friends see your latest girls and gear.',
+    ],
+  },
+  {
+    id: 'v0.1.63', version: '0.1.63', date: '2026-10-30', title: 'Two More Spooky Weeks',
+    changed: [
+      'Pumpkin Lantern Night runs two weeks longer: its operations and missions now end Nov 15 and the Candy Exchange closes Nov 22 (7 PM Central).',
+      'Festival gifts already in your Mailbox stay claimable until the Candy Exchange closes.',
+    ],
+  },
+  {
     id: 'v0.1.62', version: '0.1.62', date: '2026-10-30', title: 'Sharper Details',
     fixed: [
       'Iroha’s mirror stands beside her instead of in front of her when it has no aim.',

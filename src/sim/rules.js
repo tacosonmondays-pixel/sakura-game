@@ -148,7 +148,7 @@ export function ruleHitScale(m, tower, type, el) {
 /** DoT scale (element only: burn = fire, poison = poison). */
 export function ruleDotScale(m, tower, kind) {
   let s = m.all;
-  const e = m.el[kind === 'burn' ? 'fire' : 'poison'];
+  const e = kind === 'curse' ? null : m.el[kind === 'burn' ? 'fire' : 'poison'];
   if (e) s *= e;
   if (m.pad && tower && tower.padMul) s *= tower.padMul;
   return s;

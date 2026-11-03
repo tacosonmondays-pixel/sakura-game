@@ -8,6 +8,51 @@ APPROVED = ('book_common', 'book_rare', 'book_superRare', 'book_legendary', 'coi
 _TIERS = ('common', 'rare', 'superRare', 'mythic', 'legendary', 'zenith')
 
 NOTES = dict(
+    setbox_pick_mythic_random='Set Box (random): the gear box in pearl, a ring of the six set colours round a white sakura; rose-gold straps, pink gem',
+    setbox_pick_legendary_random='Set Box (random): the gear box in pearl, a ring of the six set colours round a white sakura; gold straps, amber gem',
+    setbox_pick_ur_random='Set Box (random): the gear box in pearl, a ring of the six set colours round a white sakura; rainbow straps and gem',
+    setbox_pick_ur='Set Box (preset, UR): the gear box in pearl, a ring of the six set colours round a white sakura; rainbow straps and gem; the gold pencil tag',
+    setbox_spirit_mythic_random='Set Box (random): the gear box in red, white pom crest; rose-gold straps, pink gem',
+    setbox_spirit_legendary_random='Set Box (random): the gear box in red, white pom crest; gold straps, amber gem',
+    setbox_spirit_ur_random='Set Box (random): the gear box in red, white pom crest; rainbow straps and gem',
+    setbox_spirit_ur='Set Box (preset, UR): the gear box in red, white pom crest; rainbow straps and gem; the gold pencil tag',
+    setbox_freezetag_mythic_random='Set Box (random): the gear box in ice blue, white pause-bars crest; rose-gold straps, pink gem',
+    setbox_freezetag_legendary_random='Set Box (random): the gear box in ice blue, white pause-bars crest; gold straps, amber gem',
+    setbox_freezetag_ur_random='Set Box (random): the gear box in ice blue, white pause-bars crest; rainbow straps and gem',
+    setbox_freezetag_ur='Set Box (preset, UR): the gear box in ice blue, white pause-bars crest; rainbow straps and gem; the gold pencil tag',
+    setbox_geometry_mythic_random='Set Box (random): the gear box in slate blue, white set-square crest; rose-gold straps, pink gem',
+    setbox_geometry_legendary_random='Set Box (random): the gear box in slate blue, white set-square crest; gold straps, amber gem',
+    setbox_geometry_ur_random='Set Box (random): the gear box in slate blue, white set-square crest; rainbow straps and gem',
+    setbox_geometry_ur='Set Box (preset, UR): the gear box in slate blue, white set-square crest; rainbow straps and gem; the gold pencil tag',
+    setbox_popper_mythic_random='Set Box (random): the gear box in purple, white star crest; rose-gold straps, pink gem',
+    setbox_popper_legendary_random='Set Box (random): the gear box in purple, white star crest; gold straps, amber gem',
+    setbox_popper_ur_random='Set Box (random): the gear box in purple, white star crest; rainbow straps and gem',
+    setbox_popper_ur='Set Box (preset, UR): the gear box in purple, white star crest; rainbow straps and gem; the gold pencil tag',
+    setbox_treasurer_mythic_random='Set Box (random): the gear box in mint, white coin crest; rose-gold straps, pink gem',
+    setbox_treasurer_legendary_random='Set Box (random): the gear box in mint, white coin crest; gold straps, amber gem',
+    setbox_treasurer_ur_random='Set Box (random): the gear box in mint, white coin crest; rainbow straps and gem',
+    setbox_treasurer_ur='Set Box (preset, UR): the gear box in mint, white coin crest; rainbow straps and gem; the gold pencil tag',
+    setbox_powerbank_mythic_random='Set Box (random): the gear box in lime, white bolt crest; rose-gold straps, pink gem',
+    setbox_powerbank_legendary_random='Set Box (random): the gear box in lime, white bolt crest; gold straps, amber gem',
+    setbox_powerbank_ur_random='Set Box (random): the gear box in lime, white bolt crest; rainbow straps and gem',
+    setbox_powerbank_ur='Set Box (preset, UR): the gear box in lime, white bolt crest; rainbow straps and gem; the gold pencil tag',
+    setbox_pick_mythic='Set Box (preset): the gear box in pearl, a ring of the six set colours round a white sakura; rose-gold straps, pink gem; the gold pencil tag',
+    setbox_pick_legendary='Set Box (preset): the gear box in pearl, a ring of the six set colours round a white sakura; gold straps, amber gem; the gold pencil tag',
+    setbox_spirit_mythic='Set Box (preset): the gear box in red, white pom crest; rose-gold straps, pink gem; the gold pencil tag',
+    setbox_spirit_legendary='Set Box (preset): the gear box in red, white pom crest; gold straps, amber gem; the gold pencil tag',
+    setbox_freezetag_mythic='Set Box (preset): the gear box in ice blue, white pause-bars crest; rose-gold straps, pink gem; the gold pencil tag',
+    setbox_freezetag_legendary='Set Box (preset): the gear box in ice blue, white pause-bars crest; gold straps, amber gem; the gold pencil tag',
+    setbox_geometry_mythic='Set Box (preset): the gear box in slate blue, white set-square crest; rose-gold straps, pink gem; the gold pencil tag',
+    setbox_geometry_legendary='Set Box (preset): the gear box in slate blue, white set-square crest; gold straps, amber gem; the gold pencil tag',
+    setbox_popper_mythic='Set Box (preset): the gear box in purple, white star crest; rose-gold straps, pink gem; the gold pencil tag',
+    setbox_popper_legendary='Set Box (preset): the gear box in purple, white star crest; gold straps, amber gem; the gold pencil tag',
+    setbox_treasurer_mythic='Set Box (preset): the gear box in mint, white coin crest; rose-gold straps, pink gem; the gold pencil tag',
+    setbox_treasurer_legendary='Set Box (preset): the gear box in mint, white coin crest; gold straps, amber gem; the gold pencil tag',
+    setbox_powerbank_mythic='Set Box (preset): the gear box in lime, white bolt crest; rose-gold straps, pink gem; the gold pencil tag',
+    setbox_powerbank_legendary='Set Box (preset): the gear box in lime, white bolt crest; gold straps, amber gem; the gold pencil tag',
+    tie_pin='gold tie bar over its back clip, a stamped sakura and a small pink gem',
+    collar_pin='round pink enamel collar stud on a gold rim, gold centre boss, pressed petals, post behind',
+    lens_nightglass='navy lens in a thick white-gold rim with a loop, a pale star and starlight specks, rim glint',
     book_common='kraft spiral notebook, pencil, pink star sticker, label with two blue lines',
     book_rare='blue hardcover, 2 silver corner guards, white label with a sakura, red ribbon',
     book_superRare='violet hardcover, 4 silver guards, silver medallion with a blossom and a violet gem, ring clasp',
@@ -102,18 +147,208 @@ for _fam, _rows in _MAT.items():
     for _t, _txt in zip(_TIERS, _rows):
         NOTES[f'mat_{_fam}_{_t}'] = _txt
 
-_GEAR = dict(charm='rounded faceted diamond pendant in a bezel, short chain', ribbon='chunky satin bow with a knot clip and two tails',
-             shoes='chunky sneaker: white toe cap and sole with toe spring, three fat laces, padded collar and tongue, heel counter')
-_GEAR_TIER = dict(common='plain', rare='silver trim', superRare='silver trim + gem (shoes: wing)',
-                  mythic='rose-gold trim + glow (shoes: wing)', legendary='gold trim + star (shoes: wing)',
-                  ur='iridescent body (saturated shadow) and trim (shoes: wing)')
-for _slot, _txt in _GEAR.items():
-    for _t, _tt in _GEAR_TIER.items():
-        NOTES[f'gear_{_slot}_{_t}'] = f'{_txt}; {_tt}'
+# ---------------------------------------------------------------------------
+# Gear (gearIcon: gear_<slot>_<rarity>, gear_<slot>_ur, and the set looks gear_<set>_<slot>)
+# ---------------------------------------------------------------------------
+# Three tables drive every gear icon. models/gear.py holds the base models (pendant, bow, sneaker, hairclip,
+# necklace) and reads only these rows: a new slot on an existing base, a ladder tweak or a set look that re-skins a
+# base is a row here. A design that needs a new form (a keyring, a bracelet, loafers...) is a new base in
+# models/gear.py first.
+#
+# GEAR_SLOT_ART: one row per gear slot (src/data/types.js GEAR_SLOTS; the update's gearSlots.js SLOT_IDS) -> the base
+#   model and its default design. A slot the game data does not have yet is a preview only (--family gear-preview
+#   bakes it into the scratch folder, never into public/). What each base draws:
+#   base      shape                                   motif (an emblem on the piece)
+#   pendant   diamond, heart, round, star, blossom    sakura, star, heart, moon
+#   necklace  diamond, heart, round, star, blossom    sakura, star, heart, moon
+#   bow       classic, wide                           sakura, star, heart, moon
+#   sneaker   low, high                               sakura, star, heart, moon
+#   hairclip  blossom, heart (never a bow, a star or a snowflake: the gear update spec 2.1 and 3.3); the set looks'
+#             ornaments: pom, pause, setsquare, confetti, calc, bolt
+#   necklace  (also) the set lockets: megaphone, stopwatch, crosshair, popper, coin, battery
+#   keyring   a set's charm: its ornament on a split keyring (shape: the hairclip's set ornaments)
+#   emblem: a set look's ornament drawn as a badge (the bow's knot, the sneaker's side), shared by all five pieces
+#   body: a fixed body colour (default: the rarity tint); trim: a fixed trim metal (set looks); note: the README line.
+GEAR_SHAPES = dict(pendant=('diamond', 'heart', 'round', 'star', 'blossom'),
+                   necklace=('diamond', 'heart', 'round', 'star', 'blossom', 'megaphone', 'stopwatch', 'crosshair',
+                             'popper', 'coin', 'battery'),
+                   bow=('classic', 'wide'), sneaker=('low', 'high'),
+                   hairclip=('blossom', 'heart', 'pom', 'pause', 'setsquare', 'confetti', 'calc', 'bolt'),
+                   keyring=('pom', 'pause', 'setsquare', 'confetti', 'calc', 'bolt'))
+GEAR_MOTIFS = ('sakura', 'star', 'heart', 'moon')
+GEAR_SLOT_ART = dict(
+    charm=dict(base='pendant', shape='diamond', note='faceted diamond stone in a bezel on a short chain'),
+    ribbon=dict(base='bow', shape='classic', note='chunky satin bow with a knot clip and two notched tails'),
+    shoes=dict(base='sneaker', shape='low', note='chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter'),
+    # the gear update's Hair Clip and Necklace (src/data/gearSlots.js SLOT_IDS; set pieces only, so mostly set looks)
+    hair=dict(base='hairclip', shape='blossom', note='hair clip: a rounded bar clip with a sakura ornament at its end'),
+    necklace=dict(base='necklace', shape='heart', note='heart pendant on a chain loop with a clasp'),
+)
+
+# GEAR_TIERS: the rarity ladder every slot shares (default looks). Rarity reads from shape and trim, not colour alone:
+#   trim     metal of the bezel / clip / heel counter: pewter, silver, rose, gold, iri
+#   gem      a set gem in the trim (its tier colour)            studs  ball studs on the frame points
+#   crest    0 none; 1 a sakura blossom behind the stone / layered loops / a sole stripe;
+#            2 sunburst rays / a star medallion / a gold toe rim (hair clip: a gold disc behind the flower)
+#   shoe_wing  feathers in the sneaker's heel wing (0..4)         wings  feathers per side wing on every base (UR)
+#   drop     a bead hanging below (never on the shoes)          glow   inner glow of the body
+#   star     the 4-point glint (px at 256)
+# 'set' is the ladder row of the set looks: one look per set and slot, rarity shows on the tile (and the UR ring).
+GEAR_TIERS = dict(
+    common=dict(trim='pewter', gem=False, studs=False, crest=0, shoe_wing=0, wings=0, drop=False, glow=0.0, star=0,
+                note='plain: pewter trim'),
+    rare=dict(trim='silver', gem=False, studs=False, crest=0, shoe_wing=0, wings=0, drop=False, glow=0.0, star=8,
+              note='silver trim (charm: a bail cap)'),
+    superRare=dict(trim='silver', gem=True, studs=True, crest=0, shoe_wing=2, wings=0, drop=False, glow=0.0, star=9,
+                   note='silver trim, studs (ribbon: tail bands, shoes: eyelets) and a violet gem; shoes: a small wing'),
+    mythic=dict(trim='rose', gem=True, studs=True, crest=1, shoe_wing=2, wings=0, drop=True, glow=0.3, star=10,
+                note='rose-gold trim, a rose-gold sakura blossom behind the stone (ribbon: layered loops; shoes: a sole '
+                     'stripe and a wing), glow'),
+    legendary=dict(trim='gold', gem=True, studs=True, crest=2, shoe_wing=3, wings=0, drop=True, glow=0.3, star=12,
+                   note='gold trim, sunburst rays (ribbon: a star medallion; shoes: a gold toe rim and a bigger wing), '
+                        'star'),
+    ur=dict(trim='iri', gem=True, studs=True, crest=2, shoe_wing=4, wings=4, drop=True, glow=0.35, star=13,
+            note='iridescent body (saturated shadow) and trim, the legendary crest (the charm swaps its rays for the '
+                 'wings) plus rainbow wings (one pastel per feather)'),
+    set=dict(trim='silver', gem=True, studs=False, crest=0, shoe_wing=0, wings=0, drop=False, glow=0.0, star=10,
+             note='set look (rarity on the tile)'),
+)
+
+# GEAR_SETS: one look per gear set and slot, gear_<set>_<slot> (the gear update spec 3.3: 6 sets x 5 slots). The set
+# id is the piece's own `set` (SET_IDS in src/data/gearSets.js), never its club: a set is fixed per piece, a club is
+# re-tagged by the armband and already shows as its emblem. Set ids are [a-z0-9]+ and never a slot or tier name.
+# A row overrides the slot design per slot (any GEAR_SLOT_ART field: base, shape, motif, body, trim) and bakes every
+# slot of GEAR_SLOT_ART the game has; gearIcon(slot, rarity, { set: g.set }) shows it and falls back to the default
+# look while a set has no art. preview=True bakes into the scratch folder only.
+GEAR_SETS = dict(
+    sample=dict(preview=True, note='preview of a set look: a heart charm, a wide bow with a heart clip, high-tops',
+                slots=dict(charm=dict(shape='heart', motif='heart', body='#ff7eb6'),
+                           ribbon=dict(shape='wide', motif='heart', body='#ff7eb6'),
+                           shoes=dict(shape='high', motif='heart', body='#ff7eb6'),
+                           hair=dict(shape='heart', body='#ff7eb6'),
+                           necklace=dict(shape='heart', motif='heart', body='#ff7eb6'))),
+    # The six sets' five pieces: one motif per set (its ornament) shared by all five, in the set colour (src/data/
+    # gearSets.js) with white and gold trim (docs/art/tripo/chrome-batch-1.md rows 2-13 for the Hair Clip and Necklace):
+    # the charm is the ornament on a keyring, the ribbon and the shoes wear it as a badge, the Hair Clip carries it and
+    # the Necklace is the set's locket. A set row bakes only the slots it lists.
+    spirit=dict(note='Spirit Squad: the Pom Clip (a cheer pom-pom) and the Spirit Locket (a heart with a megaphone)',
+                slots=dict(charm=dict(base='keyring', shape='pom', body='#e5484d', trim='gold'),
+                           ribbon=dict(shape='classic', body='#e5484d', trim='gold', emblem='pom'),
+                           shoes=dict(shape='high', body='#e5484d', trim='gold', emblem='pom'),
+                           hair=dict(shape='pom', body='#e5484d', trim='gold'),
+                           necklace=dict(shape='megaphone', body='#e5484d', trim='gold'))),
+    freezetag=dict(note='Freeze Tag: the Pause-Button Clip and the Tag Timer (a pendant stopwatch)',
+                   slots=dict(charm=dict(base='keyring', shape='pause', body='#5fb4e8', trim='gold'),
+                           ribbon=dict(shape='classic', body='#5fb4e8', trim='gold', emblem='pause'),
+                           shoes=dict(shape='low', body='#5fb4e8', trim='gold', emblem='pause'),
+                           hair=dict(shape='pause', body='#5fb4e8', trim='gold'),
+                              necklace=dict(shape='stopwatch', body='#5fb4e8', trim='gold'))),
+    geometry=dict(note='Geometry Set: the Set-Square Clip and the Crosshair Locket',
+                  slots=dict(charm=dict(base='keyring', shape='setsquare', body='#5a6fa8', trim='gold'),
+                           ribbon=dict(shape='classic', body='#5a6fa8', trim='gold', emblem='setsquare'),
+                           shoes=dict(shape='low', body='#5a6fa8', trim='gold', emblem='setsquare'),
+                           hair=dict(shape='setsquare', body='#5a6fa8', trim='gold'),
+                             necklace=dict(shape='crosshair', body='#5a6fa8', trim='gold'))),
+    popper=dict(note='Party Popper: the Confetti Clip and the Party Locket (a party popper)',
+                slots=dict(charm=dict(base='keyring', shape='confetti', body='#9b5de5', trim='gold'),
+                           ribbon=dict(shape='wide', body='#9b5de5', trim='gold', emblem='confetti'),
+                           shoes=dict(shape='high', body='#9b5de5', trim='gold', emblem='confetti'),
+                           hair=dict(shape='confetti', body='#9b5de5', trim='gold'),
+                           necklace=dict(shape='popper', body='#9b5de5', trim='gold'))),
+    treasurer=dict(note='Treasurer: the Calculator Clip and the Coin Locket (a gold coin with a sakura stamp)',
+                   slots=dict(charm=dict(base='keyring', shape='calc', body='#9fd8c4', trim='gold'),
+                           ribbon=dict(shape='classic', body='#9fd8c4', trim='gold', emblem='calc'),
+                           shoes=dict(shape='low', body='#9fd8c4', trim='gold', emblem='calc'),
+                           hair=dict(shape='calc', body='#9fd8c4', trim='gold'),
+                              necklace=dict(shape='coin', body='#9fd8c4', trim='gold'))),
+    powerbank=dict(note='Power Bank: the Lightning Clip and the Battery Locket (a charge bar)',
+                   slots=dict(charm=dict(base='keyring', shape='bolt', body='#8bd13a', trim='gold'),
+                           ribbon=dict(shape='wide', body='#8bd13a', trim='gold', emblem='bolt'),
+                           shoes=dict(shape='high', body='#8bd13a', trim='gold', emblem='bolt'),
+                           hair=dict(shape='bolt', body='#8bd13a', trim='gold'),
+                              necklace=dict(shape='battery', body='#8bd13a', trim='gold'))),
+)
+
+GEAR_TIER_ORDER = ('common', 'rare', 'superRare', 'mythic', 'legendary', 'ur')
+
+
+def gear_key(slot, tier=None, gear_set=None):
+    return f'gear_{gear_set}_{slot}' if gear_set else f'gear_{slot}_{tier}'
+
+
+def gear_parse(key):
+    """(slot, tier, set or None) of a gear art key, or None. A set look is (slot, 'set', set id)."""
+    parts = key.split('_')
+    if len(parts) != 3 or parts[0] != 'gear':
+        return None
+    if parts[2] in GEAR_TIER_ORDER:
+        return parts[1], parts[2], None
+    if parts[2] in GEAR_SLOT_ART and parts[1] in GEAR_SETS:
+        return parts[2], 'set', parts[1]
+    return None
+
+
+def gear_design(slot, gear_set=None):
+    d = dict(GEAR_SLOT_ART[slot])
+    if gear_set:
+        d.update(GEAR_SETS[gear_set]['slots'].get(slot, {}))
+    base = d['base']
+    if d.get('shape') not in GEAR_SHAPES[base]:
+        raise ValueError(f"gear {slot}/{gear_set}: shape {d.get('shape')!r} is not drawn by {base} {GEAR_SHAPES[base]}")
+    if d.get('motif') and (d['motif'] not in GEAR_MOTIFS or base == 'hairclip'):
+        raise ValueError(f"gear {slot}/{gear_set}: motif {d['motif']!r} is not drawn by {base}")
+    return d
+
+
+def gear_rows(slots, names=None, preview=False):
+    """Extra build rows: the set looks of the game slots and, with preview, the preview slots and sets (their rows
+    are kind='calibration', so they bake into the scratch folder only)."""
+    names = names or {}
+    out = []
+
+    def row(slot, tier, gear_set, prev):
+        label = names.get(slot, slot.capitalize())
+        r = 'superRare' if tier == 'set' else 'legendary' if tier == 'ur' else tier
+        return dict(key=gear_key(slot, tier, gear_set), kind='calibration' if prev else 'gear',
+                    name=f"{label} ({gear_set + ' set' if gear_set else 'UR' if tier == 'ur' else tier})",
+                    category='gear', rarity=r, family=slot, tier='', display='ur' if tier == 'ur' else '',
+                    rainbow=tier == 'ur')
+    for gs, srow in GEAR_SETS.items():
+        if gs in GEAR_SLOT_ART or gs in GEAR_TIER_ORDER or not gs.isalnum() or gs != gs.lower():
+            raise ValueError(f'gear set id {gs!r}: [a-z0-9]+, never a slot or tier name')
+        if srow.get('preview') and not preview:
+            continue
+        for slot in GEAR_SLOT_ART:
+            if (slot in slots or preview) and (srow.get('preview') or slot in srow['slots']):
+                out.append(row(slot, 'set', gs, bool(srow.get('preview')) or slot not in slots))
+    if preview:
+        for slot in GEAR_SLOT_ART:
+            if slot not in slots:
+                out += [row(slot, t, None, True) for t in GEAR_TIER_ORDER]
+    return out
+
+
+def _gear_note(key):
+    g = gear_parse(key)
+    if not g or g[0] not in GEAR_SLOT_ART:
+        return ''
+    slot, tier, gs = g
+    d = gear_design(slot, gs)
+    extra = []
+    if d.get('shape') != GEAR_SLOT_ART[slot].get('shape'):
+        extra.append(f"{d['shape']} shape")
+    if d.get('motif'):
+        extra.append(f"{d['motif']} motif")
+    if d.get('body'):
+        extra.append(f"body {d['body']}")
+    if d.get('trim'):
+        extra.append(f"{d['trim']} trim")
+    tail = ', a drop bead' if GEAR_TIERS[tier]['drop'] and d['base'] != 'sneaker' else ''   # the sneaker draws none
+    return d['note'] + (' (' + ', '.join(extra) + ')' if extra else '') + '; ' + GEAR_TIERS[tier]['note'] + tail
 
 
 def note(key):
-    return NOTES.get(key, '')
+    return NOTES.get(key) or _gear_note(key)
 
 
 def table(rows, family, small_cut, shipped=()):

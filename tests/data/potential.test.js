@@ -212,18 +212,21 @@ describe('Potential v3 data: keys', () => {
     expect(Object.fromEntries(Object.entries(seen).map(([k, v]) => [k, [...v]]))).toEqual({ projScale: ['kage'], tempo: ['kage'], classMul: ['hotaru'], bossMul: ['kaede'], moveDowntime: ['kogane'], overdrive: ['kogane'], skillCount: ['norika'] });
   });
 
-  test('projScale only where every build is a projectile attack; echo only on projectile / beam / chain / pulse (a duel only at a share < 1; never traps)', () => {
+  // a Pinwheel Stream ('spin', src/sim/wheels.js; Kage's Blade Cyclone) is an attack like a volley: its
+  // shots carry projectiles × (1 + projScale) and a rhythm echo fires it once more
+  test('projScale only where every build is a projectile attack or a spin; echo only on projectile / beam / chain / pulse / spin / stream (a duel only at a share < 1; never traps)', () => {
     for (const u of UNITS) {
       const steps = potentialSteps(u);
       const echo = mergedProc(steps)?.echo;
       const scale = steps.some((s) => s.mods?.projScale);
       for (const b of builds(u)) {
         const s = resolveStats(u, { tiers: b.tiers, heroLevel: b.heroLevel, unitStats: { potential: 6 } });
-        if (scale) expect(s.behavior, `${u.id} ${b.label}`).toBe('projectile');
+        if (scale) expect(['projectile', 'spin'], `${u.id} ${b.label}`).toContain(s.behavior);
         if (echo == null) continue;
         expect(s.proc.of, u.id).not.toBe('trap');
         if (s.behavior === 'duel') expect(typeof echo === 'number' && echo < 1, `${u.id} ${b.label} duel echo`).toBe(true);
-        else expect(['projectile', 'beam', 'chain', 'pulse'], `${u.id} ${b.label}`).toContain(s.behavior);
+        // (a held stream, attack shapes S2: Akane's Hearth Stream takes her echo as one flare of the cone)
+        else expect(['projectile', 'beam', 'chain', 'pulse', 'spin', 'stream'], `${u.id} ${b.label}`).toContain(s.behavior);
       }
       for (const s of steps) {
         const e = s.mods?.proc?.echo;

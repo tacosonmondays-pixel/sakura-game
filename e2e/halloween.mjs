@@ -35,8 +35,9 @@ const T = 60000;
 const EV = 'halloween-2026';
 const CANDY = 'evt_halloween_candy';
 const OPEN_DAY = '2026-10-20T18:00:00Z'; // Tue Oct 20, 1 PM CDT (open at ship)
-const EXCHANGE = '2026-11-02T18:00:00Z'; // Mon Nov 2, noon CST: operations closed, exchange open
-const ENDED = '2026-11-09T18:00:00Z'; // Mon Nov 9: the exchange has closed
+// extended two weeks (owner, Oct 30): the operations close Sun Nov 15 and the exchange Sun Nov 22, 7 PM CST
+const EXCHANGE = '2026-11-16T18:00:00Z'; // Mon Nov 16, noon CST: operations closed, exchange open
+const ENDED = '2026-11-23T18:00:00Z'; // Mon Nov 23: the exchange has closed
 
 let page;
 let tag = '';

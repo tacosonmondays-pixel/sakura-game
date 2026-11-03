@@ -2,6 +2,7 @@
 // unitBattleStats like awakenPassive), team effects (auras, Moonfall) help the partner's girls, the
 // coins a Potential step earns (harvest, bounty aura) are pooled and split like every coin, and both
 // clients still agree on every hash (v3 §6.3, §13.3).
+import { POWER } from '../../src/data/balance.js';
 import { describe, it, expect } from 'vitest';
 import { createCoopSim, quantize } from '../../src/online/coop/commands.js';
 import { withDetMath } from '../../src/online/coop/detMath.js';
@@ -118,7 +119,8 @@ describe('co-op: the same girl at two Potentials', () => {
     B.step();
     expect(gk.buffBy.dmg).toBe(miko.uid);
     expect(gk.buff.dmgMul).toBeCloseTo(miko.stats.aura.dmgMul, 12);
-    expect(miko.stats.aura.dmgMul).toBeCloseTo(1.1 * 1.03 ** 5, 12);
+    // (× her balance round 5 row, src/data/balance.js: `buff` grows the bonus part)
+    expect(miko.stats.aura.dmgMul).toBeCloseTo(1 + (1.1 * 1.03 ** 5 - 1) * (POWER.miko?.buff ?? 1), 12);
     expect(A.hash()).toBe(B.hash());
     // Luna P6's Moonfall (her own steps: +0.05 and +0.05 haste on its rate bonus) reaches the guest's girls too
     for (const c of [A, B]) {

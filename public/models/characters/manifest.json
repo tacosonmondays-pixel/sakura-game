@@ -292,20 +292,21 @@
  },
  "kanna": {
   "file": "kanna.glb",
-  "size": 463576,
+  "size": 787504,
   "animations": [
    "attack_smash",
    "cheer",
    "hurt",
    "idle",
-   "pickup",
-   "victory",
    "walk"
   ],
-  "vertices": 9494,
+  "vertices": 18581,
+  "triangles": 19999,
+  "source": "tripo",
   "lod": "kanna.lod.glb",
-  "lodSize": 235908,
-  "lodVertices": 3146
+  "lodSize": 422832,
+  "lodVertices": 10093,
+  "lodTriangles": 9000
  },
  "kinu": {
   "file": "kinu.glb",
@@ -323,6 +324,23 @@
   "lod": "kinu.lod.glb",
   "lodSize": 204968,
   "lodVertices": 2844
+ },
+ "kogane": {
+  "file": "kogane.glb",
+  "size": 484596,
+  "animations": [
+   "attack_wrench",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 10014,
+  "lod": "kogane.lod.glb",
+  "lodSize": 239684,
+  "lodVertices": 3570
  },
  "kohaku": {
   "file": "kohaku.glb",
@@ -345,20 +363,21 @@
  },
  "luna": {
   "file": "luna.glb",
-  "size": 454356,
+  "size": 748380,
   "animations": [
    "attack_cast",
    "cheer",
    "hurt",
    "idle",
-   "pickup",
-   "victory",
    "walk"
   ],
-  "vertices": 9380,
+  "vertices": 18786,
+  "triangles": 19999,
+  "source": "tripo",
   "lod": "luna.lod.glb",
-  "lodSize": 226668,
-  "lodVertices": 3048
+  "lodSize": 408812,
+  "lodVertices": 10287,
+  "lodTriangles": 9000
  },
  "marumi": {
   "file": "marumi.glb",
@@ -430,20 +449,21 @@
  },
  "nami": {
   "file": "nami.glb",
-  "size": 432652,
+  "size": 777544,
   "animations": [
    "attack_thrust",
    "cheer",
    "hurt",
    "idle",
-   "pickup",
-   "victory",
    "walk"
   ],
-  "vertices": 8840,
+  "vertices": 18618,
+  "triangles": 20000,
+  "source": "tripo",
   "lod": "nami.lod.glb",
-  "lodSize": 219608,
-  "lodVertices": 2915
+  "lodSize": 410916,
+  "lodVertices": 10179,
+  "lodTriangles": 8999
  },
  "noa": {
   "file": "noa.glb",
@@ -462,6 +482,23 @@
   "lodSize": 570536,
   "lodVertices": 9341,
   "lodTriangles": 8995
+ },
+ "norika": {
+  "file": "norika.glb",
+  "size": 485284,
+  "animations": [
+   "attack_sign",
+   "cheer",
+   "hurt",
+   "idle",
+   "pickup",
+   "victory",
+   "walk"
+  ],
+  "vertices": 9748,
+  "lod": "norika.lod.glb",
+  "lodSize": 242040,
+  "lodVertices": 3392
  },
  "ouka": {
   "file": "ouka.glb",
@@ -931,20 +968,21 @@
  },
  "yoriko": {
   "file": "yoriko.glb",
-  "size": 417072,
+  "size": 702336,
   "animations": [
    "attack_cast",
    "cheer",
    "hurt",
    "idle",
-   "pickup",
-   "victory",
    "walk"
   ],
-  "vertices": 8186,
+  "vertices": 17673,
+  "triangles": 19999,
+  "source": "tripo",
   "lod": "yoriko.lod.glb",
-  "lodSize": 221764,
-  "lodVertices": 2745
+  "lodSize": 376300,
+  "lodVertices": 9580,
+  "lodTriangles": 8999
  },
  "yuki": {
   "file": "yuki.glb",

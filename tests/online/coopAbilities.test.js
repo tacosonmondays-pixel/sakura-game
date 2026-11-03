@@ -3,6 +3,7 @@
 // wallet after every command and step, a manual cast's kill coins pooled and split like an auto-cast's
 // (spec §7.1), the start message's `autoAbil`, the hash folding ability state
 // only once an ability was cast or switched to Auto, and both views computing the same battle.
+import { POWER } from '../../src/data/balance.js';
 import { describe, it, expect } from 'vitest';
 import { createCoopSim, isValidCmd, KINDS, quantize, abilArgs } from '../../src/online/coop/commands.js';
 import { hashSim, createHasher } from '../../src/online/coop/simHash.js';
@@ -10,6 +11,7 @@ import { withDetMath } from '../../src/online/coop/detMath.js';
 import { rederiveStats } from '../../src/online/coop/lockstep.js';
 import { abilityPathOf, abilityReach, abilityDef } from '../../src/sim/abilities.js';
 import { UNIT_MAP } from '../../src/data/units.js';
+import { samplePath, pointAt } from '../../src/sim/path.js';
 import { abilityCommandArgs } from '../../src/ui/battle/abilityBar.js';
 
 const start = ({ p0 = {}, p1 = {}, seed = 2025, stageId = '2-5' } = {}) => ({
@@ -21,6 +23,10 @@ const start = ({ p0 = {}, p1 = {}, seed = 2025, stageId = '2-5' } = {}) => ({
     { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'momo' }, { unitId: 'aoi' }, { unitId: 'miko' }], hero: null, ...p1 },
   ],
 });
+
+/** A loadout entry with her balance round 5 damage row divided back out (src/data/balance.js; co-op stats keep only
+ *  known keys, so `powerOff` cannot travel): waves last as long as these scenarios were built for. */
+const neutral = (unitId, stats = {}) => ({ unitId, stats: { ...stats, damageMul: (stats.damageMul ?? 1) / (POWER[unitId]?.dmg ?? 1) } });
 
 let seq = 0;
 const cmd = (p, k, a = [], t = 0) => ({ t, p, s: seq++, k, a });
@@ -103,6 +109,30 @@ function place(cs, slot, unitId, skip = 0) {
 function placeNear(cs, slot, unitId, near) {
   const o = cs[0].sim.getTower(near);
   const d2 = (q) => (q[0] / 1024 - o.x) * (q[0] / 1024 - o.x) + (q[1] / 1024 - o.y) * (q[1] / 1024 - o.y);
+  for (const q of candidates(cs[0], unitId).sort((p, r) => d2(p) - d2(r))) {
+    const r = all(cs, cmd(slot, 'place', [unitId, ...q]));
+    if (r.ok) return r.tower.uid;
+  }
+  throw new Error(`no spot for ${unitId}`);
+}
+/**
+ * Places a girl for `slot` at the legal spot nearest the road point `by` tiles further down the road (the way enemies
+ * walk) from the road point nearest girl `near`: her reach then starts about at `near`, so the enemies she kills fall
+ * around `near`, whatever her damage.
+ */
+function placeDownRoad(cs, slot, unitId, near, by) {
+  const sim = cs[0].sim;
+  const o = sim.getTower(near);
+  let best = null;
+  sim.pathData.forEach((path, i) => {
+    for (const q of samplePath(path, 0.25)) {
+      const d2 = (q.x - o.x) ** 2 + (q.y - o.y) ** 2;
+      if (!best || d2 < best.d2) best = { d2, i, d: q.d };
+    }
+  });
+  const path = sim.pathData[best.i];
+  const at = pointAt(path, Math.min(path.length, best.d + by), {});
+  const d2 = (q) => (q[0] / 1024 - at.x) ** 2 + (q[1] / 1024 - at.y) ** 2;
   for (const q of candidates(cs[0], unitId).sort((p, r) => d2(p) - d2(r))) {
     const r = all(cs, cmd(slot, 'place', [unitId, ...q]));
     if (r.ok) return r.tower.uid;
@@ -349,13 +379,14 @@ describe('owner-credited coins (spec §7.1, §7.4)', () => {
       for (const c of cs) expect(c.sim.ownerCash).toEqual([0, 0]);
       const paid = [0, 0];
       for (const e of cs[0].sim.events) if (e.type === 'cash' && e.reason === 'ability') paid[e.owner] += e.amount;
-      rows.push({ d: [w1[0] - w0[0], w1[1] - w0[1]], paid });
+      rows.push({ d: [w1[0] - w0[0], w1[1] - w0[1]], paid, tick: cs[0].tick });
     }
     return rows;
   }
 
   it('every Market Day, auto or manual, lands in her owner\'s wallet only; both views agree; still so with the other player gone', () => {
-    const cs = views(start(), { coins: 20000 });
+    // (power-neutral: the raised Aoi would clear the three waves before Momo's second Market Day)
+    const cs = views(start({ p0: { loadout: [neutral('aoi'), neutral('hotaru'), neutral('akane')] } }), { coins: 20000 });
     const momo = upAbil(cs, 1, place(cs, 1, 'momo'));
     upAbil(cs, 0, place(cs, 0, 'aoi')); // abilities of his own, never cast (no Auto)
     upAbil(cs, 0, place(cs, 0, 'akane'));
@@ -382,16 +413,18 @@ describe('owner-credited coins (spec §7.1, §7.4)', () => {
     expect(cs[1].wallets).toEqual(cs[0].wallets);
     for (const c of cs) expect(c.sim.ownerCash).toEqual([0, 0]);
 
-    // he is gone: the pooled coins go to her alone, his wallet stays, her own Market Days stay hers
+    // he is gone: the pooled coins go to her alone, his wallet stays for the grace (then it is split to her: co-op
+    // sharing, docs/specs/COOP_SHARING.md), her own Market Days stay hers
     expect(all(cs, cmd(1, 'acast', [momo, 1]))).toEqual({ ok: true });
     all(cs, { t: 0, p: 0, s: seq++, k: 'gone', a: [] });
     const frozen = cs[0].wallets[0];
+    const dealAt = cs[0].pendingDeals()[0].at;
     const gone = [];
     const target = cs[0].sim.wavesCleared + 2;
-    while (cs[0].sim.wavesCleared < target && cs[0].sim.state !== 'lost') gone.push(...track(cs, 120));
+    while ((cs[0].sim.wavesCleared < target || cs[0].tick <= dealAt + 1) && cs[0].sim.state !== 'lost') gone.push(...track(cs, 120));
     expect(gone.some((r) => r.paid[1] > 0)).toBe(true);
-    expect(cs[0].wallets[0]).toBe(frozen);
-    for (const r of gone) expect(r.d[0]).toBe(0);
+    expect(cs[0].wallets[0]).toBe(0);
+    for (const r of gone) expect(r.d[0]).toBe(r.tick === dealAt + 1 ? -frozen : 0);
     expect(cs[0].hash()).toBe(cs[1].hash());
   }, 120000);
 
@@ -440,19 +473,32 @@ describe('owner-credited coins (spec §7.1, §7.4)', () => {
     expect(d).toEqual([bounty, 0]);
   }, 120000);
 
-  it('his own Market Day while he is gone stays his (owner-credited, kept for his rejoin)', () => {
+  it('his own Market Day while he is gone stays his for the grace (owner-credited); handed out, it is the receiver\'s', () => {
     const cs = views(start({ p0: { loadout: [{ unitId: 'momo' }, { unitId: 'aoi' }] } }), { coins: 20000 });
     const his = upAbil(cs, 0, place(cs, 0, 'momo'));
     place(cs, 1, 'aoi');
     place(cs, 1, 'miko');
-    all(cs, cmd(0, 'acast', [his, 1]));
-    all(cs, { t: 0, p: 0, s: seq++, k: 'gone', a: [] });
     all(cs, cmd(1, 'auto', [true]));
     all(cs, cmd(1, 'wave'));
+    // (he leaves with her Market Day ready, so one fires inside his 20 s grace)
+    stepUntil(cs, (c) => c.sim.state === 'wave' && c.sim.abilityStatus(his).ready);
+    all(cs, { t: 0, p: 0, s: seq++, k: 'gone', a: [] });
+    const dealAt = cs[0].pendingDeals()[0].at;
+    all(cs, cmd(0, 'acast', [his, 1]));
     const rows = [];
-    while (cs[0].sim.wavesCleared < 2) rows.push(...track(cs, 120));
-    expect(rows.some((r) => r.paid[0] > 0)).toBe(true);
-    for (const r of rows) expect(r.d[0]).toBe(r.paid[0]);
+    while (cs[0].sim.wavesCleared < 2 || cs[0].tick <= dealAt + 600) rows.push(...track(cs, 120));
+    const grace = rows.filter((r) => r.tick <= dealAt);
+    const after = rows.filter((r) => r.tick > dealAt + 1);
+    // in the grace: his Market Days land in his wallet, and only those
+    expect(grace.some((r) => r.paid[0] > 0)).toBe(true);
+    for (const r of grace) expect(r.d[0]).toBe(r.paid[0]);
+    // handed out: Momo is hers to command, so her Market Days are the receiver's (ctrlOf, src/sim/ctrl.js); his wallet stays 0
+    for (const c of cs) expect(c.ctrlOf(his)).toBe(1);
+    expect(after.some((r) => r.paid[1] > 0)).toBe(true);
+    for (const r of after) {
+      expect(r.paid[0]).toBe(0);
+      expect(r.d[0]).toBe(0);
+    }
   }, 120000);
 });
 
@@ -673,18 +719,32 @@ describe('the M2 sim fixes in co-op: strip and sentry crits, First Bell, Ouka\'s
 
 describe('the returning girls in co-op (A3 M3)', () => {
   it('Kaze\'s Swoop (map) and First Aid Call (lives) through abil on two views: equal hashes, every life restored once on both', () => {
-    const STRONG = { damageMul: 6, rateMul: 1.3 };
+    // (power-neutral: the girls' balance round 5 rows divided back out, and ÷1.1 for Noa's raised aura (her `buff`).
+    // Laid out so it does not hang on how hard anyone hits (review r1 L5 of Ena's spreading curse: with every girl
+    // beside Noa the wave died 3.5–4 tiles up the road, just outside her 3-tile lifeRadius, and only one damage value
+    // still gave a life): the strikers stand DOWN_ROAD tiles down the road from her, so the wave dies around her, and
+    // her call waits for NOA_CROWD enemies inside her 3 tiles, not only for its charge. Measured: lives come back at
+    // every damageMul from 3 to 10 (3, 3.5, 4, 5, 6 / 1.1, 7, 8, 10; 2 is too weak to kill 10 in one call).)
+    const STRONG = { damageMul: 6 / 1.1, rateMul: 1.3 };
+    const DOWN_ROAD = 1.5;
+    const NOA_CROWD = 10;
+    const crowdNear = (sim, uid) => {
+      const t = sim.getTower(uid);
+      return sim.enemies.filter((e) => !e.dead && !e.hidden && (e.x - t.x) ** 2 + (e.y - t.y) ** 2 <= 9).length;
+    };
     const st = start({
       stageId: '8-1',
-      p0: { loadout: [{ unitId: 'noa' }, { unitId: 'hana', stats: STRONG }, { unitId: 'aoi', stats: STRONG }], hero: null },
-      p1: { loadout: [{ unitId: 'ena', stats: STRONG }, { unitId: 'aoi', stats: STRONG }], hero: null },
+      p0: { loadout: [{ unitId: 'noa' }, neutral('hana', STRONG), neutral('aoi', STRONG)], hero: null },
+      p1: { loadout: [neutral('ena', STRONG), neutral('aoi', STRONG)], hero: null },
     });
     const cs = views(st);
     const noa = upAbil(cs, 0, place(cs, 0, 'noa'));
-    const hana = upAbil(cs, 0, placeNear(cs, 0, 'hana', noa));
-    placeNear(cs, 0, 'aoi', noa);
-    const ena = upAbil(cs, 1, placeNear(cs, 1, 'ena', noa));
-    placeNear(cs, 1, 'aoi', noa); // the partner's girls kill near Noa too: their kills count
+    // the strikers stand DOWN_ROAD tiles down the road from Noa, so the wave dies around her (inside her 3-tile
+    // lifeRadius) however hard they hit
+    const hana = upAbil(cs, 0, placeDownRoad(cs, 0, 'hana', noa, DOWN_ROAD));
+    placeDownRoad(cs, 0, 'aoi', noa, DOWN_ROAD);
+    const ena = upAbil(cs, 1, placeDownRoad(cs, 1, 'ena', noa, DOWN_ROAD));
+    placeDownRoad(cs, 1, 'aoi', noa, DOWN_ROAD); // the partner's girls kill near Noa too: their kills count
     // lives down so they can come back (the same on both views: the hash folds them)
     for (const c of cs) c.sim.lives = c.sim.maxLives - 12;
     expect(cs[0].hash()).toBe(cs[1].hash());
@@ -692,20 +752,36 @@ describe('the returning girls in co-op (A3 M3)', () => {
     all(cs, cmd(0, 'wave'));
     const seen = [[], []];
     const casts = [{}, {}];
+    // per First Aid Call (host view): the lives its kills brought back (events after that cast, before the next one;
+    // her calls never overlap: 50 s cooldown, 10 s long) and every life rally record the sim kept
+    const perCall = [];
+    const rallies = new Set();
     let checks = 0;
     // (until a few lives came back after wave 4, or wave 20: a life needs 10 kills within 3 tiles of Noa in one rally)
     const done = (s) => (s.wavesCleared >= 4 && seen[0].length >= 2) || s.wavesCleared >= 20 || ['won', 'lost'].includes(s.state);
     for (let i = 0; i < 200000 && !done(cs[0].sim); i++) {
       if (i % 10 === 0) {
-        for (const [slot, uid] of [[0, noa], [0, hana], [1, ena]]) if (cs[0].sim.abilityStatus(uid).ready) all(cs, cmd(slot, 'abil', abilArgs(uid)));
+        for (const [slot, uid] of [[0, noa], [0, hana], [1, ena]]) {
+          if (!cs[0].sim.abilityStatus(uid).ready) continue;
+          // Noa's call waits for a crowd inside her lifeRadius (the kills it counts), not just for its charge
+          if (uid === noa && crowdNear(cs[0].sim, noa) < NOA_CROWD) continue;
+          all(cs, cmd(slot, 'abil', abilArgs(uid)));
+        }
       }
       step(cs);
       cs.forEach((c, v) => {
         for (const ev of c.sim.drainEvents()) {
-          if (ev.type === 'lifeRestored') seen[v].push(`${ev.towerUid}:${ev.lives}:${ev.id}`);
-          if (ev.type === 'ability') casts[v][ev.id] = (casts[v][ev.id] || 0) + 1;
+          if (ev.type === 'lifeRestored') {
+            seen[v].push(`${ev.towerUid}:${ev.lives}:${ev.id}`);
+            if (v === 0) perCall[perCall.length - 1]++;
+          }
+          if (ev.type === 'ability') {
+            casts[v][ev.id] = (casts[v][ev.id] || 0) + 1;
+            if (v === 0 && ev.id === 'noa.firstAid') perCall.push(0);
+          }
         }
       });
+      for (const r of cs[0].sim._rallies) if (r.life) rallies.add(r);
       if (i % 120 === 0) {
         expect(cs[1].hash(), `tick ${i}`).toBe(cs[0].hash());
         checks++;
@@ -721,8 +797,13 @@ describe('the returning girls in co-op (A3 M3)', () => {
     expect(seen[0].length).toBeGreaterThan(0);
     expect(seen[1]).toEqual(seen[0]);
     for (const s of seen[0]) expect(s).toMatch(new RegExp(`^${noa}:\\d+:noa\\.firstAid$`));
-    const lives = seen[0].map((s) => Number(s.split(':')[1]));
-    for (let k = 1; k < lives.length; k++) expect(lives[k]).not.toBe(lives[k - 1]); // never the same life twice
+    // each life counted once: never more than a call's lifeMax from one call, and exactly the lives the rallies gave
+    const max = abilityDef(cs[0].sim.getTower(noa)).effect.lifeMax;
+    expect(perCall).toHaveLength(casts[0]['noa.firstAid']);
+    for (const n of perCall) expect(n).toBeLessThanOrEqual(max);
+    expect(rallies.size).toBe(casts[0]['noa.firstAid']);
+    for (const r of rallies) expect(r.life.given).toBeLessThanOrEqual(r.life.max);
+    expect(seen[0].length).toBe([...rallies].reduce((a, r) => a + r.life.given, 0));
     expect(cs[1].sim.lives).toBe(cs[0].sim.lives);
   }, 240000);
 

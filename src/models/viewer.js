@@ -227,6 +227,8 @@ export function createModelViewer(container, { background = null, autoRotate = t
       shadowTex.dispose();
       bgTexture?.dispose();
       renderer.dispose();
+      // give the WebGL context back now rather than at GC: browsers cap live contexts (review r2 I1)
+      try { renderer.forceContextLoss(); } catch { /* already lost */ }
       canvas.remove();
     },
   };

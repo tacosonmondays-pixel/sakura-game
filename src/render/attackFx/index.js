@@ -6,7 +6,7 @@
 //
 // Hooks (BattleRenderer / actors):
 //   onEvent(ev, i, events) → true = handled (skip the renderer's default effect)
-//   projectile(p, dt)      → reused view {kind,x,y,z,scale,sz,tint,glow,yaw,skip} or null
+//   projectile(p, dt)      → reused view {kind,x,y,z,scale,sz,tint,glow,yaw,skip,ownTrail} or null
 //   towerOffset(uid)       → shared {x, z} model offset (lunge / recoil)
 //   trapHidden(uid)        → true while a tossed seal is still in the air
 //   update(dt, frameDt)    → once per frame after actors.drawGround (dt: the renderer's visual
@@ -20,6 +20,8 @@ import { Segments } from './patterns/segments.js';
 import { Drones } from './patterns/drones.js';
 import { Lunges } from './patterns/lunge.js';
 import { Tosses } from './patterns/toss.js';
+import { drawHeld } from './patterns/held.js';
+import { drawS5Held } from './patterns/s5held.js';
 import { Lobs } from './patterns/lobs.js';
 import { hitRadius } from '../../sim/towers.js';
 import { heroLookTiers } from '../../sim/hero.js';
@@ -94,8 +96,9 @@ export function createAttackFx(o) {
   const recFree = [];
   const hits = new EventRing(64);
   const explodes = new EventRing(64);
-  const pv = { kind: 'arrow', x: 0, y: 0, z: 0, scale: 1, sz: 1, tint: 0, glow: -1, yaw: NaN, roll: NaN, skip: false, k: 0 };
+  const pv = { kind: 'arrow', x: 0, y: 0, z: 0, scale: 1, sz: 1, tint: 0, glow: -1, yaw: NaN, roll: NaN, skip: false, ownTrail: false, k: 0 };
   const simPos = { x: 0, y: 0, z: 0 };
+  const tip = { x: 0, y: 0, h: 0, dx: 0, dy: 0, dh: 0, kind: null };
 
   // ---- stats ---------------------------------------------------------------------------------
   const stats = {
@@ -275,7 +278,8 @@ export function createAttackFx(o) {
       rec.ownerUid = p.ownerUid;
       rec.turretUid = p.turretUid ?? null;
       rec.kind = p.kind;
-      rec.splash = p.splash || 0;
+      // (an Iroha bolt on its mirror route holds its landing splash in fsplash until its last bounce: src/sim/mirrors.js)
+      rec.splash = p.splash || p.fsplash || 0;
       rec.speed = p.speed || 10;
       rec.targetUid = p.target ? p.target.uid : null;
       rec.bend = 0;
@@ -341,6 +345,19 @@ export function createAttackFx(o) {
             } finally {
               ctx.inOrigin = false;
             }
+          } else {
+            // no origin of her own (the generic look): an armed girl's shot still leaves her weapon's tip
+            ctx.inOrigin = true;
+            try {
+              if (ctx.muzzle(t, tip)) {
+                rec.mx = tip.x;
+                rec.my = tip.y;
+                rec.mz = tip.h;
+                rec.blended = true;
+              }
+            } finally {
+              ctx.inOrigin = false;
+            }
           }
           // a girl on a rooftop (Gate Arc 'U'): the shot leaves from her lifted height and blends
           // down to the sim's own height by f' = 0.6 (display only; the sim's z is untouched)
@@ -378,6 +395,7 @@ export function createAttackFx(o) {
     pv.yaw = NaN;
     pv.roll = NaN;
     pv.skip = false;
+    pv.ownTrail = false; // (a style that draws its own trail sets it: the styled ribbon, src/render/vfx/trails.js, skips the shot)
     let nx = 0;
     let ny = 0;
     if (rec.bend) {
@@ -396,7 +414,7 @@ export function createAttackFx(o) {
       if (res > stats.maxBlendResidual) stats.maxBlendResidual = res;
     }
     msAcc += now() - t0;
-    const touched = rec.blended || rec.bump || rec.bend || (st && st.view) || pv.tint || pv.glow >= 0 || pv.skip;
+    const touched = rec.blended || rec.bump || rec.bend || (st && st.view) || pv.tint || pv.glow >= 0 || pv.skip || pv.ownTrail;
     return touched ? pv : null;
   }
 
@@ -430,6 +448,10 @@ export function createAttackFx(o) {
       tw.seen = frame;
       refreshLook(tw, t);
       if (tw.style.update) tw.style.update(gdt, tw, view(t), ctx);
+      // a held attack shape's channel (attack shapes S2, src/sim/held.js): the plain look, read from the sim
+      if (t.ch) drawHeld(ctx, view(t));
+      // the S5b held shapes (src/sim/s5shapes.js): Midori's Spore Mist, Luna's moonbeam
+      if (t.mist || t.moon) drawS5Held(ctx, view(t));
     }
     for (let i = twList.length - 1; i >= 0; i--) {
       const tw = twList[i];
@@ -552,7 +574,7 @@ export function createAttackFx(o) {
     /** Snapshot for e2e probes (allocates — dev tooling only). */
     probe() {
       const blends = [];
-      for (const rec of recList) blends.push({ uid: rec.uid, f: rec.f, turret: rec.turretUid, blended: rec.blended });
+      for (const rec of recList) blends.push({ uid: rec.uid, owner: rec.ownerUid, f: rec.f, turret: rec.turretUid, blended: rec.blended, m: [rec.mx, rec.my, rec.mz] });
       // (a style's own readout: Kohaku's constant beams, src/render/attackFx/styles/kohaku_tsubaki.js)
       const styles = {};
       for (const tw of twList) if (tw.style.probe) styles[tw.uid] = tw.style.probe(tw);

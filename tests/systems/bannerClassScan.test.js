@@ -23,6 +23,7 @@ const ALLOW = new Set([
   'src/ui/rarity.js', // the UR look
   'src/ui/screens/backpack.js', // the how-to-get line: unitClass first
   'src/ui/screens/recruit.js', // the reveal's SSR moment
+  'src/ui/recruit/plan.js', // the recruit cinematic: which results get a full-screen reveal (LR told apart by unitClass)
 ]);
 
 function walk(dir, out = []) {

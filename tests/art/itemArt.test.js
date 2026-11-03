@@ -8,12 +8,19 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ITEM_ART, ITEM_ART_SMALL } from '../../src/art/itemArt.js';
 import { ITEMS } from '../../src/data/items.js';
-import { GEAR_SLOTS, ITEM_RARITY_ORDER } from '../../src/data/types.js';
+import { ITEM_RARITY_ORDER } from '../../src/data/types.js';
+import { SLOT_IDS, GEAR_SLOT_DEFS } from '../../src/data/gearSlots.js';
+import { SET_IDS } from '../../src/data/gearSets.js';
+
+/** Every gear slot (the classic three and the Hair Clip and Necklace). */
+const GEAR_SLOTS = Object.fromEntries(SLOT_IDS.map((s) => [s, GEAR_SLOT_DEFS[s]]));
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dir = path.join(here, '..', '..', 'public', 'art', 'items');
 const CAP = { 256: 20 * 1024, 128: 9 * 1024, small: 5 * 1024 };
-const TOTAL_CAP = 2.2 * 1024 * 1024;
+// 3.2 MB since the gear sets got their 30 looks and the 42 Set Boxes their own art (Oct 31; was 2.2 MB): re-encoding the
+// committed WebPs could not get under 2.2 MB without visible loss (q80 still 2.45 MB), so the cap keeps ~300 KB of headroom
+const TOTAL_CAP = 3.2 * 1024 * 1024;
 const PX = { 256: 256, 128: 128, small: 96 };
 
 const ART_KEYS = new Set([
@@ -21,6 +28,13 @@ const ART_KEYS = new Set([
   ...Object.keys(GEAR_SLOTS).flatMap((s) => [...ITEM_RARITY_ORDER.map((r) => `gear_${s}_${r}`), `gear_${s}_ur`]),
   'recruitPoints',
 ]);
+
+// A set look is gear_<set>_<slot> (SET_IDS of src/data/gearSets.js): one per set and slot, rarity on the tile. Never
+// keyed by club.
+const isSetKey = (k) => {
+  const m = /^gear_([a-z0-9]+)_([a-z]+)$/.exec(k);
+  return Boolean(m && SET_IDS.includes(m[1]) && GEAR_SLOTS[m[2]]);
+};
 
 const file = (key, size) => path.join(dir, `${key}-${size}.webp`);
 
@@ -44,9 +58,10 @@ const sha8 = (paths) => {
 };
 
 describe('item art', () => {
-  it('every manifest key is an item id, a gear key or recruitPoints', () => {
+  it('every manifest key is an item id, a gear key (or a gear set look) or recruitPoints', () => {
+    for (const id of SET_IDS) expect(GEAR_SLOTS[id] || ITEM_RARITY_ORDER.includes(id) || id === 'ur', id).toBeFalsy();
     expect(Object.keys(ITEM_ART).length).toBeGreaterThan(0);
-    for (const k of Object.keys(ITEM_ART)) expect(ART_KEYS.has(k), k).toBe(true);
+    for (const k of Object.keys(ITEM_ART)) expect(ART_KEYS.has(k) || isSetKey(k), k).toBe(true);
     for (const k of Object.keys(ITEM_ART_SMALL)) expect(ITEM_ART[k], `${k} small cut without full art`).toBeTruthy();
   });
 

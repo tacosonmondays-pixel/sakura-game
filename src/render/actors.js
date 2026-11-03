@@ -9,10 +9,14 @@ import { facesCamera, cameraFacing } from './facing.js';
 import { FIELD_COLORS, fxColor } from './themes.js';
 import { WATER_Y, PATH_H } from './terrain.js';
 import { scissorPos } from '../sim/rings.js';
+import { haloPos } from '../sim/wheels.js';
+import { drawGroundShapes } from './groundShapes.js';
+import { drawLinkShapes } from './linkShapes.js';
 import { pointAt } from '../sim/path.js';
-import { STEP } from '../sim/constants.js';
+import { STEP, HALO_REACH, HALO_MAX } from '../sim/constants.js';
 import { costumeFor, enemyExtraFor, buildCostume, COSTUME_SLOT } from './costumes.js';
 import { headTunnel } from './trackMesh.js';
+import { PathLooks, PATH_COLORS } from './pathLooks/index.js';
 
 const TAU = Math.PI * 2;
 /** Drones drawn at most (two co-op players with Chika lines at Sentry 5: 9–12 each). */
@@ -31,11 +35,22 @@ const SQUASH_Y = 0.24;
 const SQUASH_XZ = 0.16;
 const SQUASH_LEN = 0.32;
 const SQUASH_RETRIGGER = 0.09;
+// a monster with a face made of geometry (glbEnemy userData.rigidFace: the Green Slime, the Goblin Runner) pops
+// evenly instead: squashing the whole model would squash its eyes too (its own hit clip squashes its body under them)
+const SQUASH_RIGID = 0.07;
+
+/** The hit squash on an enemy model: f = the damped wobble (0 = none, 1 = deepest). */
+function squashModel(m, base, f) {
+  if (m.userData.rigidFace) m.scale.setScalar(base * (1 - SQUASH_RIGID * f));
+  else m.scale.set(base * (1 + SQUASH_XZ * f), base * (1 - SQUASH_Y * f), base * (1 + SQUASH_XZ * f));
+}
 /** Animation options of a monster standing still (death clips, held frames). */
 const STILL = Object.freeze({ moving: false, speed: 1 });
 
 const STATUS_ICONS = {
-  burn: ['st_burn', '#ff8a4a'], poison: ['st_poison', '#7be08a'], freeze: ['st_freeze', '#bff0ff'], slow: ['st_slow', '#8fe3ff'],
+  burn: ['st_burn', '#ff8a4a'], poison: ['st_poison', '#7be08a'],
+  // Midori's Spore Mist (attack shapes S5b): the poison icon; one icon when an enemy has both
+  spore: ['st_poison', '#a8e05f'], freeze: ['st_freeze', '#bff0ff'], slow: ['st_slow', '#8fe3ff'],
   shock: ['st_shock', '#ffe45c'], stun: ['st_stun', '#ffd84d'], shred: ['st_shred', '#d0d6e2'], mark: ['st_mark', '#ff6b8b'],
   vulnerable: ['st_mark', '#9fd8ff'], silence: ['st_silence', '#c4a6ff'], reveal: ['st_reveal', '#ffe066'], soak: ['st_soak', '#4cc9f0'],
   // roster B3: Ena's curse (bursts on death), Yoriko's hex, grounded flyers
@@ -43,9 +58,7 @@ const STATUS_ICONS = {
   // Chigusa's vines
   hold: ['st_hold', '#6fcf5e'],
 };
-const STATUS_ORDER = ['freeze', 'stun', 'shock', 'hold', 'curse', 'hex', 'ground', 'burn', 'poison', 'slow', 'shred', 'mark', 'vulnerable', 'silence', 'reveal', 'soak'];
-const TIER_RING = [null, null, null, '#6fb8ff', '#c08bff', '#ffd84d'];
-const PATH_COLORS = ['#ff6b8b', '#4cc9f0', '#ffd43b'];
+const STATUS_ORDER = ['freeze', 'stun', 'shock', 'hold', 'curse', 'hex', 'ground', 'burn', 'poison', 'spore', 'slow', 'shred', 'mark', 'vulnerable', 'silence', 'reveal', 'soak'];
 const WHITE = new THREE.Color('#ffffff');
 const _box = new THREE.Box3();
 const colorCache = new Map();
@@ -96,11 +109,17 @@ function projectileGeometries() {
     .finish();
   g.bolt = b().add(new THREE.OctahedronGeometry(0.08, 0), { sz: 2.8, color: '#ffffff' }).finish();
   g.spark = b().add(new THREE.OctahedronGeometry(0.07, 0), { color: '#ffffff' }).finish();
+  // attack shapes S5a (plain look): Miko's paper charm (a white slip with a red band) and Rei's crescent of air
+  g.charm = b()
+    .box(0.07, 0.012, 0.14, { color: '#fffaf0' })
+    .box(0.072, 0.014, 0.025, { z: 0.035, color: '#d0384a' })
+    .finish();
+  g.crescent = b().torus(0.17, 0.03, 4, 12, { arc: Math.PI * 1.2, rx: Math.PI / 2, color: '#ffd6e6' }).finish(); // an open arc
   return g;
 }
 
 const GLOW_KINDS = { orb: 0.42, fireball: 0.6, bolt: 0.45, spark: 0.5, bullet: 0.22, needle: 0.2 };
-const SPIN_KINDS = { shuriken: 18, flask: 9, shell: 4 };
+const SPIN_KINDS = { shuriken: 18, flask: 9, shell: 4, charm: 7, crescent: 12 };
 const TINT_KINDS = { orb: true, bolt: true, spark: true, bullet: true, needle: true, fireball: true };
 
 // ---------------------------------------------------------------------------
@@ -139,7 +158,11 @@ export class Actors {
     this.victory = false;
     /** seeded render-only randomness (the renderer hands its own fork: src/render/vfx/random.js) */
     this.rand = createVisualRandom(visualSeed('actors'));
+    // what each girl's model shows of her upgrade paths (pips, hand glows, socketed pieces, T5 aura): display only
+    this.pathLooks = new PathLooks({ quality, rand: this.rand });
     this.fxHook = null; // attack FX (render/attackFx): projectile views, drones, lunges, tossed traps
+    this.trails = null; // styled projectile trails (src/render/vfx/trails.js), set by the renderer
+    this.vfxError = null; // the renderer's switch-off for the styled effects (an error in them)
     this.cameraYaw = 0; // the battle camera's yaw (BattleRenderer sets it each frame): figures that face it (facing.js)
     this._c = new THREE.Color();
     this._tint = new THREE.Color();
@@ -192,6 +215,7 @@ export class Actors {
   setQuality(q) {
     if (q === this.quality) return;
     this.quality = q;
+    this.pathLooks.setQuality(q);
     // rebuild every model at the new detail level
     for (const v of this.towers.values()) this._disposeView(v);
     for (const v of this.enemies.values()) this._disposeView(v);
@@ -203,14 +227,16 @@ export class Actors {
 
   setShadows(on) {
     this.shadows = on;
+    this.pathLooks.shadows = on;
     for (const v of [...this.towers.values(), ...this.enemies.values()]) {
       v.model.traverse((o) => {
-        if (o.isMesh && !o.userData.isOutline) o.castShadow = on;
+        if (o.isMesh && !o.userData.isOutline && !o.userData.fx) o.castShadow = on;
       });
     }
   }
 
   _disposeView(v) {
+    this.pathLooks.release(v);
     this.root.remove(v.model);
     v.model.userData.dispose?.();
     disposeObject(v.model);
@@ -236,6 +262,7 @@ export class Actors {
         this._disposeView(v);
         this.towers.delete(uid);
         this.releaseDecor(v.decorKey);
+        this.pathLooks.forget(uid);
       }
     }
     seen.clear();
@@ -342,6 +369,7 @@ export class Actors {
     let state = 'idle';
     if (this.victory) state = 'victory';
     else if (t.disabled > 0) state = 'disabled';
+    if (v.poseOverride) state = v.poseOverride; // staging previews only (BattleRenderer.setPathLookPose)
     v.state = state;
     if (this.fxHook) {
       const o = this.fxHook.towerOffset(t.uid);
@@ -349,6 +377,7 @@ export class Actors {
       m.position.z = t.y + o.z;
     }
     m.userData.animate?.(this.time, dt, state);
+    this.pathLooks.update(v, t, this.time);
   }
 
   /** Called on 'sell' / removal to restore hidden water decor. */
@@ -441,8 +470,7 @@ export class Actors {
         v.sqA = 0;
         m.scale.setScalar(base);
       } else {
-        const f = v.sqA * Math.exp(-v.sqT * 11) * Math.cos(v.sqT * 31);
-        m.scale.set(base * (1 + SQUASH_XZ * f), base * (1 - SQUASH_Y * f), base * (1 + SQUASH_XZ * f));
+        squashModel(m, base, v.sqA * Math.exp(-v.sqT * 11) * Math.cos(v.sqT * 31));
       }
     } else {
       m.scale.setScalar(base);
@@ -533,8 +561,7 @@ export class Actors {
     const m = v.model;
     if (live && v.sqA > 0) {
       const base = (0.4 + 0.6 * v.spawnT) * ENEMY_SCALE;
-      const f = v.sqA * Math.exp(-v.sqT * 11) * Math.cos(v.sqT * 31);
-      m.scale.set(base * (1 + SQUASH_XZ * f), base * (1 - SQUASH_Y * f), base * (1 + SQUASH_XZ * f));
+      squashModel(m, base, v.sqA * Math.exp(-v.sqT * 11) * Math.cos(v.sqT * 31));
     }
     m.userData.animate?.(this.time, 0, live ? v.anim || STILL : STILL);
   }
@@ -643,6 +670,15 @@ export class Actors {
       col.copy(TINT_KINDS[kind] || (v && v.tint) ? fc : WHITE);
       if (kind === 'bolt' || kind === 'spark' || kind === 'bullet') col.lerp(WHITE, 0.35);
       mesh.setColorAt(i, col);
+      // the styled ribbon behind the shot (src/render/vfx/trails.js), in its element colour: not for a shot whose attack
+      // style draws its own trail; an error in it switches the styled effects off (vfxError), never the battle
+      if (this.trails && !(v && v.ownTrail)) {
+        try {
+          this.trails.feed(p.uid, px, z, py, fc, kind);
+        } catch (err) {
+          this.vfxError?.(err);
+        }
+      }
       const glow = v && v.glow >= 0 ? v.glow : GLOW_KINDS[kind];
       if (glow) this.b.bbA.push(px, z, py, glow, glow, this.R.glow, fc.r, fc.g, fc.b, 0.85);
       if (kind === 'fireball' && this.rand() < dt * 30) {
@@ -738,7 +774,15 @@ export class Actors {
       const armed = tr.armed;
       const c = this._c.set(armed ? '#ffb347' : '#8a8fa0');
       const s = armed ? 0.62 : 0.45;
-      gN.push(tr.x, 0.07, tr.y, s, s, R.rune, c.r, c.g, c.b, armed ? 0.95 : 0.55, t * 0.8 + tr.uid);
+      // Suzu's Bell Toll (attack shapes S5a, plain look): the bell wobbles for 12 steps after it rings (tollCd reset to every)
+      let wob = 0;
+      if (armed && tr.tollCd != null) {
+        const toll = tr.owner?.stats?.toll;
+        const since = toll ? Math.max(1, Math.round(toll.every)) - tr.tollCd : 99;
+        if (since >= 0 && since < 12) wob = 0.35 * Math.sin(since * 1.6) * (1 - since / 12);
+      }
+      // Suzu's 3D bells (src/render/staffFx.js) replace the rune once their model has loaded
+      if (!this.bellProps?.coversBells()) gN.push(tr.x, 0.07, tr.y, s, s, R.rune, c.r, c.g, c.b, armed ? 0.95 : 0.55, t * 0.8 + tr.uid + wob);
       if (armed) gA.push(tr.x, 0.075, tr.y, s * 1.1, s * 1.1, R.glow, c.r, c.g, c.b, 0.35 + 0.2 * Math.sin(t * 5 + tr.uid));
     }
     // Kinu's heat rings and orbit scissors (src/sim/rings.js): read from the sim every frame
@@ -757,6 +801,19 @@ export class Actors {
           gA.push(sx, 0.35, sy, 0.3, 0.3, R.ringSoft, 0.95, 0.95, 1, 0.7, t * 9 + j);
           gN.push(sx, 0.07, sy, 0.22, 0.22, R.disc, 0.2, 0.2, 0.3, 0.25);
         }
+      }
+    }
+    // Petal Halo pieces (attack shapes S1, src/sim/wheels.js; Hotaru's fireflies): read from the sim every
+    // frame at the sim's own orbit (the plain look until the effects update draws them properly)
+    for (const tw of sim.towers) {
+      const h = tw.stats?.halo;
+      if (!(h?.pieces > 0)) continue;
+      const n = Math.min(HALO_MAX, h.pieces);
+      const step = Math.round(sim.time / STEP);
+      for (let j = 0; j < n; j++) {
+        const [hx, hy] = haloPos(tw, j, n, step, HALO_REACH + h.reach);
+        gA.push(hx, 0.42, hy, 0.34, 0.34, R.glow, 1, 0.9, 0.45, 0.75, 0);
+        gA.push(hx, 0.42, hy, 0.12, 0.12, R.ringSoft, 1, 1, 0.8, 0.95, t * 7 + j);
       }
     }
     // Yuzuha's lane sentries and Capture Nets (src/sim/sentries.js), from the sim every frame
@@ -804,6 +861,10 @@ export class Actors {
         gA.push(p.x, 0.07, p.y, 0.48, 0.48, R.ring, 1, 0.77, 0.42, 0.5, 0);
       }
     }
+    // the ground attack shapes (attack shapes S3): Chigusa's vines, Yuki's spike rows, Kanna's quake rings, from the sim
+    drawGroundShapes(sim, gN, gA, R);
+    // the link attack shapes (attack shapes S4): Ena's threads between the enemies she tied, from the sim
+    drawLinkShapes(sim, gN, gA, R);
     // Chigusa's thorn beds (src/sim/vines.js): a dark green patch with a thorny dashed rim, fading out
     for (const tw of sim.towers) {
       if (!tw.beds || pp?.covers('bed')) continue;
@@ -852,15 +913,10 @@ export class Actors {
         gN.push(tw.x, y, tw.y, 0.62, 0.62, R.disc, 0.85, 0.97, 1, 0.45);
       }
       gN.push(tw.x, y + 0.002, tw.y, 0.62, 0.62, R.shadow, 0.05, 0.05, 0.12, 0.38);
-      const maxTier = Math.max(...tw.tiers);
-      const ring = tw.isHero ? '#ffd84d' : TIER_RING[maxTier];
-      if (ring) {
-        const c = this._c.set(ring);
-        gA.push(tw.x, y + 0.004, tw.y, 0.86, 0.86, R.ring, c.r, c.g, c.b, 0.7 + 0.25 * Math.sin(t * 3 + tw.uid));
-        if (maxTier >= 5 && this.rand() < 0.05) {
-          this.fx.spawn({ batch: 'bbA', uv: R.star, x: tw.x + (this.rand() - 0.5) * 0.6, y: 0.2 + (v.lift || 0), z: tw.y + (this.rand() - 0.5) * 0.6, vy: 0.8, s0: 0.12, s1: 0.02, life: 0.8, color: ring });
-        }
-      }
+      // the hero keeps her gold ring; every girl's tiers read from her path pips (the old max-tier ring), her hand
+      // glows, pieces and T5 aura (src/render/pathLooks)
+      if (tw.isHero) gA.push(tw.x, y + 0.004, tw.y, 0.86 * (v.scale / TOWER_SCALE), 0.86 * (v.scale / TOWER_SCALE), R.ring, 1, 0.85, 0.3, 0.7 + 0.25 * Math.sin(t * 3 + tw.uid));
+      this.pathLooks.draw({ tw, v, y, gN, gA, bbA: this.b.bbA, R, time: t, cameraYaw: this.cameraYaw, fx: this.fx });
       if (tw.buffed) {
         gA.push(tw.x, y + 0.003, tw.y, 0.7, 0.7, R.ring, 1, 0.55, 0.8, 0.45 + 0.2 * Math.sin(t * 4 + tw.uid));
       }
@@ -912,7 +968,7 @@ export class Actors {
       const hpFrac = e.maxHp > 0 ? Math.max(0, e.hp / e.maxHp) : 0;
       const hasBarrier = e.maxBarrier > 0 && e.barrier > 0;
       let icons = 0;
-      for (const s in e.statuses) if (STATUS_ICONS[s]) icons++;
+      for (const s in e.statuses) if (STATUS_ICONS[s] && !(s === 'spore' && e.statuses.poison)) icons++;
       const important = e.tier !== 'normal';
       if (hpFrac > 0.999 && !hasBarrier && !important && !icons) continue;
       const big = e.tier === 'boss' ? 1.5 : e.tier === 'miniboss' ? 1.15 : 1;
@@ -950,7 +1006,7 @@ export class Actors {
         let i = 0;
         const oy = (hasBarrier || e.maxBarrier > 0 ? 0.17 : 0.12) + (hpFrac > 0.999 && !important ? -0.12 : 0);
         for (const s of STATUS_ORDER) {
-          if (!e.statuses[s] || i >= n) continue;
+          if (!e.statuses[s] || i >= n || (s === 'spore' && e.statuses.poison)) continue;
           const [icon] = STATUS_ICONS[s];
           const c = this._statusColors[s];
           ov.push(x, y, z, sz, sz, R[icon], c.r, c.g, c.b, veiledA, 0, (i - (n - 1) / 2) * (sz + 0.02), oy);

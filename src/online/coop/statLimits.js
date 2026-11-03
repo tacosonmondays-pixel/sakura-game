@@ -19,6 +19,7 @@ import { DEFAULT_UNIT_STATS } from '../../sim/constants.js';
 import { MAX_POTENTIAL } from '../../data/potential.js';
 import { COOP } from '../../data/coop.js';
 import { SIM_CLUB_IDS, PIERCE_K_MAX } from '../../sim/gearRules.js';
+import { SIM_SET_IDS, CRIT_CEIL, ABIL_HASTE_CEIL, BLAST_K_MAX, CONTROL_MUL_MAX } from '../../sim/setRules.js';
 import { TRYOUT_STUDENTS } from '../../data/tryout.js';
 
 const num = (lo, hi) => Object.freeze({ type: 'num', lo, hi });
@@ -28,23 +29,28 @@ const oneOf = (list) => Object.freeze({ type: 'enum', list: Object.freeze([...li
 
 /** One rule per stat key a loadout may carry (unitBattleStats' keys). */
 export const UNIT_STAT_LIMITS = Object.freeze({
-  // [banners G6] UR Resonance (×1.10) and the LR boost (×1.15) on top of UR gear at level 85: honest max ≈ 9.6
-  damageMul: num(0, 15),
-  rateMul: num(0, 5),
+  // [banners G6] UR Resonance (×1.10) and the LR boost (×1.15) on top of UR gear at level 85: honest max ≈ 9.6.
+  // The gear update (GEAR_UPDATE.md §10.2): five UR pieces ≈ 14.4 (rate ≈ 4.2); five Set LR ≈ 20.7; five Blank LR ≈ 25
+  damageMul: num(0, 40),
+  rateMul: num(0, 12),
   rangeMul: num(0, 3),
-  critChance: num(0, 0.75),
-  critMul: num(1, 6),
-  armorPen: num(0, 50),
-  costMul: num(0.75, 1),
-  ultHaste: num(0, 0.5),
+  // crit chance above 1 with Geometry's set cap or five Blank LR pieces (super crits), up to the battle ceiling
+  critChance: num(0, CRIT_CEIL),
+  critMul: num(1, 12),
+  armorPen: num(0, 100),
+  // LR gear (GEAR_UPDATE.md §10.2): five Blank LR pieces double Cost Reduction (50 %) and Skill Haste (100 %; ults read ≤ 75 %)
+  costMul: num(0.5, 1),
+  ultHaste: num(0, 1),
   // gear (docs/specs/GEAR_STATS.md §F.2): Pierce in hundredths (capped at source at 150), Aura Power
   // (15 % lines + 5 % fill), the aura girls' fill-in radius, gear ATK's share of burns, her club set,
   // and the UR pieces she wears (the renderer's rainbow sparkles; the sim never reads it)
   pierceK: int(0, PIERCE_K_MAX + 50),
-  // Aura Power 0.3 grown by UR Resonance and LR (×1.10 · ×1.15 of 1 + Aura Power): honest max ≈ 0.64
-  auraPct: num(0, 0.75),
-  auraRangeMul: num(1, 1.2),
-  dotMul: num(1, 1.5),
+  // Aura Power with Spirit Squad's set cap (no gear cap) grown by UR Resonance and LR: honest max ≈ 4
+  auraPct: num(0, 5),
+  // Aura Radius (≤ 60 % with five Blank LR) × the aura girls' fill-in
+  auraRangeMul: num(1, 2),
+  // gear ATK's share of burns: ×2.0 at five pieces, ×3.0 with five Blank LR; × her average crit (≤ ≈ 1.3)
+  dotMul: num(1, 4),
   club: oneOf(SIM_CLUB_IDS),
   clubN: int(0, 3),
   rainbow: int(0, 3),
@@ -57,6 +63,21 @@ export const UNIT_STAT_LIMITS = Object.freeze({
   potential: int(1, MAX_POTENTIAL),
   // [banners G6] LR (Limit Break): her LR ability form
   lr: BOOL,
+  // the gear update (GEAR_UPDATE.md §10.2): her set (4+ pieces) and its LR Set Form, Buff Duration (≤ 80 % with five
+  // Blank LR), Control Strength (no cap with Freeze Tag: the sim stops at CONTROL_MUL_MAX), her ⚡ ability's haste, her
+  // blasts' Pierce (Party Popper's set cap) and her average crit on damage that cannot crit (crit ×12 at 200 %: ≈ 18)
+  set: oneOf(SIM_SET_IDS),
+  setN: int(0, 5),
+  setLr: BOOL,
+  buffDurMul: num(1, 2.5),
+  controlMul: num(1, CONTROL_MUL_MAX),
+  abilHaste: num(0, ABIL_HASTE_CEIL),
+  blastK: int(0, BLAST_K_MAX),
+  // a hero whose blasts come with her levels: her 200–300 % Pierce band as ATK while her level has no blast (mods.js)
+  pierceAtkMul: num(1, 2),
+  avgCrit: num(1, 20),
+  // crit chance's ceiling: 2 (super crits) with Geometry's set cap or five Blank LR pieces, else 1
+  critCeil: int(1, CRIT_CEIL),
 });
 
 /** Most loadout entries one player may bring (her towers, one more when she brings no hero). */

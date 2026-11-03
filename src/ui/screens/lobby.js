@@ -69,6 +69,7 @@ import '../styles/events.css';
 import { portraitUrl } from '../../art/portraits.js';
 import { lobbyBackgroundFor, stageModeOf, LOBBY_BG_MAP } from '../../data/lobbyArt.js';
 import { ensureBetaGift, ensurePotentialLetter, unclaimedMailCount } from '../../systems/mail.js';
+import { ensureVigilRibbonGift } from '../../systems/vigilRibbonGift.js';
 import { ensureCatchUpJoins } from '../../systems/catchUpJoins.js';
 import { itemIcon } from '../../art/icons.js';
 import { nextStage, chapterProgress, isStageUnlocked, stageMedals } from '../../systems/unlocks.js';
@@ -80,6 +81,7 @@ import { listBattleSaves, saveSummary, saveTitle } from '../../systems/battleSav
 import { showRewardsModal, requirementText } from './stage.js';
 import { createArtStage } from '../lobby/artStage.js';
 import { secretaryOf } from '../lobby/secretaryOf.js';
+import { homeLine } from '../../systems/buildCoach.js';
 import { workbenchReady } from '../../systems/workbench.js'; // [workbench] a ready craft lights the Backpack row (its Workbench button)
 import { showNoticeModal, noticeUnread } from '../lobby/notice.js';
 import { openMenuSheet, closeMenuSheet, menuSheetOpen } from '../lobby/menuSheet.js';
@@ -646,6 +648,7 @@ export function render(root) {
   // Beta Tester Thank-You: delivered on app start (main.js), also after a reset/import here, celebrated once a session
   if (ensureBetaGift(store.profile)) store.commit('mail');
   if (ensurePotentialLetter(store.profile)) store.commit('mail');
+  if (ensureVigilRibbonGift(store.profile)) store.commit('mail'); // after a reset or an import, or a run that just passed wave 200
   if (ensureCatchUpJoins(store.profile).length) store.commit('mail'); // the catch-up girls after a reset or an import too
   // [story] never over a story scene or before a new player has met Hikari: try again when the scene ends
   const betaGift = () => {
@@ -1017,7 +1020,10 @@ function newsState(profile) {
 function chipPages(profile) {
   const s = objectiveState(profile);
   const notice = noticeUnread() ? { id: 'notice', kicker: 'Notice', title: 'Patch notes and news', testid: 'lobby-news-notice', timeTestid: null, msLeft: null, phase: null, art: null } : null;
-  return homeChipPages({ objective: homeObjective(s), news: homeNews(newsState(profile)), notice }).map((pg) => (pg.id === 'objective' ? { ...pg, s } : pg));
+  // [build coach] the Main girl's next step: one filler page, only when a step is ready (BUILD_COACH.md §8)
+  const line = homeLine(profile);
+  const coach = line?.next ? { id: 'coach', kicker: 'Next step', short: 'Next', title: `${line.name}: ${line.next.chip || line.next.text}`, full: `${line.name} · next: ${line.next.text}`, testid: 'lobby-news-coach', timeTestid: null, msLeft: null, phase: null, art: null, unitId: line.unitId } : null;
+  return homeChipPages({ objective: homeObjective(s), news: homeNews(newsState(profile)), notice, coach }).map((pg) => (pg.id === 'objective' ? { ...pg, s } : pg));
 }
 
 const PHASE_LABEL = { upcoming: 'Opens in', active: 'Ends in', exchange: 'Exchange closes in' };
@@ -1048,6 +1054,7 @@ function buildNews(host, { page = 0, onPage }) {
       if (n.id === 'event') return navigate('event', { id: st.limited.id });
       if (n.id === 'weekly') return navigate('bounty', { arena: st.weekly.arena });
       if (n.id === 'recruit') return navigate('recruit');
+      if (n.id === 'coach') return navigate('student', { id: n.unitId, tab: 'coach' });
       if (n.id === 'notice') {
         showNoticeModal();
         return store.commit('notice');
@@ -1057,10 +1064,10 @@ function buildNews(host, { page = 0, onPage }) {
       return null;
     };
     const when = n.msLeft != null && n.id === 'event' ? `, ${(PHASE_LABEL[n.phase] || 'Ends in').toLowerCase()} ${countdownState(n.msLeft).text}` : '';
-    const thumb = n.art ? h('span.ui-thumb', { html: itemIcon(n.art, { px: 34 }) }) : h('span.ui-thumb', g(n.id === 'weekly' ? 'map' : n.id === 'notice' ? 'megaphone' : 'sparkles'));
+    const thumb = n.art ? h('span.ui-thumb', { html: itemIcon(n.art, { px: 34 }) }) : h('span.ui-thumb', g(n.id === 'weekly' ? 'map' : n.id === 'notice' ? 'megaphone' : n.id === 'coach' ? 'star' : 'sparkles'));
     // (a page with a short kicker carries both: fitTexts shows the short one where the long one would wrap)
     const kicker = n.short ? [h('span.kl', n.kicker), h('span.ks', n.short)] : n.kicker;
-    body = h('button.go', { type: 'button', 'data-testid': n.testid, 'aria-label': `${n.kicker}: ${n.title}${when}`, title: n.title, onclick: go },
+    body = h('button.go', { type: 'button', 'data-testid': n.testid, 'aria-label': `${n.kicker}: ${n.full || n.title}${when}`, title: n.full || n.title, onclick: go },
       thumb,
       h('span.col', h('span.k', h('span.lbl', kicker), chip), h('span.body', n.title)));
   }

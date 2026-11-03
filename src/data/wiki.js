@@ -19,10 +19,11 @@
 // Cell    = string | number | { text, icon?: 'attack:blast'|'armor:heavy'|'role:sniper'|'trait:veiled'|
 //            'status:slow'|'cap:detection'|'item:<id>'|'medal:<difficulty>'|'element:fire'|'unit:<id>', color?, mult?, strong? }
 
+import { SHOWN_SLOTS, GEAR_SLOT_DEFS, MAIN_STATS_BY_SLOT } from './gearSlots.js';
 import {
   ATTACK_TYPES, ARMOR_CLASSES, TYPE_CHART, ELEMENTS, STATUSES, ROLES, ROLE_CATEGORIES, CAPABILITIES, TRAITS,
   PLACEMENT, TARGET_MODES, DIFFICULTIES, DIFFICULTY_ORDER, UNIT_RARITIES, ITEM_RARITIES,
-  ITEM_RARITY_ORDER, MATERIAL_FAMILIES, GEAR_SLOTS, GEAR_MAIN_STATS, GEAR_SUBSTATS_BY_RARITY,
+  ITEM_RARITY_ORDER, MATERIAL_FAMILIES, GEAR_SUBSTATS_BY_RARITY,
   GACHA, BATTLE, effectivenessLabel,
 } from './types.js';
 import { MAP_TIER_VIEW } from './mapTierNames.js';
@@ -82,7 +83,7 @@ export const ROLE_SUBCLASS = {
   mortar: { label: 'Aimed Bombardment', desc: 'Map-wide shells that land 1 s after a warning ring.' },
   prism: { label: 'Line Pierce', desc: 'Prism beams pierce a whole line and build focus.' },
   mirror: { label: 'Relay Caster', desc: 'Bolts fire from a mirror placed beside a far lane.' },
-  hexer: { label: 'Chain Curse', desc: 'Cursed enemies burst on death and pass the curse on.' },
+  hexer: { label: 'Chain Curse', desc: 'A spreading curse: cursed enemies rot, pass the curse on while they live and burst on death.' },
   champion: { label: 'Armor-Breaking Melee', desc: 'Drum rhythm builds on one target and cracks armor.' },
   puppeteer: { label: 'Crowd Control', desc: 'Threads slow two enemies; the finale sends the wave back.' },
   stormrider: { label: 'Sky Chain', desc: 'Amphibious chain lightning that prefers flyers.' },
@@ -424,10 +425,35 @@ function levelingArticle() {
   ]);
 }
 
+// [build coach] BUILD_COACH.md §8; [teams] GEAR_UPDATE.md §7
+function buildCoachArticle() {
+  return article('buildCoach', 'Build Coach, Teams and Loadouts', 'progress', 'sparkle', 'Set a Main girl and the Coach plans her road to max; save teams and gear loadouts.', ['build coach', 'coach', 'main', 'set as main', 'team', 'teams', 'loadout', 'loadouts', 'plan', 'farm'], [
+    sec('Set as Main',
+      list([
+        'Open a girl\'s page, tap Coach, then Set as Main. One girl is your Main at a time; Clear Main removes it.',
+        'Her next step is a page of the home screen\'s news card, and Stage Prep marks stages that drop what she still needs.',
+      ])),
+    sec('What the Coach shows',
+      list([
+        'Next steps: the three changes that help her most for what they cost, each with Go.',
+        'To max: exactly what she still needs for her level, gates, stars, Potential and gear, and what you already have.',
+        'Farm: the best places to earn each missing material, by how many drop per run. Only places you play: never the Gem Shop or recruiting.',
+        'Gear plan: the main stat she wants on each piece, her substat order and her club.',
+        'Build score: what she wears against her best build of what you have (Build), and against her fully maxed build (Max).',
+      ])),
+    sec('Teams and loadouts',
+      list([
+        'Save up to 5 teams on Formation (and switch them from Stage Prep). Each team remembers its girls and which loadout each one uses.',
+        'Each girl can keep up to 3 gear loadouts (A, B, C) on her Gear tab. A piece is never copied: putting on a loadout takes its pieces from whoever wears them, and says so first. Undo puts everything back.',
+        'A red dot on a loadout means one of its pieces was salvaged.',
+      ])),
+  ]);
+}
+
 function gearArticle() {
   return article('gear', 'Gear & Rerolls', 'progress', 'dice', 'Charms, ribbons and shoes: main stats, substats, enhancing, rerolling and locking.', ['gear', 'equipment', 'charm', 'ribbon', 'shoes', 'substat', 'main stat', 'reroll', 'lock', 'enhance', 'salvage', 'dice', 'prism'], [
     sec('Slots and main stats',
-      table(['Slot', 'Role', 'Main stat options'], Object.entries(GEAR_SLOTS).map(([id, s]) => [{ text: s.name, strong: true }, s.desc, GEAR_MAIN_STATS[id].map((k) => statName(k)).join(' / ')]))),
+      table(['Slot', 'Role', 'Main stat options'], SHOWN_SLOTS.map((id) => [GEAR_SLOT_DEFS[id], id]).map(([s, id]) => [{ text: s.name, strong: true }, s.desc, MAIN_STATS_BY_SLOT[id].map((k) => statName(k)).join(' / ')]))),
     sec('Substats by rarity',
       table(['Rarity', 'Substats'], ITEM_RARITY_ORDER.map((r) => [{ text: ITEM_RARITIES[r].name, color: ITEM_RARITIES[r].color, strong: true }, String(GEAR_SUBSTATS_BY_RARITY[r])])),
       p(`Possible stats: ${BASE_STAT_KEYS.map((k) => statName(k)).join(', ')}. A substat never repeats the main stat. Club pieces can also roll Pierce (ribbons: hits more enemies) or Aura Power (shoes: a stronger aura).`),
@@ -769,9 +795,9 @@ function returningArticle() {
     sec('Flyers and grounding',
       p('Grounded flyers drop out of the sky for a moment, and ground-only girls such as Rei, Akane and Sango can hit them. Hana, Fuu (Grounding Breeze), Ruri (Star Falcon) and Seiran ground flyers. Bosses stay down a quarter as long. The Air target mode shoots flyers first.')),
     sec('Push-back and gathering',
-      p('A push or a gather moves an enemy at most once every 1.5 seconds (3 seconds for minibosses), so pushers cannot stall a lane forever. Bosses never move. A hero\'s own push-back has its own shorter lock.')),
+      p('A push or a gather moves an enemy at most once every 1.5 seconds (3 seconds for minibosses), so most pushers cannot stall a lane forever. Fuu\'s wind moves an enemy every 1.2 seconds and, at full strength, can hold a lone walker in place (late Freeplay enemies resist pushes, her wind half as much). Bosses never move. A hero\'s own push-back has its own shorter lock.')),
     sec('Curses and hexes',
-      p('Ena\'s curses burst when the enemy falls: neighbours take a share of the cursing hit and catch a weaker curse, at most two more times. At most 32 bursts happen in one moment; the rest follow right after. Yoriko\'s Dream Detour hexes: the enemy loses a share of its max HP every second and cannot regenerate (less on minibosses and bosses).')),
+      p('Ena\'s curse spreads: its Omen Rot takes a share of her hit from a cursed enemy every second, even when another girl lands the kill, and every second it passes a weaker curse to the nearest uncursed enemy within 1.2 tiles, up to four times (bosses and minibosses take half the rot but still pass it on; a living curse never passes out of a tunnel). When a cursed enemy falls it bursts: neighbours take a share of the cursing hit and catch a weaker curse, at most two more times. At most 32 bursts happen in one moment; the rest follow right after. Yoriko\'s Dream Detour hexes: the enemy loses a share of its max HP every second and cannot regenerate (less on minibosses and bosses).')),
   ]);
 }
 
@@ -798,8 +824,8 @@ function newGirlsArticle() {
       p('Yuzuha shoots taser darts herself, and while a wave runs she sets a sentry at the road\'s edge in her range every few seconds. Sentries fire on their own and fold up after 20 seconds or when the wave is cleared. With Specialist Kits each new sentry is typed for the threat: flash for veiled enemies, flak for flyers, heavy for elites and nets for the rest.'),
       tip('Capture Net (tier 3) catches weak ground enemies outright out of a hit-point budget that refills every wave; caught enemies pay extra coins.', 'info')),
     sec('Vines and thorns (Chigusa)',
-      p('Chigusa throws a fan of thorn seeds. Every few seconds a vine holds the lead walker in her range: it cannot move until the vine lets go. Minibosses slip free sooner, and bosses and flyers shrug vines off. Thorn Beds leaves thorns where her seeds finish a walker; Bloom Rush makes her faster the longer she keeps attacking.'),
-      tip('Harvest grows coins every wave and, from Herb Garden, a life back for each wave cleared (at most 30 a battle, never above your starting lives).', 'info')),
+      p('Chigusa throws a fan of thorn seeds. Every few seconds a vine bursts up on the road in her range and grows along it toward the walkers: everyone on it is slowed, and the first walker it reaches is held until the vine lets go. Minibosses slip free sooner, and bosses and flyers shrug vines off. From Strangler Vine the vine lashes the walkers on it; Thorn Beds leaves thorns where her seeds finish a walker; Bloom Rush makes her faster the longer she keeps attacking.'),
+      tip('Harvest grows coins every wave and, from Herb Garden, a life back for each wave cleared (her copies add up, at most 5 a wave, never above your starting lives).', 'info')),
     sec('Rolling bombs (Marumi)',
       p('Marumi rolls bomb balls up the road from the spot nearest her, against the flow of enemies. A ball blows up on the first walker it meets: that walker takes the whole blast, everyone around it half, and the crowd is pushed back up the road. Balls never touch flyers: when only flyers are in her range she lobs a lighter bomb (half her blast) at the lead one, on every path.'),
       p('Spin Shot is her pinball path. From Bumper Bounce (tier 2) a ball that blows up bounces off to the nearest other walker within 2 tiles (never a flyer or a walker in a tunnel) and blows up again: 1 bounce, then 3, 5 and 8. Glow Bowl (tier 5) ends a full run of 8 bounces with a glowing finale: triple damage on a wider blast.'),
@@ -813,7 +839,7 @@ function newGirlsArticle() {
 function buildArticles() {
   return [
     gettingStarted(), controls(), abilitiesArticle(), typeChartArticle(), rolesArticle(), crosspathArticle(), codexArticle(), returningArticle(), newGirlsArticle(), buffsArticle(), traitsArticle(), statusesArticle(),
-    itemsArticle(), materialsArticle(), levelingArticle(), gearArticle(), gachaArticle(), potentialArticle(), medalsArticle(), mapsArticle(),
+    itemsArticle(), materialsArticle(), levelingArticle(), gearArticle(), buildCoachArticle(), gachaArticle(), potentialArticle(), medalsArticle(), mapsArticle(),
     economyArticle(), unlocksArticle(), tipsArticle(),
   ];
 }

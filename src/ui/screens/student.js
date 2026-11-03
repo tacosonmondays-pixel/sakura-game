@@ -57,7 +57,7 @@ import { ico, lbl, num, chip as kitChip, moreChip, sticker, statStrip, folderTab
 import { fmtNum } from '../format.js';
 import { gearTab, reqChips, coinsOf } from '../girlGear.js';
 import { openSheet, closeSheets } from '../sheet.js';
-import { headlineStats, roleSentence, roleDetails, profileTips, traitList, matchArrows, abilityInfoView } from '../girlView.js';
+import { headlineStats, roleSentence, roleDetails, profileTips, traitList, matchArrows, abilityInfoView, battleBoostText } from '../girlView.js';
 import { namePlate, potPips } from '../girlFrame.js';
 import { treeGrid, tierPanel, RULE_LINE, RULE_FULL, RULE_EXAMPLES } from '../treeGrid.js';
 import { buildTreeModel } from '../treeModel.js';
@@ -65,6 +65,7 @@ import { heroTrackBand, fullTrackList } from '../heroTrack.js';
 import { UPGRADE_TAGS, TAG_ORDER } from '../upgradeTags.js';
 import { girlPageMode, infoView, awakenStars, starBonus, manualOpen, pathTiers } from '../girlDetail.js';
 import { tabSwap } from '../motion.js';
+import { coachTab } from '../buildCoach.js';
 
 // one word per tab (§5.3); the ids and their tab-<id> testids never change
 const TABS = [
@@ -73,8 +74,9 @@ const TABS = [
   { id: 'awaken', label: 'Awaken', icon: 'star' },
   { id: 'gear', label: 'Gear', icon: 'shield' },
   { id: 'tree', label: 'Tree', icon: 'sparkle' },
+  { id: 'coach', label: 'Coach', icon: 'target' }, // [build coach] BUILD_COACH.md §8
 ];
-const BEHAVIOR_NAMES = { projectile: 'Projectile', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support' };
+const BEHAVIOR_NAMES = { projectile: 'Projectile', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support', wheel: 'Wheel of shots', spin: 'Turning stream', stream: 'Held stream', sweep: 'Sweeping beam', spikes: 'Rising spikes', return: 'Returning shot' };
 // skin: outfit being tried on in the showcase (not saved), null = the equipped one
 // manual: Level Up shows the per-book steppers (UI_DIRECTION.md §6.2)
 const view = { mode: 'card', skin: null, manual: false, manualFor: null };
@@ -98,7 +100,7 @@ export function describeStatus(s) {
     case 'burn': case 'poison': core = `${name} ${n1(s.dps)}/s for ${n1(s.duration)}s`; break;
     case 'shred': core = `Armor −${n1(s.amount)} for ${n1(s.duration)}s (stacks ×3)`; break;
     case 'mark': case 'vulnerable': core = `${name}: +${Math.round(s.bonus * 100)}% damage taken for ${n1(s.duration)}s`; break;
-    case 'curse': core = `Curse: bursts for ${Math.round(s.burstMul * 100)}% of the hit within ${n1(s.radius)} tiles when it falls (${n1(s.duration)}s)`; break;
+    case 'curse': core = `Curse${s.rot > 0 ? `: a spreading curse whose Omen Rot eats ${Math.round(s.rot * 100)}% of the hit a second;` : ':'} bursts for ${Math.round(s.burstMul * 100)}% of the hit within ${n1(s.radius)} tiles when it falls (${n1(s.duration)}s)`; break;
     case 'hex': core = `Hex ${n1(s.pct * 100)}% max HP/s for ${n1(s.duration)}s, no regen`; break;
     case 'ground': core = `Grounds flyers for ${n1(s.duration)}s`; break;
     default: core = `${name} ${n1(s.duration)}s`;
@@ -115,7 +117,7 @@ export function describeMods(mods = {}) {
   const out = [];
   const add = (cond, text) => { if (cond) out.push(text); };
   add(mods.damage, `${mods.damage > 0 ? '+' : ''}${n1(mods.damage)} damage`);
-  add(mods.damageMul && mods.damageMul !== 1, `+${pctOf(mods.damageMul)} damage`);
+  add(mods.damageMul && mods.damageMul !== 1, mods.damageMul < 1 ? `−${pctOf(2 - mods.damageMul)} damage` : `+${pctOf(mods.damageMul)} damage`);
   add(mods.rateMul && mods.rateMul !== 1, mods.rateMul >= 2 ? `×${n1(mods.rateMul)} attack speed` : `+${pctOf(mods.rateMul)} attack speed`);
   add(mods.range, `+${n1(mods.range)} range`);
   add(mods.projectiles, `+${mods.projectiles} ${mods.projectiles === 1 ? 'projectile' : 'projectiles'}`);
@@ -209,8 +211,9 @@ export function effectivenessRow(attackType) {
 /** Base stats next to hers (`label`: 'yours' on your own save, 'theirs' on someone's build snapshot). */
 function statsTable(unit, battle, { owned = false, label = 'yours' } = {}) {
   const b = unit.base;
-  // Yours / theirs = what she fights with at tier 0: level, gear, awakening (★3 passive too) and Potential
-  const y = resolveStats(unit, { unitStats: battle });
+  // Yours / theirs = what she fights with at tier 0: level, gear, awakening (★3 passive too) and Potential; her kit's
+  // numbers, like the headline strip (girlView.js headlineStats): balance round 5's boost is the footnote (battleBoostText)
+  const y = resolveStats(unit, { unitStats: battle, noPower: true });
   const rows = [];
   const dual = (label, base, yours, fmt = n1) => rows.push([label, fmt(base), owned && yours != null && Math.abs(yours - base) > 1e-6 ? fmt(yours) : null]);
   if (unit.kind === 'hero') {
@@ -242,7 +245,11 @@ function statsTable(unit, battle, { owned = false, label = 'yours' } = {}) {
   rows.push(['Hits flyers', b.canHitAir ? 'Yes' : 'No', null]);
   rows.push(['Veil Sight', b.detection ? 'Yes' : 'No', null]);
   if (b.airMul && b.airMul !== 1) rows.push(['Vs flyers', `×${n1(b.airMul)}`, null]);
-  if (b.relay) rows.push([b.relay.kind === 'mirror' ? 'Mirror panel' : 'Familiar', `reach ${n1(b.relay.reach)} tiles${b.relay.both ? ' · fires from both' : ''}`, null]);
+  if (b.relay) {
+    rows.push(b.relay.kind === 'mirror'
+      ? ['Mirrors', `${b.relay.mirrors ?? 2} · ${b.relay.bounces ?? 2} bounces · reach ${n1(b.relay.reach)} tiles`, null]
+      : ['Familiar', `reach ${n1(b.relay.reach)} tiles`, null]);
+  }
   if (b.status?.length) rows.push(['On hit', b.status.map(describeStatus).join(' · '), null]);
   for (const k of ['aura', 'income', 'trap', 'turret', 'ramp', 'mark']) {
     if (b[k]) rows.push([k[0].toUpperCase() + k.slice(1), describeMods({ [k]: b[k] }).join(' · ') || '—', null]);
@@ -257,7 +264,7 @@ function statsTable(unit, battle, { owned = false, label = 'yours' } = {}) {
     h('table.stat-table.mb-stats',
       owned ? h('thead', h('tr', h('th', ''), h('th', 'Base'), h('th', who))) : null,
       h('tbody', rows.map(([label, base, yours]) => h('tr', h('td', label), h('td', base), owned ? h(`td${yours ? '.mb-yours' : ''}`, yours || base) : null)))),
-    owned ? h('p.muted.mb-stats-note', `${who} = level, gear, awakening and Potential, before upgrades.`) : null);
+    owned ? h('p.muted.mb-stats-note', `${who} = level, gear, awakening and Potential, before upgrades.${battleBoostText(unit) ? ` ${battleBoostText(unit)}` : ''}`) : null);
 }
 
 // ---------------------------------------------------------------------------
@@ -1227,7 +1234,7 @@ export function render(root, params = {}) {
   }
 
   const tabDefs = () => TABS.map((t) => {
-    const locked = (!store.profile.units[unit.id] && ['level', 'awaken', 'gear'].includes(t.id))
+    const locked = (!store.profile.units[unit.id] && ['level', 'awaken', 'gear', 'coach'].includes(t.id))
       || ((t.id === 'gear' || t.id === 'awaken') && !featureOpen(store.profile, t.id)); // [story]
     // a rainbow dot only when one of her pieces can awaken now (a Seed in the backpack)
     const dot = t.id === 'gear' && !locked && gearCanAwakenNow(unit.id);
@@ -1261,6 +1268,10 @@ export function render(root, params = {}) {
             : gearTab(unit, { mode, onChange: () => { band.refresh(); renderTab(false); } });
         break;
       case 'tree': content = treeTab(unit, { mode }); break;
+      case 'coach':
+        content = !store.profile.units[unit.id] ? lockedTab(unit, 'her Build Coach')
+          : coachTab(unit, { onChange: () => { band.refresh(); renderTab(false); } });
+        break;
       default:
         content = infoTab(unit, { onChange: refreshAll, mode });
         // her Potential steps are on screen now: the one-time NEW badge on her card goes

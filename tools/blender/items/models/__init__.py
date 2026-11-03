@@ -17,7 +17,8 @@ SHIPPED = ('crown_rainbow',)
 CALIBRATION = [dict(key='energy', kind='calibration', name='Energy (calibration only)', category='calibration',
                     rarity='rare', family='', tier='', display='', rainbow=False)]
 
-TOOLS = ('dice_reroll', 'lock_pin', 'dice_prism', 'seed_rainbow', 'needle_star', 'club_band')
+TOOLS = ('dice_reroll', 'lock_pin', 'dice_prism', 'seed_rainbow', 'needle_star', 'club_band', 'tie_pin', 'collar_pin',
+         'lens_nightglass')
 CURRENCY = ('coins', 'gems', 'recruitPoints', 'token_bounty', 'token_boss', 'memento', 'moonpearl')
 
 
@@ -33,7 +34,7 @@ def family(key):
         return 'tickets'
     if key.startswith('mat_'):
         return 'materials'
-    if key.startswith('gearbox_'):
+    if key.startswith('gearbox_') or key.startswith('setbox_'):
         return 'boxes'
     if key.startswith('crown_'):
         return 'crowns'

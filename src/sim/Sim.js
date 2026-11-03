@@ -2,14 +2,17 @@
 // sequence of player actions, fixed 1/60 s internal timestep.
 
 import { DIFFICULTIES, BATTLE, TARGET_MODES } from '../data/types.js';
+import { TITAN_POWER } from '../data/balance.js';
 import { createRng } from '../core/rng.js';
 import {
   STEP, MAX_STEPS_PER_UPDATE, HOLY_SILENCE, AUTO_START_DELAY,
   BUFF_REFRESH, DEFAULT_UNIT_STATS, KNOCKBACK_RESIST, HERO_PUSH_LOCK, FLIGHT_POINT_ROAM_MUL, DPS_WINDOW,
-  INCOME_INTEREST_MAX,
+  INCOME_INTEREST_MAX, INCOME_INTEREST_SET_MAX, CASH_MAX,
 } from './constants.js';
 import {
-  AIM_QUANT, PUSH_LOCK, PUSH_LOCK_KITS, GATHER_RADIUS, GATHER_MAX, CURSE_DECAY, CURSE_MAX_DEPTH, CURSE_BURSTS_PER_TICK, HEX_TIER_MUL,
+  AIM_QUANT, PUSH_LOCK, PUSH_LOCK_KITS, WIND_KITS, WIND_LOCK, WIND_KB_COST, GATHER_RADIUS, GATHER_MAX, CURSE_DECAY, CURSE_MAX_DEPTH, CURSE_BURSTS_PER_TICK, HEX_TIER_MUL,
+  CURSE_SPREAD_STEPS, CURSE_SPREAD_RADIUS, CURSE_SPREAD_DECAY, CURSE_SPREAD_MAX_DEPTH, CURSE_SPREADS_PER_TICK, CURSE_ROT_BOSS_MUL,
+  TETHER_SHARES_PER_STEP,
 } from './constants.js';
 import { createDataSource } from './data.js';
 import { buildPaths, pathTileSet } from './path.js';
@@ -31,7 +34,8 @@ import {
   updateProjectiles, updateTraps, baseCost, setFlight, flightMode, signalRange, hasRoamingDrones, finalePop, ownDrones,
 } from './towers.js';
 import { POP_BUDGET_MAX, POP_COST } from './gearRules.js';
-import { updateShells, aimMode, updateRelayOrigin } from './towers.js';
+import { BURST_BUDGET_MAX, setPassive, statusCtxFor, pushMulFor, avgCritOf } from './setRules.js';
+import { updateShells, aimMode, updateRelayOrigin, confettiBurst } from './towers.js';
 import { updateRunners } from './runners.js';
 import {
   initHero, gainHeroXp, tickHero, heroUltStatus, activateUlt as fireUlt, heroXpInfo, heroPace, waveClearXp,
@@ -42,7 +46,7 @@ import { generateFreeplayWave } from './freeplay.js';
 import { buildWaveWarnings, buildDebrief } from './report.js';
 import { snapshotSim, restoreSim } from './snapshot.js';
 import {
-  syncAbility, tickAbilities, castAbility as castAbilityOn, abilityStatus as abilityStatusOf, setAbilityAuto as setAbilityAutoOn,
+  syncAbility, tickAbilities, tickCheers, castAbility as castAbilityOn, abilityStatus as abilityStatusOf, setAbilityAuto as setAbilityAutoOn,
   setAbilityAutoAll as setAbilityAutoAllOn, abilitySlots as abilitySlotsOf, startAbilityWave, endAbilityWave, clearAbilityEffects,
   abilityKill,
 } from './abilities.js';
@@ -52,9 +56,15 @@ import { syncLab, absorbInto, updateLab, labIncome, endLabWave } from './lab.js'
 import { BATTLE_MODES, modeArmor } from '../data/modes.js';
 import { endStripWave } from './strips.js';
 import { endRingWave } from './rings.js';
+import { endWheelWave, shapeDps } from './wheels.js';
+import { endHeldWave, heldDps } from './held.js';
+import { endGroundWave } from './ground.js';
+import { tetherStep, shareTether, ownShare, endLinkWave, linkDps } from './links.js';
+import { endS5Wave, webStep } from './s5shapes.js';
 import { endDrinkWave, clearDrinksFrom } from './drinks.js';
 import { endSentryWave } from './sentries.js';
 import { isFreeTier, payHubBounty, plantBanner, clearBanners } from './hubs.js';
+import { placeMirror, mirrorPoint } from './mirrors.js';
 import { onVineKill, endVineWave } from './vines.js';
 import { endBallWave } from './balls.js';
 import { syncBarricades, updateBarricades, endBarricadeWave, detourOnHit } from './barricades.js';
@@ -70,6 +80,7 @@ import {
 import { randomPlayers } from './tryout/random.js';
 import { assignSeats, nextSeats } from './tryout/breaks.js';
 import { hasCards, refreshRunMods } from './tryout/pep.js';
+import { ctrlOf } from './ctrl.js';
 
 const MAX_EVENT_BACKLOG = 20000;
 
@@ -97,6 +108,8 @@ export class Sim {
     this.map = ds.map;
     this.difficulty = DIFFICULTIES[difficulty] ? difficulty : 'normal';
     this.diff = DIFFICULTIES[this.difficulty];
+    // Titan Trials keep today's numbers (src/data/balance.js TITAN_POWER): no power row and no hero curve
+    this._powerOff = !TITAN_POWER && this.stage?.kind === 'titan';
     // Tryout Day (src/sim/tryout): its config is read once here and never kept in options (a snapshot stores options)
     const { tryout: tryoutCfg = null, ...opts } = options;
     this.options = { endless: false, autoStart: false, ...opts };
@@ -218,15 +231,25 @@ export class Sim {
     this._dpsTimer = DPS_WINDOW;
     /** Finale Pop's budget for the whole battle, in half-pops (src/sim/gearRules.js). */
     this.popBudget = POP_BUDGET_MAX;
+    /** Confetti Burst's budget for the whole battle, in half-bursts (src/sim/setRules.js). */
+    this.burstBudget = BURST_BUDGET_MAX;
     this._scratch = [];
     this._scratch2 = [];
     this._hitOut = {};
     this._dotOut = {};
-    this._statusCtx = { rng: this.rng, element: null, attackType: null, sourceUid: null, hitDamage: 0, curseDepth: 0 };
-    this._curseCtx = { rng: this.rng, element: null, attackType: 'mystic', sourceUid: null, hitDamage: 0, curseDepth: 0 };
+    this._statusCtx = { rng: this.rng, element: null, attackType: null, sourceUid: null, hitDamage: 0, curseDepth: 0, controlMul: 1, itBonus: 0 };
+    this._curseCtx = { rng: this.rng, element: null, attackType: 'mystic', sourceUid: null, hitDamage: 0, curseDepth: 0, controlMul: 1, itBonus: 0 };
     this._curseQueue = [];
     this._flushingCurses = false;
     this._curseBudget = CURSE_BURSTS_PER_TICK; // bursts left this step (refilled at every step)
+    this._spreadBudget = CURSE_SPREADS_PER_TICK; // living curse passes left this step (refilled at every step)
+    this._spreadCtx = { rng: this.rng, element: null, attackType: 'mystic', sourceUid: null, hitDamage: 0, curseDepth: 0, controlMul: 1, itBonus: 0 };
+    // Spirit Tether (attack shapes S4, src/sim/links.js): the living tether groups and their count (0: Sim._hit's share
+    // hook is one compare), the re-entrancy flag (a shared hit never shares again) and this step's share budget
+    this.tethers = [];
+    this._tetherOn = 0;
+    this._sharing = false;
+    this._shareBudget = TETHER_SHARES_PER_STEP;
     this.runners = []; // path runners in flight (Seiran's sky dragon): end with the wave
     this._leadPt = {}; // scratch point (a mortar's lead)
     this._scratch3 = [];
@@ -351,12 +374,18 @@ export class Sim {
   _step1(dt) {
     this.time += dt;
     if (this.popBudget < POP_BUDGET_MAX) this.popBudget += 1;
+    if (this.burstBudget < BURST_BUDGET_MAX) this.burstBudget += 1;
     if (this.state === 'wave') this._spawnTick(dt);
     this.grid.rebuild(this.enemies);
     if (this.rule) ruleStep(this, dt);
     // curse bursts that spilled over the last step's budget go first, in FIFO order
     this._curseBudget = CURSE_BURSTS_PER_TICK;
+    this._spreadBudget = CURSE_SPREADS_PER_TICK;
     if (this._curseQueue.length && !this._flushingCurses) this._flushCurses();
+    // Spirit Tether (src/sim/links.js): only while a group lives: the share budget refills, groups age and end
+    if (this._tetherOn !== 0) tetherStep(this);
+    // Static Web (attack shapes S5b, src/sim/s5shapes.js): only while a web lives
+    if (this.statics?.length) webStep(this);
     updateEnemyAuras(this);
     // Norika's barricades: spots, rebuilds and Hold the Line timers, before the enemies move into them
     if (this._blockOn) updateBarricades(this);
@@ -369,6 +398,8 @@ export class Sim {
     // abilities: charge, expire, queued shells, auto-cast — before the girls attack, so a boost or a
     // rally cast this step applies this step
     if (this._abilOn > 0 || this.abilGroups.size > 0) tickAbilities(this);
+    // Spirit Squad's Big Cheer (src/sim/abilities.js tickCheers; nothing happens without a girl in the set)
+    tickCheers(this);
     for (let i = 0; i < this.towers.length; i++) updateTower(this, this.towers[i], dt);
     // Tenka's lab weapons (src/sim/lab.js): only once a girl has a lab team
     if (this._labOn) updateLab(this);
@@ -472,8 +503,13 @@ export class Sim {
   _gainCash(amount) {
     if (!(amount > 0)) return 0;
     this._cashCarry += amount;
-    const whole = Math.floor(this._cashCarry + 1e-9);
+    let whole = Math.floor(this._cashCarry + 1e-9);
     this._cashCarry -= whole;
+    // CASH_MAX (GEAR_UPDATE.md r3 L16): cash stops there and the carry clears, so it never reaches Infinity / NaN
+    if (this.cash + whole >= CASH_MAX) {
+      whole = Math.max(0, CASH_MAX - this.cash);
+      this._cashCarry = 0;
+    }
     this.cash += whole;
     this.stats.cashEarned += whole;
     return whole;
@@ -487,12 +523,29 @@ export class Sim {
    */
   _gainCashFor(owner, amount) {
     if (!(amount > 0)) return 0;
-    const whole = Math.floor(amount + 1e-9);
+    let whole = Math.floor(Math.min(CASH_MAX, amount) + 1e-9);
+    if (this.ownerCash) whole = Math.min(whole, Math.max(0, CASH_MAX - (this.ownerCash[owner] || 0)));
+    else whole = Math.min(whole, Math.max(0, CASH_MAX - this.cash));
     if (!(whole > 0)) return 0;
     this.stats.cashEarned += whole;
     if (this.ownerCash) this.ownerCash[owner] = (this.ownerCash[owner] || 0) + whole;
     else this.cash += whole;
     return whole;
+  }
+
+  /** Bake Sale on coins girl `t` made (any coin source the spec lists): her share on top, when she wears the set. */
+  _bakeOn(t, coins) {
+    const bake = t && !t.removed ? setPassive(t.unitStats, 'treasurer') : null;
+    if (bake && coins > 0) this._bake(t, coins * bake.share);
+  }
+
+  /** Bake Sale's extra coins for girl `t`: whole coins into her owner's wallet, the fraction carried on her (`bakeC`). */
+  _bake(t, amount) {
+    if (!(amount > 0)) return;
+    const c = (t.bakeC || 0) + amount;
+    const whole = Math.floor(c + 1e-9);
+    t.bakeC = c - whole;
+    if (whole > 0) this._gainCashFor(ctrlOf(t), whole);
   }
 
   _spend(amount) {
@@ -574,8 +627,18 @@ export class Sim {
     if (e.dead) return -1;
     const roll = spec.critChance > 0 ? this.rng.next() : 1;
     if (this._ruleMul) scale *= ruleHitScale(this._ruleMul, tower, spec.attackType, spec.element);
+    // Spirit Tether (attack shapes S4, src/sim/links.js): only while a group lives, and never for a shared hit; her own
+    // hit on her tied enemy keeps its part, the rest goes down the threads after it lands
+    let tie = null;
+    const base = scale;
+    // (attack shapes S5: a shape hit, spec.noShare, is neither split nor shared, src/sim/shapes.js shapeSpec)
+    if (this._tetherOn !== 0 && e.tie && !this._sharing && !spec.noShare) {
+      tie = e.tie;
+      scale *= ownShare(this, tie, e, tower, spec);
+    }
     const res = computeHit(e, spec, roll, scale, this._hitOut);
     if (!res) return -1;
+    const crit = tie !== null && res.crit; // (a critical hit's shares are critical too)
     const hpBefore = e.hp;
     const flags = applyHitResult(e, res, spec.share);
     const dealt = Math.min(res.toHp, Math.max(0, hpBefore)) + res.toBarrier;
@@ -585,23 +648,29 @@ export class Sim {
     // (one object per hit event: built with its type, so _emit queues it uncopied)
     if (spec.tick) {
       this._emit('hit', {
-        type: 'hit', uid: e.uid, x: e.x, y: e.y, amount: res.toHp + res.toBarrier, crit: res.crit, attackType: spec.attackType, effective: res.effective, tick: true,
+        type: 'hit', uid: e.uid, x: e.x, y: e.y, amount: res.toHp + res.toBarrier, crit: res.crit, superCrit: res.superCrit, attackType: spec.attackType, effective: res.effective, tick: true,
       });
     } else {
       this._emit('hit', {
-        type: 'hit', uid: e.uid, x: e.x, y: e.y, amount: res.toHp + res.toBarrier, crit: res.crit, attackType: spec.attackType, effective: res.effective,
+        type: 'hit', uid: e.uid, x: e.x, y: e.y, amount: res.toHp + res.toBarrier, crit: res.crit, superCrit: res.superCrit, attackType: spec.attackType, effective: res.effective,
       });
     }
     if (flags & BARRIER_BROKE) this._emit('barrierBreak', { uid: e.uid });
     if (flags & SHELL_BROKE) this._emit('shellBreak', { uid: e.uid });
     this._credit(tower, dealt, e, drone);
+    // attack shapes S5 (rule 6): her shape damage, which every damage-ranked pick leaves out (src/sim/buffs.js allocDealt)
+    if (spec.shape && tower && dealt > 0) tower.shapeDealt = (tower.shapeDealt || 0) + dealt;
     this.stats.damageByType[spec.attackType] = (this.stats.damageByType[spec.attackType] || 0) + dealt;
+    // Party Popper's Confetti Burst: the first hit of a bursting attack (src/sim/towers.js)
+    if (spec.confetti) confettiBurst(this, tower, spec, e);
     if (e.hp <= 0) {
       this._killEnemy(e, tower, drone);
+      if (tie !== null) shareTether(this, tie, e, tower, spec, base, crit, drone);
       return dealt;
     }
     this._onHitEffects(e, tower, spec);
     checkPhases(this, e);
+    if (tie !== null) shareTether(this, tie, e, tower, spec, base, crit, drone);
     return dealt;
   }
 
@@ -616,8 +685,9 @@ export class Sim {
     const ctx = this._statusCtx;
     ctx.element = spec.element || null;
     ctx.attackType = spec.attackType;
-    ctx.sourceUid = tower ? tower.uid : null;
-    ctx.hitDamage = spec.damage || 0; // curse burst = burstMul × this hit (after buffs, before crit/ramp)
+    statusCtxFor(ctx, tower); // her uid, Control Strength and You're It (src/sim/setRules.js)
+    // curse burst = burstMul × this hit (after buffs, before crit/ramp) × her average crit (a burst cannot crit, §8.3)
+    ctx.hitDamage = (spec.damage || 0) * avgCritOf(tower?.unitStats);
     ctx.curseDepth = 0;
     const list = spec.status;
     if (list) for (let i = 0; i < list.length; i++) this._applyStatusEvent(e, list[i], ctx);
@@ -640,16 +710,24 @@ export class Sim {
     if (spec.knockback > 0) {
       const hero = !!tower?.isHero;
       const locks = !hero && (PUSH_LOCK_KITS.includes(tower?.unitId) || spec.pushLock === true);
+      // (Fuu's wind, WIND_KITS: its own shorter lock and half the Freeplay Resolve cost; balance round 5)
+      const wind = locks && WIND_KITS.includes(tower?.unitId);
       if (!(hero ? e.heroPushLock > this.time : locks && e.pushLock > 0)) {
         // (Marumi's Bowling Thunder, spec.pushBig: minibosses take the whole push)
         let amt = spec.knockback * (spec.pushBig === true && e.tier === 'miniboss' ? 1 : (KNOCKBACK_RESIST[e.tier] ?? 1));
-        if (e.kbLeft != null) { amt = Math.min(amt, e.kbLeft); e.kbLeft -= amt; }
+        // Control Strength: her push-backs push half that much further (bosses stay immune: KNOCKBACK_RESIST)
+        if (ctx.controlMul > 1) amt *= pushMulFor(ctx.controlMul);
+        if (e.kbLeft != null) {
+          const cost = wind ? WIND_KB_COST : 1;
+          amt = Math.min(amt, e.kbLeft / cost);
+          e.kbLeft -= amt * cost;
+        }
         if (amt > 0) {
           e.dist = Math.max(0, e.dist - amt);
           placeOnPath(e, this.pathData[e.pathIndex]);
           if (hero) e.heroPushLock = this.time + HERO_PUSH_LOCK;
           else if (locks) {
-            e.pushLock = PUSH_LOCK[e.tier] ?? PUSH_LOCK.normal;
+            e.pushLock = wind ? (WIND_LOCK[e.tier] ?? WIND_LOCK.normal) : (PUSH_LOCK[e.tier] ?? PUSH_LOCK.normal);
             e.pushLockBy = tower ? tower.uid : -1;
           }
         }
@@ -705,11 +783,11 @@ export class Sim {
     else checkPhases(this, e);
   }
 
-  /** Burn/poison tick. */
-  _dot(e, kind, amount, status) {
+  /** Burn/poison tick (and a curse's rot). `uid`: the girl credited, when not the status's sourceUid (the rot's rotUid). */
+  _dot(e, kind, amount, status, uid = status.sourceUid) {
     if (!(amount > 0) || e.dead) return;
     // rule scaling for girls' burns and poison (a vent's burn has no source and is not scaled)
-    if (this._ruleMul && status.sourceUid != null) amount *= ruleDotScale(this._ruleMul, this._towerByUid.get(status.sourceUid) || null, kind);
+    if (this._ruleMul && uid != null) amount *= ruleDotScale(this._ruleMul, this._towerByUid.get(uid) || null, kind);
     const res = computeDot(e, kind, amount, status.attackType, this._dotOut);
     const hpBefore = e.hp;
     if (res.toBarrier > 0) {
@@ -721,9 +799,11 @@ export class Sim {
     }
     e.hp -= res.toHp;
     e.lastDamageAt = this.time;
-    const tower = status.sourceUid != null ? this._towerByUid.get(status.sourceUid) || null : null;
+    const tower = uid != null ? this._towerByUid.get(uid) || null : null;
     const dealt = Math.min(res.toHp, Math.max(0, hpBefore)) + res.toBarrier;
     this._credit(tower, dealt, e);
+    // attack shapes S5b (rule 6): a spore tick is shape damage (applyStatus keeps the status's type, not a spec flag)
+    if (status.type === 'spore' && tower && dealt > 0) tower.shapeDealt = (tower.shapeDealt || 0) + dealt;
     this.stats.damageByType[kind] = (this.stats.damageByType[kind] || 0) + dealt;
     if (e.hp <= 0) this._killEnemy(e, tower);
     else checkPhases(this, e);
@@ -752,6 +832,9 @@ export class Sim {
     // Potential N7 (Momo's Lucky Pouch): a kill inside her range pays × her bounty aura (1 = none)
     const bm = bountyMulAt(this, e.x, e.y);
     const bounty = this._gainCash(bm > 1 ? e.bounty * bm : e.bounty);
+    // Treasurer's Bake Sale (src/sim/setRules.js): her kills pay more, into her owner's wallet
+    const bake = tower && !tower.removed ? setPassive(tower.unitStats, 'treasurer') : null;
+    if (bake) this._bake(tower, (bm > 1 ? e.bounty * bm : e.bounty) * bake.share);
     if (this._hubBounty) payHubBounty(this, e); // Ouka's Sponsorship (src/sim/hubs.js)
     this.kills[e.id] = (this.kills[e.id] || 0) + 1;
     if (this.tryout) tryoutKill(this, e);
@@ -774,7 +857,7 @@ export class Sim {
     const c = e.statuses.curse;
     if (c && c.burst > 0) {
       this._curseQueue.push({
-        x: e.x, y: e.y, burst: c.burst, radius: c.radius, duration: c.duration, depth: c.depth || 0, sourceUid: c.sourceUid ?? null,
+        x: e.x, y: e.y, burst: c.burst, rotDps: c.rotDps || 0, rotUid: c.rotUid ?? c.sourceUid ?? null, radius: c.radius, duration: c.duration, depth: c.depth || 0, sourceUid: c.sourceUid ?? null,
       });
       if (!this._flushingCurses) this._flushCurses();
     }
@@ -808,15 +891,66 @@ export class Sim {
         if (q.dead || q.hidden) continue;
         this._hit(q, src, spec, 1);
         if (!spread || q.dead) continue;
+        statusCtxFor(ctx, null);
         ctx.sourceUid = c.sourceUid;
         ctx.curseDepth = c.depth + 1;
-        this._applyStatusEvent(q, { type: 'curse', burst: c.burst * CURSE_DECAY, radius: c.radius, duration: c.duration }, ctx);
+        this._applyStatusEvent(q, { type: 'curse', burst: c.burst * CURSE_DECAY, rotDps: (c.rotDps || 0) * CURSE_DECAY, rotUid: c.rotUid, radius: c.radius, duration: c.duration }, ctx);
       }
     }
     // the rest (over this step's budget) waits for the next step, still in FIFO order
     if (i >= queue.length) queue.length = 0;
     else queue.splice(0, i);
     this._flushingCurses = false;
+  }
+
+  /**
+   * A rotting curse while its enemy lives (Ena's spreading curse, src/sim/enemies.js updateEnemy): its rot (a DoT
+   * credited to the curser, mystic, no element; bosses and minibosses take CURSE_ROT_BOSS_MUL of it), then every
+   * CURSE_SPREAD_STEPS steps it passes a CURSE_SPREAD_DECAY-weaker curse to the nearest uncursed, visible enemy
+   * within CURSE_SPREAD_RADIUS while the generation stays ≤ CURSE_SPREAD_MAX_DEPTH (ties: the grid's order). The
+   * timer is an integer of steps; over this step's CURSE_SPREADS_PER_TICK, or while its enemy is hidden (a tunnel), it
+   * waits at 0 and tries next step. The rot is credited to the girl whose rot it is (`rotUid`), the burst's source
+   * to hers (`sourceUid`): with two Enas they can differ.
+   */
+  _curseTick(e, c, dt) {
+    if (!(c.rotDps > 0)) return;
+    const boss = e.tier === 'boss' || e.tier === 'miniboss';
+    this._dot(e, 'curse', c.rotDps * (boss ? CURSE_ROT_BOSS_MUL : 1) * dt, c, c.rotUid ?? c.sourceUid);
+    if (e.dead || c.depth + 1 > CURSE_SPREAD_MAX_DEPTH) return;
+    if (c.spreadIn > 0) c.spreadIn--;
+    if (c.spreadIn > 0 || this._spreadBudget <= 0 || e.hidden) return;
+    const near = this._scratch3;
+    near.length = 0;
+    this.grid.query(e.x, e.y, CURSE_SPREAD_RADIUS, near);
+    let best = null;
+    let bestD = Infinity;
+    for (let i = 0; i < near.length; i++) {
+      const q = near[i];
+      if (q === e || q.dead || q.hidden || q.statuses.curse) continue;
+      const dx = q.x - e.x;
+      const dy = q.y - e.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestD) {
+        bestD = d2;
+        best = q;
+      }
+    }
+    near.length = 0;
+    c.spreadIn = CURSE_SPREAD_STEPS;
+    if (!best) return;
+    this._spreadBudget--;
+    const ctx = this._spreadCtx;
+    // (a passed curse is no girl's control: no Control Strength or You're It, like _flushCurses; audit A LOW2)
+    statusCtxFor(ctx, null);
+    ctx.sourceUid = c.sourceUid ?? null;
+    ctx.curseDepth = c.depth + 1;
+    this._applyStatusEvent(best, {
+      type: 'curse', burst: c.burst * CURSE_SPREAD_DECAY, rotDps: c.rotDps * CURSE_SPREAD_DECAY, rotUid: c.rotUid ?? c.sourceUid ?? null,
+      radius: c.radius, duration: c.duration,
+    }, ctx);
+    this._emit('curseSpread', {
+      from: e.uid, to: best.uid, x0: e.x, y0: e.y, x1: best.x, y1: best.y, depth: c.depth + 1, towerUid: c.rotUid ?? c.sourceUid ?? null,
+    });
   }
 
   /** The near-exit hook (GAPS P-14; src/sim/enemies.js, only while _nearExitOn): Last Line listens. */
@@ -924,14 +1058,25 @@ export class Sim {
       for (const t of this.towers) {
         const inc = t.stats.income;
         if (!inc || t.disabled > 0) continue;
-        const interest = Math.min(INCOME_INTEREST_MAX, (inc.interest || 0) * this.cash);
+        // Treasurer: Bake Sale grows a coin-maker's own coins; its 5-piece set cap lifts her interest's cap, and the
+        // lifted part pays her owner's wallet (GEAR_UPDATE.md §3.2)
+        const bake = setPassive(t.unitStats, 'treasurer');
+        const raw = (inc.interest || 0) * this.cash;
+        const interest = Math.min(INCOME_INTEREST_MAX, raw);
+        const lifted = bake && t.unitStats.setN >= 5 ? Math.min(INCOME_INTEREST_SET_MAX, raw) - interest : 0;
         const amount = this._gainCash(((inc.perWave || 0) * cashMul + interest) * this.incomeMul);
         if (amount > 0) this._emit('cash', { amount, reason: 'income', towerUid: t.uid });
+        if (lifted > 0) {
+          const more = this._gainCashFor(ctrlOf(t), lifted * this.incomeMul);
+          if (more > 0) this._emit('cash', { amount: more, reason: 'income', towerUid: t.uid }); // (its coin popup)
+        }
+        if (bake) this._bake(t, ((inc.perWave || 0) * cashMul + interest + lifted) * this.incomeMul * bake.share);
         // Potential N8 (Momo's Golden Harvest): every Nth wave clear her wave income once more (no interest)
         const hv = t.stats.harvest;
         if (hv && hv.every > 0 && this.wave % hv.every === 0) {
           const extra = this._gainCash((inc.perWave || 0) * cashMul * (hv.share ?? 1) * this.incomeMul);
           if (extra > 0) this._emit('cash', { amount: extra, reason: 'harvest', towerUid: t.uid });
+          this._bakeOn(t, extra);
         }
       }
       // Tenka's economy weapon (src/sim/lab.js): every joiner's income and interest (owner decision #146),
@@ -949,6 +1094,16 @@ export class Sim {
     if (this.traps.length) endStripWave(this);
     // Kinu's pins, blades, sparks and heat rings end with the wave (src/sim/rings.js)
     endRingWave(this);
+    // the wheel shapes' spin index and halo memory end (src/sim/wheels.js)
+    endWheelWave(this);
+    // the held shapes' channels end (src/sim/held.js)
+    endHeldWave(this);
+    // the ground shapes' spike rows and quake rings end (src/sim/ground.js; Bramble Road's vines end in endVineWave)
+    endGroundWave(this);
+    // the link shapes' tether groups end (src/sim/links.js; returning fans end with the straight shots)
+    endLinkWave(this);
+    // S5a: toll rings and the wheel turn end; surviving bells ring on the next wave's first armed step (src/sim/s5shapes.js)
+    endS5Wave(this);
     // Wakaba's drinks end; Recovery Plan may give a life back (src/sim/drinks.js)
     endDrinkWave(this);
     // Yuzuha's sentries end; her nets stay (src/sim/sentries.js)
@@ -1031,8 +1186,9 @@ export class Sim {
   // -------------------------------------------------------------------------
 
   _unitStats(unitId) {
-    if (this.heroConfig && unitId === this.heroConfig.unitId) return this.heroConfig.stats;
-    return this.loadout.get(unitId) || null;
+    const us = this.heroConfig && unitId === this.heroConfig.unitId ? this.heroConfig.stats : this.loadout.get(unitId) || null;
+    // a titan battle: her stats without balance round 5 (src/sim/mods.js resolveStats reads `powerOff`)
+    return this._powerOff ? { ...(us || DEFAULT_UNIT_STATS), powerOff: true } : us;
   }
 
   /**
@@ -1270,7 +1426,10 @@ export class Sim {
     if (t.rules && isFreeTier(t, index)) return 0; // Ouka's Club Grants (src/sim/hubs.js)
     const us = t.unitStats || DEFAULT_UNIT_STATS;
     const cut = Math.min(0.5, t.buff?.costCut || 0);
-    const price = (tier.cost || 0) * (this.diff.costMul ?? 1) * (us.costMul ?? 1) * (1 - cut);
+    let price = (tier.cost || 0) * (this.diff.costMul ?? 1) * (us.costMul ?? 1) * (1 - cut);
+    // Bake Sale · Nightglass (the Treasurer LR Set Form, src/sim/setRules.js): her first upgrade each wave
+    const bake = setPassive(us, 'treasurer');
+    if (bake?.firstBuy > 0 && t.bakeW !== this.wave) price *= 1 - bake.firstBuy;
     if (this.tryout) {
       // Tryout Day: Free Refills (tiers 1-3) and Scholarship
       const run = tryoutUpgradeCost(this, t, index);
@@ -1325,6 +1484,8 @@ export class Sim {
     const rounds = t.stats.lab ? t.stats.lab.rounds : 0;
     this._spend(st.cost);
     t.spent += st.cost;
+    // (a free upgrade — Free Refills, Club Grants — leaves her first paid one this wave still discounted)
+    if (st.cost > 0 && setPassive(t.unitStats, 'treasurer')?.firstBuy > 0) t.bakeW = this.wave;
     if (this.tryout) tryoutUpgraded(this, t, st.cost, t.tiers[path]);
     t.tiers[path]++;
     this._refreshTower(t);
@@ -1427,10 +1588,12 @@ export class Sim {
 
   /**
    * Sets a tower's aim point (mortar centre, mirror spot, aimed hero ult). Quantised to the
-   * co-op grid (1/1024), clamped into the map; a mirror is clamped to its reach circle.
-   * @returns {boolean} false for unknown towers, towers without an aim mode, a finished battle or bad numbers
+   * co-op grid (1/1024), clamped into the map; a mirror is clamped to its reach circle. A mirror girl (Iroha,
+   * src/sim/mirrors.js) places mirror `slot` (0-based; without one, the mirror nearest the point moves).
+   * @returns {boolean} false for unknown towers, towers without an aim mode, a finished battle, bad numbers or a
+   *   mirror slot she does not have
    */
-  setAim(uid, x, y) {
+  setAim(uid, x, y, slot = null) {
     const t = this.getTower(uid);
     if (!t || this.state === 'won' || this.state === 'lost') return false;
     const mode = aimMode(t);
@@ -1458,8 +1621,16 @@ export class Sim {
       this._emit('aim', { towerUid: uid, x: b.x, y: b.y, banners: t.banners.map((o) => [o.x, o.y]) });
       return true;
     }
+    if (mode === 'mirror') {
+      // (src/sim/mirrors.js mirrorPoint: map, reach, then the grid; the 1-tile push; the event reports the stored spot)
+      const q = mirrorPoint(this, t, x, y);
+      const k = placeMirror(this, t, q.x, q.y, slot);
+      if (k < 0) return false;
+      updateRelayOrigin(this, t);
+      this._emit('aim', { towerUid: uid, x: t.mirrorAim[k].x, y: t.mirrorAim[k].y, slot: k });
+      return true;
+    }
     t.aim = { x: ax, y: ay };
-    if (mode === 'mirror') updateRelayOrigin(this, t);
     this._emit('aim', { towerUid: uid, x: ax, y: ay });
     return true;
   }
@@ -1469,6 +1640,7 @@ export class Sim {
     const t = this.getTower(uid);
     if (!t || this.state === 'won' || this.state === 'lost' || !aimMode(t)) return false;
     t.aim = null;
+    if (t.mirrorAim) t.mirrorAim = null;
     if (t.banners) {
       clearBanners(this, t);
       recomputeBuffs(this);
@@ -1570,6 +1742,12 @@ export class Sim {
       const blasts = 1 + ball.bounce + (ball.finish > 0 && ball.bounce > 0 ? ball.finish - 1 : 0);
       dps = e.rate * (e.damage * blasts + ball.pins * (t.pinSpec?.damage ?? 0));
     }
+    // the attack shapes (src/sim/wheels.js): a wheel's lead coin, a spin's folded stream, a halo's cuts
+    if (t.stats.wheel || t.stats.spin || t.stats.halo) dps = shapeDps(t, e, dps);
+    // the held shapes (src/sim/held.js): a stream's ticks at its mouth, a sweep's passes
+    if (t.stats.stream || t.stats.sweep) dps = heldDps(t, e, dps);
+    // the link shapes (src/sim/links.js): a Homecoming Throw's fans, each cutting a lone enemy out and back
+    if (t.stats.ret) dps = linkDps(t, e, dps);
     if (dps > 0 && e.tempo) dps *= 1 + e.tempo.per * (t.tempoStacks || 0);
     const echo = e.proc && e.proc.of !== 'trap' && e.proc.every > 0 ? (e.proc.echo === true ? 1 : typeof e.proc.echo === 'number' ? e.proc.echo : 0) : 0;
     if (dps > 0 && echo > 0) dps *= 1 + echo / e.proc.every;

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attack Shapes Board</title>
+<style>
+  :root { --ink: #3b2a45; --soft: #7a6585; --paper: #fff8f1; --card: #ffffff; --pink: #ff8fbc; --gold: #f2b53a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 18px 16px 6px; max-width: 1180px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 24px; letter-spacing: .2px; }
+  h1 span { color: var(--pink); }
+  header p { margin: 4px 0; color: var(--soft); }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0 2px; font-size: 13px; color: var(--soft); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; vertical-align: -1px; margin-right: 5px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; padding: 10px 16px 24px; max-width: 1180px; margin: 0 auto; }
+  .card { background: var(--card); border-radius: 14px; box-shadow: 0 2px 10px #3b2a4522; overflow: hidden; }
+  .card canvas { display: block; width: 100%; height: auto; background: #9fd77a; }
+  .body { padding: 9px 12px 12px; }
+  .title { display: flex; align-items: baseline; gap: 8px; }
+  .title b { font-size: 17px; }
+  .num { color: var(--soft); font-weight: 700; }
+  .batch { margin-left: auto; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 9px; color: #fff; white-space: nowrap; }
+  .b1 { background: #e86fa3; } .b2 { background: #e98a2c; } .b3 { background: #4f9e58; } .b4 { background: #6a6fd0; } .b5 { background: #c0469a; }
+  .line { margin: 5px 0 0; font-size: 14px; }
+  .line em { font-style: normal; font-weight: 700; color: var(--soft); }
+  footer { max-width: 1180px; margin: 0 auto; padding: 0 16px 24px; color: var(--soft); font-size: 13px; }
+  body.shot .grid { grid-template-columns: 1fr; max-width: 460px; }
+  body.shot header, body.shot footer { max-width: 460px; }
+  body.reel header p, body.reel .legend, body.reel .line, body.reel footer { display: none; }
+  body.reel header { padding: 14px 8px 2px; }
+  body.reel h1 { font-size: 26px; text-align: center; }
+  body.reel .grid { grid-template-columns: 352px 352px; gap: 8px; padding: 8px; justify-content: center; }
+  body.reel .card { border-radius: 10px; }
+  body.reel .body { padding: 5px 10px 7px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Attack shapes <span>— new ways to attack</span></h1>
+  <p>Each loop is a mock-up on a sample road: the pink girl stands in the middle, plum dots walk the road. Timing, reach and turning follow the spec's direction table and tick rules at real speed.</p>
+  <div class="legend">
+    <span><i style="background:#ff8fbc"></i>the girl</span>
+    <span><i style="background:#5b3a5e"></i>a walker</span>
+    <span><i style="background:#ffffff;box-shadow:0 0 0 2px #5b3a5e inset"></i>just hit</span>
+    <span><i style="background:#f08a3c"></i>burning</span>
+    <span><i style="background:#4fa35a"></i>slowed / held</span>
+    <span><i style="background:#8fd14f"></i>poisoned</span>
+    <span>dashed circle: her range</span>
+  </div>
+</header>
+<main class="grid" id="grid"></main>
+<footer>First batch suggested: <b>S1 "Wheels"</b> (Blossom Wheel, Pinwheel Stream, Petal Halo). Then S2 "Held" (flame stream, searchlight), S3 "Ground" (vines, spikes, quake rings), S4 "Links" (returning throw, threads). Shapes 11-16 are the S5 proposal (<code>?set=s5</code> shows only them). Plain look first; the polished look comes with the effects update.</footer>
+<script type="module" src="./attack-shapes.js"></script>
+</body>
+</html>

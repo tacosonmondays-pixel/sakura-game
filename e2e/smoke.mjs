@@ -184,8 +184,17 @@ async function runViewport(vp) {
     await giftBtn.click({ force: true }); // glowing CTA: never 'stable' on a loaded machine
     const t1 = await page.evaluate(() => ({ t10: window.__sakura.store.profile.items.ticket_recruit10 || 0, gems: window.__sakura.store.profile.currencies.gems, sel: window.__sakura.store.profile.items.ticket_ssr_select || 0 }));
     check(t1.t10 === t0.t10 + 5 && t1.gems === t0.gems + 3000 && t1.sel === 1, `beta gift: claimed 5× 10-pull tickets, 3,000 gems and an SSR Select Ticket (${JSON.stringify(t1)})`);
-    const choose = await page.waitForSelector('[data-testid="confirm-ok"]', { timeout: 5000 }).catch(() => null);
-    if (choose) await choose.click({ force: true });
+    // "Gifts received! … Choose now": wait for that dialog's own button (not a closing overlay's), visible, enabled
+    // and stable, then click it like a player; if the picker does not open, click once more
+    const chooseNow = page.locator('.modal-overlay:not(.closing) [data-testid="confirm-ok"]', { hasText: /Choose now/i });
+    const pickerUp = () => page.waitForSelector('[data-testid^="sst-"]', { state: 'visible', timeout: 10000 }).then(() => true, () => false);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await chooseNow.last().waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+      await page.waitForFunction(() => [...document.querySelectorAll('.modal-overlay:not(.closing) [data-testid="confirm-ok"]')]
+        .some((b) => /Choose now/i.test(b.textContent) && !b.disabled), null, { timeout: 15000 }).catch(() => null);
+      await chooseNow.last().click({ timeout: 10000 }).catch(() => chooseNow.last().click({ force: true, timeout: 5000 }).catch(() => {}));
+      if (await pickerUp()) break;
+    }
     const pick = await page.evaluate(() => {
       const { profile } = window.__sakura.store;
       return [...document.querySelectorAll('[data-testid^="sst-"]')].map((el) => el.dataset.testid.slice(4)).find((id) => !profile.units[id]) || null;
@@ -193,6 +202,14 @@ async function runViewport(vp) {
     check(!!pick, 'SSR Select Ticket: the picker lists an SSR the player does not own');
     if (pick) {
       await shot('ssr-select');
+      // her tile must be the topmost thing under its centre first: Hikari's journal pill (a button that opens the
+      // Journal) can sit over the picker's top row for a couple of seconds after the lobby opens
+      await page.waitForFunction((id) => {
+        const cell = document.querySelector(`[data-testid="sst-${id}"]`);
+        if (!cell) return false;
+        const r = cell.getBoundingClientRect();
+        return !!document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest(`[data-testid="sst-${id}"]`);
+      }, pick, { timeout: 15000, polling: 100 }).catch(() => null);
       await page.click(`[data-testid="sst-${pick}"]`, { force: true });
       // confirm dialog animates in (and its button glows): wait for it, then force the click
       // the earlier "Choose now" dialog may still be fading out with its own confirm-ok, so wait for
@@ -215,7 +232,9 @@ async function runViewport(vp) {
     // [ui-ink] (the bar check below reads what is on top: a screen change still running on a busy machine paints its
     // layers over the bar, so wait for it to end, as e2e/ui-shots.mjs does)
     await page.waitForFunction(() => !document.documentElement.dataset.tx && !document.querySelector('.ld-chip.on'), null, { timeout: 8000 }).catch(() => {});
-    const info = await page.evaluate(() => {
+    // (measured again, up to 3 times 0.5 s apart, while a control reads as covered: mid-transition the point test can hit
+    // the page body before the new screen settles; a real overlap stays covered)
+    const measure = () => page.evaluate(() => {
       const app = document.querySelector('#app');
       const text = (app?.innerText || '').trim();
       // [ui-ink] the top bar can be reached (UI v2 V1 review 1: on portrait phones the wallets pushed Settings and Home
@@ -249,6 +268,11 @@ async function runViewport(vp) {
       }
       return { screen: app?.dataset.screen, len: text.length, crashed: /Something went wrong/.test(text), overflow: document.documentElement.scrollWidth > window.innerWidth + 1, bar, heads };
     });
+    let info = await measure();
+    for (let i = 0; i < 3 && (info.bar.length || info.heads.length); i++) {
+      await page.waitForTimeout(500);
+      info = await measure();
+    }
     const errs = takeErrors();
     check(info.len > 40 && !info.crashed, `${label}: renders content (${info.len} chars, screen=${info.screen})`);
     check(!errs.length, `${label}: no page/console errors${errs.length ? `\n       ${errs.slice(0, 5).join('\n       ')}` : ''}`);
@@ -428,7 +452,13 @@ async function runViewport(vp) {
   // let go. Mouse on desktop, touch on phones. A touch drag aims 46 px above the finger
   // (TOUCH_LIFT in src/ui/battle/placement.js), so the finger is released that far below the spot.
   const lift = touch ? 46 : 0;
-  // the battle screen slides in (slow under SwiftShader): aim only once the board stopped moving
+  // the battle screen slides in (slow under SwiftShader): aim only once the board stopped moving.
+  // First the screen change itself: the "cut" into a battle reveals with a 14 px drift of the whole
+  // screen (src/ui/transitions/index.js), and that drift only starts once the battle's ready signal,
+  // the loader and two frames are done — after the placement UI exists, so a check of the running
+  // animations alone could pass before it began. Aiming then put the target 14 px (half a tile at
+  // 844x390) off the board's real spot: the drag followed the board correctly, the test's aim did not.
+  await page.waitForFunction(() => !window.__sakura?.transitions?.busy?.(), null, { timeout: 15000 }).catch(() => null);
   await page.waitForFunction(() => {
     for (let el = window.__battle.renderer.canvas; el; el = el.parentElement) {
       if (el.getAnimations().some((a) => a.playState === 'running' && a.effect?.getComputedTiming().iterations !== Infinity)) return false;
@@ -519,6 +549,8 @@ async function runViewport(vp) {
     }, drag.unitId);
     const how = touch ? 'touch' : 'mouse';
     check(mid.mode === 'drag' && mid.unitId === drag.unitId && mid.ok === true, `drag (${how}): holding ${drag.unitId}'s card over open ground shows a valid ghost (${JSON.stringify(mid)})`);
+    // the player's contract: she stands exactly where her ghost was when the finger let go
+    check(res.towers === drag.towers + 1 && !!res.at && !!mid.at && Math.hypot(res.at[0] - mid.at[0], res.at[1] - mid.at[1]) < 0.05, `drag (${how}): releasing places ${drag.unitId} where her ghost stood (ghost ${JSON.stringify(mid.at)} → ${JSON.stringify(res.at)})`);
     check(res.towers === drag.towers + 1 && !!res.at && Math.hypot(res.at[0] - drag.x, res.at[1] - drag.y) < 0.25, `drag (${how}): releasing places ${drag.unitId} where the pointer let go (aimed [${drag.x}, ${drag.y}] → ${JSON.stringify(res.at)})`);
     check(res.placing === null, `drag (${how}): placement ends after the drop`);
     await shot('battle-drag-placed');

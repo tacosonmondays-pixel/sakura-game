@@ -13,6 +13,7 @@
 //     note says why).
 import { DIFFICULTY_ORDER } from '../../data/types.js';
 import { FREEPLAY_TIERS } from '../../data/freeplay.js';
+import { FRAMES } from '../../data/profileArt.js';
 
 /** The collection stats' keys, in their order (students, stages cleared, bestiary %, enemies defeated). */
 export const STAT_KEYS = Object.freeze(['u', 's', 'b', 'k']);
@@ -42,13 +43,17 @@ export function freeplayPlayed(fp = {}) {
 /** A freeplay title (fp_…): the only titles the Freeplay panel lists (achievement and tag titles are not its records). */
 export const isFreeplayTitle = (id) => typeof id === 'string' && id.startsWith('fp_');
 
+/** A Freeplay frame (Eclipse, Hundred Waves, Endless Tide): the only frames the Freeplay panel counts (Cosmetics 2 adds
+ *  academy, LR, secret and event frames, which are not Freeplay records). */
+export const isFreeplayFrame = (id) => typeof id === 'string' && FRAMES[id]?.group === 'freeplay';
+
 /**
  * What the Freeplay panel lists besides its records (UI M5d review): your freeplay titles and frames; on someone else's
  * card, their title when it is a freeplay one, and their frame. An achievement or tag title alone lists nothing.
  */
 export function freeplayEarned(m = {}) {
-  if (m.own) return (m.earnedTitles || []).some(isFreeplayTitle) || (m.earnedFrames || []).length > 0;
-  return isFreeplayTitle(m.title) || !!m.frame;
+  if (m.own) return (m.earnedTitles || []).some(isFreeplayTitle) || (m.earnedFrames || []).some(isFreeplayFrame);
+  return isFreeplayTitle(m.title) || isFreeplayFrame(m.frame);
 }
 
 /**

@@ -27,7 +27,7 @@ async function render(enemyId, size) {
   const [THREE, models] = await Promise.all([import('three'), import('../../models/index.js')]);
   // the family GLB (procedural fallback when it does not arrive in time)
   await Promise.race([
-    Promise.resolve(models.preloadEnemies([def.model?.base || def.family])).catch(() => false),
+    Promise.resolve(models.preloadEnemies(models.enemyModelKeys(def))).catch(() => false),
     new Promise((r) => setTimeout(r, LOAD_TIMEOUT_MS)),
   ]);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });

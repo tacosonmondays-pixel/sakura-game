@@ -8,7 +8,7 @@
 import { lookAt } from '../flair.js';
 import { chrysanthemum, flash } from '../patterns/bursts.js';
 import { reticle } from '../patterns/markers.js';
-import { hand, handFlash } from './util.js';
+import { hand, handFlash, tipUp } from './util.js';
 import { DECOR } from '../context.js';
 
 const COLS = ['#ff8c42', '#ffd23f', '#ff6b8b'];
@@ -25,7 +25,7 @@ export const akane = {
     const h = hand(ctx, t);
     rec.mx = h.x;
     rec.my = h.y;
-    rec.mz = h.h + 0.1;
+    rec.mz = h.h + tipUp(h, 0.1);
     if (rockets && lookAt(rec.tw.look, 2) >= 4) {
       const f = ctx.facing(t);
       const side = rec.uid & 1 ? 0.2 : -0.2;
@@ -40,6 +40,8 @@ export const akane = {
   view(p, rec, _t, v, ctx) {
     const lk = rec.tw.look;
     const p2 = lookAt(lk, 2);
+    // (her own trail, smoke or embers, when her look has one: the styled ribbon skips those shots; a plain fireball keeps it)
+    v.ownTrail = p2 >= 3 || lookAt(lk, 1) >= 1 || lk.accent[1] >= 1;
     const f = rec.f || 0;
     if (p2 >= 3) {
       v.kind = 'needle';
