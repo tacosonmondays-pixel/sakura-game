@@ -2,7 +2,9 @@
 // writes, so they are unit-tested in node (tests/render/companions.test.js). Positions are world units
 // on the board: x = sim x, z = sim y, y = height.
 //
-//   Kon (Ruri):  home (sits by her) → travel (bounds along the ground: konGait, a dust puff per stride) → spot
+//   Kon (Ruri):  home (sits by her) → travel (bounds along the ground: konGait, a dust puff per stride; an arc that
+//                bows toward the camera early and comes in straight, konArc, so the run crosses open ground in
+//                front of her and not the props by the spot) → spot
 //                (sits at her relay origin); Moon Pounce (pounceStep): crouch → arc leap → impact at the target → hop
 //                back to where he stood
 //   Kaze (Hana): a swoop (stoopStep) = climb, stoop down onto the target she shot, swing back up to her shoulder;
@@ -19,6 +21,22 @@ export const KON_STRIDE = 0.36;
 /** How high a bound lifts him (tiles) and how far he pitches (radians, nose up on take-off). */
 export const KON_HOP = 0.1;
 export const KON_PITCH = 0.22;
+/**
+ * His run bows toward the camera (display only, the same start and arrival): the bow's peak sits KON_ARC of the run's
+ * length off the straight line, at most KON_ARC_MAX tiles, so a short run to a spot about a tile from Ruri crosses the
+ * open ground in front of her instead of her body. The bow comes early (a cubic: its first control point KON_ARC_IN
+ * along the line and off it to the camera side), where clearing her matters; the second sits KON_ARC_OUT along, so he
+ * comes in near-straight and does not swing wide through props beside his spot. A run that heads toward the camera
+ * leaves her behind it anyway: its bow shrinks by as much, and it comes in from straight behind the spot on screen
+ * (so a prop in front of the spot and to one side never cuts through him on the way in). A target that jumps more
+ * than KON_RETARGET tiles starts a new arc from where he is; a smaller move (her home point turning with her) only
+ * moves the arc's end.
+ */
+export const KON_ARC = 0.3;
+export const KON_ARC_MAX = 0.6;
+export const KON_ARC_IN = 1 / 3;
+export const KON_ARC_OUT = 0.65;
+export const KON_RETARGET = 0.25;
 /** A relay origin this close to Ruri means no relay spot: Kon sits by her. */
 export const KON_SELF = 0.3;
 /** Kaze's swoop: seconds out and back, arc height (tiles). */
@@ -77,9 +95,81 @@ export function diveReach(range) {
   return Math.max(0, range || 0) + DIVE_SLACK;
 }
 
-/** @returns {{ mode: 'home'|'travel'|'spot', x: number, z: number, tx: number, tz: number, hold: number, placed: boolean, dx: number, dz: number }} */
+/**
+ * sx / sz: where this run started; cx / cz: its arc's first control point; ex / ez: its second, relative to the
+ * target (konArc); u: how far along it he is (0..1).
+ * @returns {{ mode: 'home'|'travel'|'spot', x: number, z: number, tx: number, tz: number, hold: number, placed: boolean, dx: number, dz: number }}
+ */
 export function konState() {
-  return { mode: 'home', x: 0, z: 0, tx: 0, tz: 0, hold: 0, placed: false, dx: 0, dz: 1, run: 0, steps: 0 };
+  return {
+    mode: 'home', x: 0, z: 0, tx: 0, tz: 0, hold: 0, placed: false, dx: 0, dz: 1, run: 0, steps: 0,
+    sx: 0, sz: 0, cx: 0, cz: 0, ex: 0, ez: 0, u: 0,
+  };
+}
+
+/**
+ * Starts a run from where Kon is to (tx, tz): a cubic (see KON_ARC) toward the camera (`cam`: the ground direction
+ * toward the camera, unit length; null: a straight run). The first control point sits KON_ARC_IN along the straight
+ * line and off it on the camera's side, by more the more the run crosses the view (a run straight at the camera or
+ * away from it stays straight) and by less the more it heads toward the camera. The second sits KON_ARC_OUT along:
+ * on the line, or for a run that heads toward the camera turned toward the camera's axis by as much (ex / ez,
+ * relative to the target).
+ * @param {ReturnType<typeof konState>} s mutated
+ * @param {{ x: number, z: number }|null} [cam]
+ */
+export function konArc(s, tx, tz, cam = null) {
+  s.sx = s.x;
+  s.sz = s.z;
+  s.u = 0;
+  const dx = tx - s.x;
+  const dz = tz - s.z;
+  const d = Math.hypot(dx, dz);
+  let px = 0;
+  let pz = 0;
+  // his arrival direction (unit): along the line
+  let ax = d > 1e-6 ? dx / d : 0;
+  let az = d > 1e-6 ? dz / d : 0;
+  if (cam && d > 1e-6) {
+    // the run's normal on the camera's side, weighted by how much of the view it crosses
+    px = -az;
+    pz = ax;
+    const dot = px * cam.x + pz * cam.z;
+    // how much it heads toward the camera (0: across the view or away, 1: straight at it): a run that does leaves her
+    // figure behind it anyway, so its bow shrinks by as much (a bow there only swings him wide beside his spot)
+    const near = Math.max(0, ax * cam.x + az * cam.z);
+    // (with the second control point on the line, the bow peaks at u = 1/3, 4/9 of the first one's offset)
+    const k = 2.25 * Math.min(KON_ARC * d, KON_ARC_MAX) * dot * (1 - near);
+    px *= k;
+    pz *= k;
+    // and it comes in from straight behind the spot on screen (its arrival turned toward the camera's axis by as
+    // much), so a prop in front of the spot and to one side never cuts through him on the way in
+    const bx = ax * (1 - near) + cam.x * near;
+    const bz = az * (1 - near) + cam.z * near;
+    const l = Math.hypot(bx, bz);
+    if (l > 1e-6) {
+      ax = bx / l;
+      az = bz / l;
+    }
+  }
+  s.cx = s.x + dx * KON_ARC_IN + px;
+  s.cz = s.z + dz * KON_ARC_IN + pz;
+  // the second control point, KON_ARC_OUT along (relative to the target): he arrives along (ax, az)
+  s.ex = -ax * d * (1 - KON_ARC_OUT);
+  s.ez = -az * d * (1 - KON_ARC_OUT);
+  return s;
+}
+
+/** The arc's speed (|dB/du|) at u, toward (tx, tz). */
+function konArcSpeed(s, u, tx, tz) {
+  const v = 1 - u;
+  const ex = tx + s.ex;
+  const ez = tz + s.ez;
+  const p = v * v;
+  const q = 2 * u * v;
+  const r = u * u;
+  const fx = p * (s.cx - s.sx) + q * (ex - s.cx) + r * (tx - ex);
+  const fz = p * (s.cz - s.sz) + q * (ez - s.cz) + r * (tz - ez);
+  return 3 * Math.hypot(fx, fz);
 }
 
 /**
@@ -103,8 +193,9 @@ export function konSpot(t, out) {
  * @param {number} homeX @param {number} homeZ where he sits by Ruri this frame
  * @param {{ x: number, z: number }|null} spot
  * @param {number} [speed]
+ * @param {{ x: number, z: number }|null} [cam] the ground direction toward the camera (unit): his run bows that way
  */
-export function konStep(s, dt, homeX, homeZ, spot, speed = KON_SPEED) {
+export function konStep(s, dt, homeX, homeZ, spot, speed = KON_SPEED, cam = null) {
   if (!s.placed) {
     s.placed = true;
     s.mode = 'home';
@@ -128,27 +219,53 @@ export function konStep(s, dt, homeX, homeZ, spot, speed = KON_SPEED) {
     return s;
   }
   if (!toHome && s.mode === 'spot' && Math.abs(s.tx - tx) < 1e-6 && Math.abs(s.tz - tz) < 1e-6) return s;
+  // a new run (from where he sits, or a target that jumped): a new arc from here; a small move only moves its end
+  if (s.mode !== 'travel' || Math.hypot(tx - s.tx, tz - s.tz) > KON_RETARGET) konArc(s, tx, tz, cam);
   s.mode = 'travel';
   s.tx = tx;
   s.tz = tz;
-  const dx = tx - s.x;
-  const dz = tz - s.z;
-  const d = Math.hypot(dx, dz);
+  // the arc: a cubic from (sx, sz) through its control points to the target. u advances by arc length (a midpoint
+  // step on its speed), so his pace is even along it; the run counts the distance he really moved
   const step = Math.max(0, speed * dt);
-  if (d > 1e-6) {
-    s.dx = dx;
-    s.dz = dz;
-  }
-  // (the run's length so far: his bounds and their dust puffs follow it)
-  s.run += Math.min(d, step);
-  s.steps = Math.floor(s.run / KON_STRIDE);
-  if (d <= step || d < 1e-4) {
+  const u0 = s.u;
+  const sp0 = konArcSpeed(s, u0, tx, tz);
+  let du = sp0 > 1e-6 ? step / sp0 : 1;
+  const spm = konArcSpeed(s, Math.min(1, u0 + du / 2), tx, tz);
+  du = spm > 1e-6 ? step / spm : 1;
+  const u = u0 + Math.min(du, 0.5);
+  if (u >= 1 || Math.hypot(tx - s.x, tz - s.z) < 1e-4) {
+    // (the bounds and their dust puffs follow the run's length)
+    s.run += Math.hypot(tx - s.x, tz - s.z);
+    s.steps = Math.floor(s.run / KON_STRIDE);
     s.x = tx;
     s.z = tz;
+    s.u = 1;
     s.mode = toHome ? 'home' : 'spot';
-  } else {
-    s.x += (dx / d) * step;
-    s.z += (dz / d) * step;
+    return s;
+  }
+  s.u = u;
+  const v = 1 - u;
+  const ex = tx + s.ex;
+  const ez = tz + s.ez;
+  const b0 = v * v * v;
+  const b1 = 3 * u * v * v;
+  const b2 = 3 * u * u * v;
+  const b3 = u * u * u;
+  const nx = b0 * s.sx + b1 * s.cx + b2 * ex + b3 * tx;
+  const nz = b0 * s.sz + b1 * s.cz + b2 * ez + b3 * tz;
+  s.run += Math.hypot(nx - s.x, nz - s.z);
+  s.steps = Math.floor(s.run / KON_STRIDE);
+  s.x = nx;
+  s.z = nz;
+  // he faces along the arc (its tangent)
+  const p = v * v;
+  const q = 2 * u * v;
+  const r = u * u;
+  const fx = p * (s.cx - s.sx) + q * (ex - s.cx) + r * (tx - ex);
+  const fz = p * (s.cz - s.sz) + q * (ez - s.cz) + r * (tz - ez);
+  if (fx * fx + fz * fz > 1e-12) {
+    s.dx = fx;
+    s.dz = fz;
   }
   return s;
 }
