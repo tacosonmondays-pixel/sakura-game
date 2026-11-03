@@ -4,6 +4,7 @@
 //
 //   /previews/electric.html            live: the scene loops; scene / preset / tier / Reduce Motion buttons
 //   ?scene=aura|shock|scorch|drumstorm|surge|all  &quality=high|medium|low  &rm=1  &preset=raika|chika|tenka|seiran|yuzuha
+//   &look=a|b (every preset in that look, ELECTRIC_LOOKS; none: each preset's own `look`)
 //   &focus=<i> (aura: which girl the crops and close-ups centre on)  &zoom=2.5 (a close-up)  &clean=1 (no buttons)
 //   &manual=1: no loop; window.__lab.shot(t) steps the scene to t s and draws it (call in rising order);
 //   window.__lab.screen() → the focus's screen px; window.__lab.stats() → draw calls etc. (and the real flash guard's
@@ -14,14 +15,14 @@
 import * as THREE from 'three';
 import { createLabStage } from './vfxLabStage.js';
 import { createElectricFx } from '../src/render/vfx/electric.js';
-import { ELECTRIC_PRESETS, ELECTRIC_CASTS } from '../src/render/vfx/electricPresets.js';
+import { ELECTRIC_PRESETS, ELECTRIC_CASTS, ELECTRIC_LOOKS } from '../src/render/vfx/electricPresets.js';
 import { createLightningFx } from '../src/render/vfx/lightning.js';
 import { LIGHTNING_PRESETS } from '../src/render/vfx/lightningPresets.js';
 import { createVisualRandom, visualSeed } from '../src/render/vfx/random.js';
 import { FlashGuard, screenShare } from '../src/render/vfx/flashGuard.js';
 import { UNIT_MAP } from '../src/data/units.js';
 import { ENEMIES } from '../src/data/enemies.js';
-import { preloadModels, buildChibi, buildEnemy, preloadEnemies } from '../src/models/index.js';
+import { preloadModels, buildChibi, buildEnemy, preloadEnemies, enemyModelKeys } from '../src/models/index.js';
 
 const SCENES = ['aura', 'shock', 'scorch', 'drumstorm', 'surge', 'all'];
 const Q = new URLSearchParams(location.search);
@@ -32,6 +33,7 @@ const manual = Q.get('manual') === '1';
 const zoom = Number(Q.get('zoom') || 1);
 const presetQ = ELECTRIC_PRESETS[Q.get('preset')] ? Q.get('preset') : null;
 const focusI = Math.max(0, Math.min(4, Number(Q.get('focus') || 0)));
+const look = ELECTRIC_LOOKS[Q.get('look')] ? Q.get('look') : null;
 if (Q.get('clean') === '1') document.body.classList.add('clean');
 
 /** The five girls and their presets (the aura scene's row, left to right). */
@@ -71,11 +73,22 @@ function droneProp() {
   return g;
 }
 
+/**
+ * Waits (up to `ms`) until every figure wears its final model (its GLB, or a procedural stand-in on purpose; offline
+ * the procedural fallback after the wait), then poses each again on that model.
+ */
+async function settle(figures, ms = 20000) {
+  const t0 = performance.now();
+  const done = () => figures.every(({ o }) => o.userData.glb || o.userData.standIn);
+  while (!done() && performance.now() - t0 < ms) await new Promise((r) => setTimeout(r, 50));
+  for (const f of figures) f.pose();
+}
+
 async function main() {
   const stage = await createLabStage({ canvas, width: W, height: H, quality, girl: null, zoom, focus });
   const scene = stage.scene;
   const rand = createVisualRandom(visualSeed('lab', 'electric', sceneId, presetQ || '')).fork('electric');
-  const elec = createElectricFx({ scene, camera: stage.camera, quality, reduceMotion: rm, rand });
+  const elec = createElectricFx({ scene, camera: stage.camera, quality, reduceMotion: rm, rand, look });
   elec.setGlow(quality, stage.glow);
   elec.setPixel(stage.rig.scale);
   const lightning = createLightningFx({ scene, batches: stage.batches, atlas: stage.atlas, quality, reduceMotion: rm, rand: rand.fork('chain') });
@@ -98,12 +111,16 @@ async function main() {
   } catch {
     // (offline: the procedural chibis stand in)
   }
+  /** Every figure placed, with its pose (posed again once every model has arrived: see settle()). */
+  const figures = [];
   const place = (id, x, z, ry = 0.35) => {
     const f = buildChibi(UNIT_MAP[id], { quality });
     f.position.set(x, 0, z);
     f.rotation.y = ry;
     scene.add(f);
-    f.userData.animate?.(1.0, 0, 'idle');
+    const pose = () => f.userData.animate?.(1.0, 0, 'idle');
+    pose();
+    figures.push({ o: f, pose });
     return f;
   };
   const goblin = ENEMIES.find((e) => e.family === 'goblin') || ENEMIES[0];
@@ -111,7 +128,9 @@ async function main() {
   const addFoe = async (x, z) => {
     if (!foes.length) {
       try {
-        await preloadEnemies([goblin.family]);
+        // its family model and its own model (the goblin runner has one): both here before it is built, so buildEnemy
+        // never swaps the model in later, mid-run (an async upgrade a loaded machine finishes at a different frame)
+        await preloadEnemies(enemyModelKeys(goblin));
       } catch {
         // (offline: the procedural enemy stands in)
       }
@@ -121,7 +140,9 @@ async function main() {
     m.rotation.y = -1.2;
     m.scale.setScalar(1.12);
     scene.add(m);
-    m.userData.animate?.(0.4, 0, 'walk');
+    const pose = () => m.userData.animate?.(0.4, 0, 'walk');
+    pose();
+    figures.push({ o: m, pose });
     const h = (m.userData.height || 0.6 * (goblin.size || 1)) * 1.12;
     foes.push({ m, x, z, h });
   };
@@ -211,6 +232,11 @@ async function main() {
   }
   void chika;
 
+  // every model in place and posed before the lab is ready: a figure still waiting for its GLB (an async upgrade in
+  // place) is waited for, then every figure is posed again on its final model, so the first frame is the same picture
+  // on every run however loaded the machine is
+  await settle(figures);
+
   let frame = 0;
   const guardStats = () => ({ worldLoad: guard.worldArea.sum(clock.t), worldPeak: guardPeak, dimmed: guard.dimmed });
   const step = () => {
@@ -227,7 +253,7 @@ async function main() {
   const info = document.getElementById('info');
   const show = () => {
     const s = elec.stats;
-    info.textContent = `${sceneId} · ${quality}${rm ? ' · Reduce Motion' : ''} · ${(frame * DT).toFixed(2)} s · calls ${s.calls} · strokes ${s.strokes} · ground ${s.ground} · flash ${guard.worldArea.sum(clock.t).toFixed(3)} screens/s`;
+    info.textContent = `${sceneId} · look ${s.look} · ${quality}${rm ? ' · Reduce Motion' : ''} · ${(frame * DT).toFixed(2)} s · calls ${s.calls} · strokes ${s.strokes} · ground ${s.ground} · flash ${guard.worldArea.sum(clock.t).toFixed(3)} screens/s`;
   };
 
   window.__lab = {
@@ -235,6 +261,7 @@ async function main() {
     scene: sceneId,
     quality,
     rm,
+    look: elec.stats.look,
     /** Steps the scene to t seconds (rising order) and draws that frame. */
     shot(t) {
       const target = Math.round(t / DT);
@@ -243,6 +270,20 @@ async function main() {
       show();
       return { t: frame * DT, ...elec.stats, frameCalls: r.calls, ...guardStats() };
     },
+    /**
+     * Draws the frame just shot again with the electric layer hidden (the same state otherwise): the ink-fragment
+     * count (e2e/electric-ink.mjs) diffs the two, so only the electricity's own pixels are classified.
+     */
+    bare(keep = null) {
+      // keep: 'ground' draws the ground pieces only, 'strokes' the bolts only (the rest of the electric layer hidden)
+      const ms = elec.meshes;
+      const vis = ms.map((m) => m.visible);
+      ms.forEach((m, i) => { m.visible = vis[i] && ((keep === 'strokes' && i === 0) || (keep === 'ground' && i === 1)); });
+      stage.render();
+      ms.forEach((m, i) => { m.visible = vis[i]; });
+    },
+    /** The placed figures' models: true when each wears its final model (a GLB, or a stand-in on purpose). */
+    models: () => figures.map(({ o }) => !!(o.userData.glb || o.userData.standIn)),
     /** The focus's screen px (the boards crop round it). */
     screen: () => stage.toScreen(focus[0], 0.45, focus[1]),
     stats: () => ({ ...elec.stats, sceneCalls: stage.calls(), ...guardStats() }),
@@ -297,6 +338,9 @@ async function main() {
   sel.onchange = () => reload('scene', sel.value);
   ps.onchange = () => reload('preset', ps.value);
   qs.onchange = () => reload('quality', qs.value);
+  const lk = document.getElementById('look');
+  lk.value = elec.stats.look === 'b' ? 'b' : 'a';
+  lk.onchange = () => reload('look', lk.value);
   const rmb = document.getElementById('rm');
   rmb.classList.toggle('on', rm);
   rmb.onclick = () => reload('rm', rm ? '0' : '1');
