@@ -338,7 +338,9 @@ twist round a helix and sway on X/Z. Display only: the sim id does not change.
   cover adds no light in the linear composer and a thinner lemon over grass reads lime; with bloom off it draws on the
   canvas like medium, and erosion takes tongues away and cools the rest (it never adds light). Every ring erodes 0.22
   harder and the far arc 0.3 harder still, with the colour index following the extra erosion (the tongues that are left
-  keep the whole ramp).
+  keep the whole ramp). That keeps what stands behind at least as readable as on medium on the landscape camera; on the
+  portrait camera it stays above medium's floor but keeps less than medium does there (0.18 against 0.27 at 0.9 tiles,
+  0.26 against 0.57 in the centre), because medium's column is the world's and that camera sees it side-on.
   - **The funnel faces the camera** under Reduce Motion: its front and far arc (the erosion, `COVER_FAR_ERODE`'s too, the
     colour index, the far arc's faintness and the back's given row) are the camera's that draws the column (`uView`, set
     as it is drawn), and so is its frozen noise (`uYaw`, the camera's turn from the landscape camera's, in turns: the

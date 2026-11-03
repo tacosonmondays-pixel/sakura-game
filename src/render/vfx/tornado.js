@@ -51,7 +51,8 @@ export const COVER_GAIN = [1, 1.1, 1.25, 1.65, 1.9];
 export const COVER_FAR_ERODE = 0.4;
 /**
  * High under Reduce Motion (with bloom or without): the rings stand still, so what stands behind and inside a column
- * that is fully up must stay at least as readable as on medium. The column is eroded instead of thinned (a thinner
+ * that is fully up must stay at least as readable as on medium (on the landscape camera; on the portrait camera it stays
+ * above medium's floor but keeps less than medium does there, which sees its own column side-on). The column is eroded instead of thinned (a thinner
  * lemon over grass reads lime): every ring `all` harder, the far arc `far` harder still, and the colour index follows
  * the extra erosion (`all`), so the tongues that are left keep the whole ramp instead of only its hottest bands. Here the
  * funnel's front and far arc (COVER_FAR_ERODE's too) and its frozen noise are the camera's, so the portrait camera, which
