@@ -4,6 +4,7 @@
 //
 //   /previews/electric.html            live: the scene loops; scene / preset / tier / Reduce Motion buttons
 //   ?scene=aura|shock|scorch|drumstorm|surge|all  &quality=high|medium|low  &rm=1  &preset=raika|chika|tenka|seiran|yuzuha
+//   &look=a|b (every preset in that look, ELECTRIC_LOOKS; none: each preset's own `look`)
 //   &focus=<i> (aura: which girl the crops and close-ups centre on)  &zoom=2.5 (a close-up)  &clean=1 (no buttons)
 //   &manual=1: no loop; window.__lab.shot(t) steps the scene to t s and draws it (call in rising order);
 //   window.__lab.screen() → the focus's screen px; window.__lab.stats() → draw calls etc. (and the real flash guard's
@@ -14,7 +15,7 @@
 import * as THREE from 'three';
 import { createLabStage } from './vfxLabStage.js';
 import { createElectricFx } from '../src/render/vfx/electric.js';
-import { ELECTRIC_PRESETS, ELECTRIC_CASTS } from '../src/render/vfx/electricPresets.js';
+import { ELECTRIC_PRESETS, ELECTRIC_CASTS, ELECTRIC_LOOKS } from '../src/render/vfx/electricPresets.js';
 import { createLightningFx } from '../src/render/vfx/lightning.js';
 import { LIGHTNING_PRESETS } from '../src/render/vfx/lightningPresets.js';
 import { createVisualRandom, visualSeed } from '../src/render/vfx/random.js';
@@ -32,6 +33,7 @@ const manual = Q.get('manual') === '1';
 const zoom = Number(Q.get('zoom') || 1);
 const presetQ = ELECTRIC_PRESETS[Q.get('preset')] ? Q.get('preset') : null;
 const focusI = Math.max(0, Math.min(4, Number(Q.get('focus') || 0)));
+const look = ELECTRIC_LOOKS[Q.get('look')] ? Q.get('look') : null;
 if (Q.get('clean') === '1') document.body.classList.add('clean');
 
 /** The five girls and their presets (the aura scene's row, left to right). */
@@ -75,7 +77,7 @@ async function main() {
   const stage = await createLabStage({ canvas, width: W, height: H, quality, girl: null, zoom, focus });
   const scene = stage.scene;
   const rand = createVisualRandom(visualSeed('lab', 'electric', sceneId, presetQ || '')).fork('electric');
-  const elec = createElectricFx({ scene, camera: stage.camera, quality, reduceMotion: rm, rand });
+  const elec = createElectricFx({ scene, camera: stage.camera, quality, reduceMotion: rm, rand, look });
   elec.setGlow(quality, stage.glow);
   elec.setPixel(stage.rig.scale);
   const lightning = createLightningFx({ scene, batches: stage.batches, atlas: stage.atlas, quality, reduceMotion: rm, rand: rand.fork('chain') });
@@ -227,7 +229,7 @@ async function main() {
   const info = document.getElementById('info');
   const show = () => {
     const s = elec.stats;
-    info.textContent = `${sceneId} · ${quality}${rm ? ' · Reduce Motion' : ''} · ${(frame * DT).toFixed(2)} s · calls ${s.calls} · strokes ${s.strokes} · ground ${s.ground} · flash ${guard.worldArea.sum(clock.t).toFixed(3)} screens/s`;
+    info.textContent = `${sceneId} · look ${s.look} · ${quality}${rm ? ' · Reduce Motion' : ''} · ${(frame * DT).toFixed(2)} s · calls ${s.calls} · strokes ${s.strokes} · ground ${s.ground} · flash ${guard.worldArea.sum(clock.t).toFixed(3)} screens/s`;
   };
 
   window.__lab = {
@@ -235,6 +237,7 @@ async function main() {
     scene: sceneId,
     quality,
     rm,
+    look: elec.stats.look,
     /** Steps the scene to t seconds (rising order) and draws that frame. */
     shot(t) {
       const target = Math.round(t / DT);
@@ -242,6 +245,17 @@ async function main() {
       const r = stage.render();
       show();
       return { t: frame * DT, ...elec.stats, frameCalls: r.calls, ...guardStats() };
+    },
+    /**
+     * Draws the frame just shot again with the electric layer hidden (the same state otherwise): the ink-fragment
+     * count (e2e/electric-ink.mjs) diffs the two, so only the electricity's own pixels are classified.
+     */
+    bare() {
+      const ms = elec.meshes;
+      const vis = ms.map((m) => m.visible);
+      for (const m of ms) m.visible = false;
+      stage.render();
+      ms.forEach((m, i) => { m.visible = vis[i]; });
     },
     /** The focus's screen px (the boards crop round it). */
     screen: () => stage.toScreen(focus[0], 0.45, focus[1]),
@@ -297,6 +311,9 @@ async function main() {
   sel.onchange = () => reload('scene', sel.value);
   ps.onchange = () => reload('preset', ps.value);
   qs.onchange = () => reload('quality', qs.value);
+  const lk = document.getElementById('look');
+  lk.value = elec.stats.look === 'b' ? 'b' : 'a';
+  lk.onchange = () => reload('look', lk.value);
   const rmb = document.getElementById('rm');
   rmb.classList.toggle('on', rm);
   rmb.onclick = () => reload('rm', rm ? '0' : '1');

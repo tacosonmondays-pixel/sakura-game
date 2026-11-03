@@ -7,8 +7,12 @@
 //                                                                      #   and the five girls' presets side by side
 //   node e2e/electric-board.mjs --board 2 --out board-electric-2.jpg   # 390×844, Reduce Motion, 2.5× close-ups, and one
 //                                                                      #   panel side by side with the tornado
+//   node e2e/electric-board.mjs --board 3 --out board-electric-3.jpg   # look A against look B (844×390 high and medium,
+//                                                                      #   390×844 high, a 2.5× close-up) and B beside the
+//                                                                      #   tornado at the same scale
 //   node e2e/electric-board.mjs --board quick --scene aura [--quality high --zoom 2.5 --viewport 844x390 --rm]
-//   options: --times 0.1,0.3,0.6 --max-kb 300
+//   options: --times 0.1,0.3,0.6 --max-kb 300 --look a|b (boards 1, 2 and quick: every preset in that look)
+//            --url http://127.0.0.1:<port> (shoot from a dev server already running; else it starts its own)
 import { createServer } from 'vite';
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -22,6 +26,13 @@ const opt = (name, def) => {
 const BOARD = opt('board', 'quick');
 const OUT = resolve(opt('out', `board-electric-${BOARD}.jpg`));
 const MAX_KB = Number(opt('max-kb', '300'));
+const LOOK = opt('look', null);
+const URL_OPT = opt('url', process.env.LAB_URL || null);
+/** The boards' words for the look they show (--look; none: each preset's own). */
+const LOOK_TITLE = LOOK === 'b' ? ' · look B (sheath)' : LOOK === 'a' ? ' · look A (inked)' : '';
+const LOOK_SUB = LOOK === 'b'
+  ? 'look B: stepped solid bands of her colour round every bolt (deep, body, glow, core), ink only outside the beat rings\' and arcs\' sheaths, glow pools on the ground'
+  : 'inked toon strokes (ink, body, white-hot core)';
 
 /** Each scene's moments (s) and what they show. */
 const MOMENTS = {
@@ -37,7 +48,7 @@ const MOMENTS = {
  * Shoots one config: { viewport, scene, quality, rm, zoom, focus, crop: [w, h], times, page } → [{ t, b64, stats }] (PNG
  * crops round the scene's focus, or the whole view with crop null).
  */
-async function shoot(browser, port, c) {
+async function shoot(browser, base, c) {
   const [w, h] = c.viewport.split('x').map(Number);
   const page = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
   const errors = [];
@@ -46,9 +57,12 @@ async function shoot(browser, port, c) {
   const times = c.times || MOMENTS[c.scene]?.times || [0.3];
   const q = new URLSearchParams(c.page
     ? { preset: c.preset, quality: c.quality, clean: '1', times: times.join(',') }
-    : { scene: c.scene, quality: c.quality, manual: '1', clean: '1', zoom: String(c.zoom || 1), ...(c.rm ? { rm: '1' } : {}), ...(c.focus != null ? { focus: String(c.focus) } : {}) });
+    : {
+      scene: c.scene, quality: c.quality, manual: '1', clean: '1', zoom: String(c.zoom || 1), ...(c.rm ? { rm: '1' } : {}),
+      ...(c.focus != null ? { focus: String(c.focus) } : {}), ...((c.look || LOOK) ? { look: c.look || LOOK } : {}),
+    });
   const path = c.page || '/previews/electric.html';
-  await page.goto(`http://127.0.0.1:${port}${path}?${q}`, { waitUntil: 'load', timeout: 120000 });
+  await page.goto(`${base}${path}?${q}`, { waitUntil: 'load', timeout: 120000 });
   const ready = c.page ? '__stills' : '__lab';
   await page.waitForFunction((k) => window[k]?.ready || window[k]?.error, ready, { timeout: 180000 });
   const err = await page.evaluate((k) => window[k].error || null, ready);
@@ -71,7 +85,7 @@ async function shoot(browser, port, c) {
   await page.close();
   const peak = Math.max(0, ...out.map((o) => o.stats.worldPeak ?? 0));
   const dimmed = Math.max(0, ...out.map((o) => o.stats.dimmed ?? 0));
-  console.log(`  shot ${c.label || `${c.scene} ${c.quality}${c.rm ? ' rm' : ''} ${c.viewport}${c.zoom > 1 ? ` z${c.zoom}` : ''}`} (${out.length} cells; calls ${out.map((o) => o.stats.calls ?? o.stats.frameCalls).join('/')}${c.page ? '' : `; flash guard peak ${peak.toFixed(3)} screens/s, dimmed ${dimmed}`})`);
+  console.log(`  shot ${c.label || `${c.scene} ${c.quality}${c.rm ? ' rm' : ''} ${c.viewport}${c.zoom > 1 ? ` z${c.zoom}` : ''}${c.look || LOOK ? ` look ${c.look || LOOK}` : ''}`} (${out.length} cells; calls ${out.map((o) => o.stats.calls ?? o.stats.frameCalls).join('/')}${c.page ? '' : `; flash guard peak ${peak.toFixed(3)} screens/s, dimmed ${dimmed}`})`);
   return out;
 }
 
@@ -164,9 +178,14 @@ const cells = (shots, caps) => shots.map((s, i) => ({ b64: s.b64, caption: `${ca
 const NAMES = { aura: 'Crackle aura\n(Raika)', shock: 'Shocked crackle\n(after her chain)', scorch: 'Ground decal\n(scorch)', drumstorm: 'Drumstorm\n(Raika)', surge: 'Drone Surge\n(Chika)' };
 
 async function main() {
-  const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
-  await server.listen();
-  const port = server.httpServer.address().port;
+  let server = null;
+  let port = URL_OPT;
+  if (!URL_OPT) {
+    server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
+    await server.listen();
+    port = `http://127.0.0.1:${server.httpServer.address().port}`;
+  }
+  port = port.replace(/\/$/, '');
   const { browser } = await launchChromium();
   try {
     let spec;
@@ -188,8 +207,8 @@ async function main() {
       }
       sections.push({ title: 'The five presets side by side (each girl\'s chain colours)', captions: true, rows: row });
       spec = {
-        title: 'Electricity (B2): crackle auras, shocked crackle, ground decal, Drumstorm, Drone Surge',
-        subtitle: 'Lab patch (lake look, our own ground painter), real chibis for scale; inked toon strokes and toon-core ground pieces. Lab only, not wired.',
+        title: `Electricity (B2): crackle auras, shocked crackle, ground decal, Drumstorm, Drone Surge${LOOK_TITLE}`,
+        subtitle: `Lab patch (lake look, our own ground painter), real chibis for scale; ${LOOK_SUB}; toon-core ground pieces. Lab only, not wired.`,
         sections,
       };
     } else if (BOARD === '2') {
@@ -223,8 +242,44 @@ async function main() {
         { label: 'Tornado | Drumstorm\n| all', cells: [...cells(tor, ['tornado', 'tornado']), ...cells(ds, ['Drumstorm', 'Drumstorm']), ...cells(au, ['Drumstorm + auras + scorch'])] },
       ] });
       spec = {
-        title: 'Electricity (B2): portrait, Reduce Motion, close-ups, and beside the tornado',
-        subtitle: 'Inked toon strokes (ink, body, white-hot core), stepped re-strikes, hard-stepped toon-core ground pieces; no soft sparks.',
+        title: `Electricity (B2): portrait, Reduce Motion, close-ups, and beside the tornado${LOOK_TITLE}`,
+        subtitle: `${LOOK_SUB[0].toUpperCase()}${LOOK_SUB.slice(1)}, stepped re-strikes, hard-stepped toon-core ground pieces; no soft sparks.`,
+        sections,
+      };
+    } else if (BOARD === '3') {
+      const sections = [];
+      // a few moments a scene (the board stays under --max-kb): the beat and its burst, the crackle re-struck, the web
+      const AT = {
+        drumstorm: { times: [0.1, 0.2, 0.62], caps: ['beat 1', 'ring bursts', 'beat 2'] },
+        aura: { times: [0.2, 0.45, 1.3], caps: ['crackle', 're-struck', 'forks'] },
+        surge: { times: [0.08, 0.3, 1.2], caps: ['launch', 'arcs', 'drones turn'] },
+      };
+      const ab = async (title, scenes, base, pick = null) => {
+        const rows = [];
+        for (const scene of scenes) {
+          const at = AT[scene];
+          const idx = pick || at.times.map((_, i) => i);
+          for (const look of ['a', 'b']) {
+            const s = await shoot(browser, port, { ...base, scene, look, times: idx.map((i) => at.times[i]) });
+            rows.push({ label: `${NAMES[scene] || scene}\nlook ${look.toUpperCase()}`, cells: cells(s, idx.map((i) => at.caps[i])) });
+          }
+        }
+        sections.push({ title, captions: true, rows });
+      };
+      await ab('A (inked line-work) against B (luminous sheath + glow pools) · 844×390, high (bloom + grade), 1:1', ['drumstorm', 'aura', 'surge'], { viewport: '844x390', quality: 'high', crop: [250, 180] });
+      await ab('A against B · 844×390, medium (no bloom), 1:1', ['drumstorm'], { viewport: '844x390', quality: 'medium', crop: [250, 180] });
+      await ab('A against B · 390×844, high, 1:1', ['drumstorm'], { viewport: '390x844', quality: 'high', crop: [180, 230] });
+      await ab('A against B · 2.5× close-up, high', ['drumstorm', 'aura'], { viewport: '844x390', quality: 'high', zoom: 2.5, crop: [300, 220] }, [0, 2]);
+      // B beside the tornado (vortex, high) at the same 1:1 scale
+      const tor = await shoot(browser, port, { page: '/previews/tornado-stills.html', label: 'tornado', viewport: '844x390', preset: 'vortex', quality: 'high', crop: [250, 180], times: [0.7, 1.1] });
+      const ds = await shoot(browser, port, { viewport: '844x390', scene: 'drumstorm', quality: 'high', look: 'b', crop: [250, 180], times: [0.2, 0.62] });
+      const au = await shoot(browser, port, { viewport: '844x390', scene: 'all', quality: 'high', look: 'b', crop: [250, 180], times: [0.8] });
+      sections.push({ title: 'B beside the house look: the tornado (vortex, high) at the same 1:1 scale', captions: true, rows: [
+        { label: 'Tornado | B', cells: [...cells(tor, ['tornado', 'tornado']), ...cells(ds, ['B Drumstorm', 'B Drumstorm']), ...cells(au, ['B all'])] },
+      ] });
+      spec = {
+        title: 'Electricity (B2 r2): look A against look B (sheath), and B beside the tornado',
+        subtitle: 'A: ink, body, white-hot core. B: stepped solid bands of her colour round every bolt (deep, body, glow, core), ink only outside the beat rings\' and arcs\' sheaths, glow pools on the ground. Lab only.',
         sections,
       };
     } else {
@@ -241,7 +296,7 @@ async function main() {
     console.log(`board ${BOARD} → ${OUT} (${r.w}×${r.h}, JPEG q ${r.q}, ${Math.round(Buffer.from(r.data, 'base64').length / 1024)} KB)`);
   } finally {
     await browser.close();
-    await server.close();
+    await server?.close();
   }
 }
 

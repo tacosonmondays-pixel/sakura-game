@@ -22,6 +22,7 @@
 //   scorch              the electric ground decal: life, radius (tiles), erode [young, old]
 //   flicker             the core dims this much on every other strike (asked of the flash guard first)
 //   hdr                 high with bloom: the core this much over white (only while the flash guard allows it)
+//   look                'a' or 'b' (ELECTRIC_LOOKS below; the lab's ?look= and createElectricFx's `look` override it)
 import { LIGHTNING_PRESETS } from './lightningPresets.js';
 
 const L = LIGHTNING_PRESETS;
@@ -42,6 +43,7 @@ const SHAPE = Object.freeze({
   scorch: Object.freeze({ life: 1.7, radius: 0.62, erode: Object.freeze([0.04, 0.92]) }),
   flicker: 0.3,
   hdr: 0.35,
+  look: 'b',
 });
 
 const preset = (label, chain, colours, extra = {}) => Object.freeze({
@@ -96,6 +98,37 @@ export const ELECTRIC_TIERS = Object.freeze({
 export const ELECTRIC_CASTS = Object.freeze({
   'raika.drumstorm': Object.freeze({ kind: 'drumstorm', preset: 'raika', duration: 5, beat: 0.5, scorchEvery: 4 }),
   'chika.droneSurge': Object.freeze({ kind: 'droneSurge', preset: 'chika', duration: 12, launch: 0.6 }),
+});
+
+/**
+ * The two looks (a preset's `look`; the lab's ?look=a|b and createElectricFx({ look }) override it for every preset):
+ *   a   inked line-work: the chain lightning's layers (ink, body, white-hot core) on every bolt
+ *   b   a luminous sheath: every bolt wears stepped bands of its own colour round its body, back to front the ground
+ *       ramp's deep band (`bands[0]` × the body's half width), the bolt's body colour (`bands[1]` ×), the glow band
+ *       (the body itself, × `width`) and the white-hot core (`coreShare` of it): hard toon steps, each band solid
+ *       (premultiplied, no soft blur). Ink only outside the sheath of the main bolts (the beat rings' and the arcs'); the
+ *       micro-bolts round bodies (crackles, shocks, the little crackles where arcs join) have none. A crackle shows
+ *       `bolts` × the tier's bolts, each held `hold` × longer and re-struck `restrike` × less often (the same light on
+ *       screen, less scribble); a beat ring's bolts each span `burstSpan` × the ring (gaps between them), re-struck
+ *       `burstRestrike` × less often (wider bands bursting out would light more of the screen at once). A glow pool lies on the ground under each crackle (`pool.aura` × its radius) and each beat
+ *       ring (`pool.burst` × the ring's radius): the toon core's heat and hard step over the ground ramp's body and glow
+ *       bands, added light that covers little (`pool.cover`), turning in steps, eroding in and out
+ */
+export const ELECTRIC_LOOKS = Object.freeze({
+  a: Object.freeze({ id: 'a', sheath: false }),
+  b: Object.freeze({
+    id: 'b',
+    sheath: true,
+    bands: Object.freeze([2.15, 1.5]),
+    width: 0.8,
+    coreShare: 0.42,
+    bolts: 0.75,
+    hold: 1.5,
+    restrike: 1.3,
+    burstRestrike: 2,
+    burstSpan: 0.7,
+    pool: Object.freeze({ aura: 2.1, burst: 0.6, cover: Object.freeze([0.06, 0.14]), strength: 0.4, erode: Object.freeze([0.22, 1.35]) }),
+  }),
 });
 
 /** Which girls' electricity will use which preset once it is wired (display only; not wired yet). */

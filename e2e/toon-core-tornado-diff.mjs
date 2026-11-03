@@ -10,6 +10,7 @@
 //                                                                    # and lay out a before / after board with the numbers
 //   options: --presets fire,sakura,vortex --qualities high,medium --viewports 844x390,390x844 --times 0.7,1.6
 //            --json <file> (write the numbers) ; exit code 1 when a still is over the limits or missing
+//            --port <n> (or LAB_PORT): shoot from a dev server already running on 127.0.0.1:<n> instead of starting one
 //
 // The PNGs are decoded in the page (createImageBitmap + OffscreenCanvas): no image dependency. Playwright and the
 // browser are found by e2e/browser.mjs; WebGL runs on SwiftShader, so the same build gives the same picture.
@@ -39,6 +40,7 @@ const OUT = opt('out', null);
 const JSON_OUT = opt('json', null);
 const BOARD = opt('board', null);
 const MAX_KB = Number(opt('max-kb', '300'));
+const PORT_OPT = Number(opt('port', process.env.LAB_PORT || '0')) || 0;
 
 /** Every still of a set: { name, preset, quality, viewport, time index }. */
 function configs() {
@@ -254,7 +256,8 @@ async function main() {
   let port = 0;
   const needServer = !!CAPTURE || (REF && !AGAINST);
   try {
-    if (needServer) {
+    if (needServer && PORT_OPT) port = PORT_OPT;
+    else if (needServer) {
       server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
       await server.listen();
       port = server.httpServer.address().port;

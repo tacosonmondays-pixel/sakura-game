@@ -40,6 +40,17 @@
 // thinner, one generation only; each bolt shows for only part of its strikes (its duty), so the crackle thins and
 // thickens bolt by bolt instead of the whole aura blinking; a strike's leader grows from its start, then erodes away.
 //
+// Two looks (ELECTRIC_LOOKS; a preset's `look`, or createElectricFx({ look }) for every preset): A, the inked line-work
+// above; B, a luminous sheath: every bolt wears stepped solid bands of its colour round its body (the ground ramp's deep
+// band, its body colour, the glow band, the white-hot core), ink only outside the main bolts' sheaths (the beat rings'
+// and the arcs'; none on the micro-bolts round bodies), fewer bolts held longer, and a glow pool on the ground under each
+// crackle and each beat ring. Both on the same strokes (SOLID layers only: strokes.js is unchanged) and the same ground
+// call.
+//
+// The house rule (INK_WOBBLE): ink leaves before erosion opens holes. Every eroding piece's ink leaves over a window of
+// its life that ends before its erosion starts (a hard step a bolt segment or a ring pixel, wobbled), so it ends in its
+// colour bands, never as loose dark dashes; a ring inks only where its band is wide enough on screen (RING_INK_PX).
+//
 // Flash safety: every strike asks the flash guard (flashGate, the battle's world-flash budget) with its size and its
 // flicker; past the budget its core is drawn at the guard's answer and nothing goes over white. No preset colour is a
 // harsh red (tests hold it), nothing is full screen, Flashes & shake off: no flicker and no over-white. Reduce Motion: no
@@ -48,17 +59,50 @@
 // without one, a fixed fork of its own, never one constant path), never Math.random.
 import * as THREE from 'three';
 import {
-  ELECTRIC_PRESETS, ELECTRIC_TIERS, ELECTRIC_CASTS, MAX_AURAS, MAX_BURSTS, MAX_LINKS, MAX_LINK_NODES, MAX_SCORCHES, MAX_CASTS,
+  ELECTRIC_PRESETS, ELECTRIC_TIERS, ELECTRIC_CASTS, ELECTRIC_LOOKS, MAX_AURAS, MAX_BURSTS, MAX_LINKS, MAX_LINK_NODES, MAX_SCORCHES,
+  MAX_CASTS,
 } from './electricPresets.js';
 import { createStrokes, stroke, SOLID } from './strokes.js';
 import { TOON_CORE, TOON_TIER, TOON_NOISE_N, TOON_RAMP_W, TOON_REDUCE, paintToonNoise, paintToonRamp } from './toonCore.js';
 import { createVisualRandom, visualSeed } from './random.js';
 
 const TAU = Math.PI * 2;
-/** Stroke layers, back to front (pushed layer by layer, so a later one covers an earlier one at every joint). */
+/** Stroke layers of look A, back to front (pushed layer by layer, so a later one covers an earlier one at every joint). */
 export const ELECTRIC_LAYERS = Object.freeze(['ink', 'body', 'core']);
+/**
+ * Look B's layers, back to front: the ink (main bolts only, outside the sheath), the sheath's outer band (the ground
+ * ramp's deep band), its inner band (the bolt's body colour), the body (in the glow band's colour) and the core. Every
+ * pass pushes one layer of every segment (look A's segments skip the sheath's two), so all ink lies under all sheaths.
+ */
+export const ELECTRIC_LAYERS_B = Object.freeze(['ink', 'sheath', 'mid', 'body', 'core']);
 /** Thinnest a layer is drawn (half width, CSS px): a micro-bolt never thins into shimmering hairs. */
-export const ELECTRIC_MIN_PX = Object.freeze({ ink: 1.6, body: 1.0, core: 0.5 });
+export const ELECTRIC_MIN_PX = Object.freeze({ ink: 1.6, sheath: 1.5, mid: 1.2, body: 1.0, core: 0.5 });
+/**
+ * The house rule: ink leaves before erosion opens holes, so an eroding piece ends in its colour bands, never as loose
+ * dark dashes. Every piece's ink leaves over a window of its life that ends before its erosion starts: its ink phase k
+ * runs 0 → 1 over that window, and a bit of ink (a bolt's segment, a ring's pixel) stays while k + INK_WOBBLE × (w − ½)
+ * < ½, w its own 0..1 (a segment's hash, a ring's noise): a hard step that goes in patches, all on while k < 0.1, all
+ * gone once k ≥ 0.9 (before the window ends). The windows (each piece's erosion starts at its end or later):
+ *   a strike (crackle, shock, the little crackles where arcs join): its hold, after the leader has grown
+ *   a beat ring's bolts: BURST_INK of the ring's life (they erode over its second half)
+ *   an arc web: the LINK_INK s before its last LINK_END s (its end or stop())
+ *   the charge ring: the RING_INK_S s after its crackle ends (then it erodes over RING_END)
+ *   a beat ring on the ground: BURST_INK of its life (whole at its young threshold until BURST_HOLD)
+ *   the scorch: SCORCH_INK_AGE (its own step on the age, before SCORCH_HOLD)
+ */
+export const INK_WOBBLE = 0.8;
+/** A ring's ink rim only where its band is at least this many px wide on screen: thin dash tips and islands draw none. */
+export const RING_INK_PX = 1.5;
+/** The charge ring: its ink leaves over RING_INK_S s once its crackle ends, then it erodes out over RING_END s. */
+export const RING_INK_S = 0.08;
+export const RING_END = 0.3;
+/** A beat ring (its bolts and its ground ring): the ink leaves over this share of its life; the ground ring holds whole to BURST_HOLD. */
+export const BURST_INK = Object.freeze([0.26, 0.44]);
+export const BURST_HOLD = 0.5;
+/** An arc web's ink leaves over this many s before its last LINK_END s (at its end, or after stop()). */
+export const LINK_INK = 0.1;
+/** The scorch's last flecks: from SCORCH_END.from of its age the cut climbs `add` more, past its hottest heat (no pop). */
+export const SCORCH_END = Object.freeze({ from: 0.82, add: 0.5 });
 /** Each halving's sideways push × this (the fractal: big bends first, small kinks last). */
 export const ROUGHNESS = 0.58;
 /** The ground pieces' height (over the road ribbon, under the water's). */
@@ -71,6 +115,14 @@ export const ELECTRIC_CANVAS_ADD = 0.45;
 export const SCORCH_COVER = Object.freeze({ burn: 0.26, halo: 0.14, crack: 0.9, core: 1, ink: 1 });
 /** Ring bands: the same for the charge and burst rings. */
 export const RING_COVER = Object.freeze({ body: 0.2, glow: 0.4, core: 0.85, ink: 1 });
+/** Look B's glow pools: the ground pieces' share, and the heat above the cut where the hotter middle starts. */
+const POOL = ELECTRIC_LOOKS.b.pool;
+export const POOL_STEP = 0.32;
+/** A crackle's glow pool turns its noise by POOL_TURN every POOL_STEP_S s (none under Reduce Motion). */
+export const POOL_TURN = 0.06;
+export const POOL_STEP_S = 0.2;
+/** A shock's ring (Reduce Motion only): its ink leaves over this share of its life, then it erodes over the rest. */
+export const SHOCK_RING_INK = 0.3;
 /** Ground ramp bands (presets' `ground`). */
 export const GROUND_BAND = Object.freeze({ ink: 0, burn: 2, deep: 3, body: 4, glow: 5, core: 6, white: 7 });
 /** The charge ring's erosion while it is up (broken into a few turning dashes; Reduce Motion: nearly whole and still). */
@@ -102,9 +154,10 @@ export const LINK_END = 0.3;
 /** High with bloom: the body colour × this, under the grade's knee so it stays saturated (as the chain lightning's). */
 export const BODY_UNDER_BLOOM = 0.82;
 /** Floats per collected segment. */
-const SEG = 16;
+const SEG = 17;
 const MAX_SEGS = Math.floor(ELECTRIC_TIERS.high.cap / ELECTRIC_LAYERS.length);
-const MAX_GROUND = MAX_AURAS + MAX_BURSTS + MAX_SCORCHES;
+/** Ground pieces: a scorch each, a charge ring and a glow pool (look B) per crackle, a ring and a pool per beat. */
+const MAX_GROUND = 2 * MAX_AURAS + 2 * MAX_BURSTS + MAX_SCORCHES;
 
 const AURA = 0;
 const SHOCK = 1;
@@ -181,9 +234,9 @@ export function capsuleRadius(rc, y0, h, y) {
 
 const GROUND_VERT = /* glsl */`
 attribute vec4 gA; // x, z, age (0..1), strength
-attribute vec4 gB; // mode (0 scorch, 1 ring), radius now, ring half width, the ring's turn (turns)
+attribute vec4 gB; // mode (0 scorch, 1 ring, 2 glow pool), radius now, ring half width, the noise's turn (turns)
 attribute vec4 gC; // seed, ramp row, over-white (high with bloom, through the flash guard), halo (tier)
-attribute vec4 gD; // erode young, erode old, still (Reduce Motion), the cracks' reach (0..1)
+attribute vec4 gD; // erode young, erode old, still (Reduce Motion), the cracks' reach (scorch) or the ink phase (ring)
 varying vec2 vP;
 varying vec4 vA;
 varying vec4 vB;
@@ -191,9 +244,10 @@ varying vec4 vC;
 varying vec4 vD;
 void main() {
   // the quad hugs the piece as it is now (none at strength 0)
-  float ext = (gB.x < 0.5 ? gB.y * 1.04 : gB.y + gB.z * 1.6) * step(0.0005, gA.w);
+  float disc = step(gB.x, 0.5) + step(1.5, gB.x);
+  float ext = mix(gB.y + gB.z * 1.6, gB.y * 1.04, disc) * step(0.0005, gA.w);
   vec2 p = position.xz * ext;
-  vec3 wp = vec3(gA.x + p.x, ${ELECTRIC_GROUND_Y.toFixed(3)} + 0.002 * gB.x, gA.y + p.y);
+  vec3 wp = vec3(gA.x + p.x, ${ELECTRIC_GROUND_Y.toFixed(3)} + 0.002 * min(gB.x, 1.0), gA.y + p.y);
   gl_Position = projectionMatrix * modelViewMatrix * vec4(wp, 1.0);
   vP = p;
   vA = gA;
@@ -221,7 +275,7 @@ export const SCORCH_HOLD = 0.2;
  * (a hard step, so it goes in patches): gone, wobble and all, before the hold ends, so no hole the erosion opens and no
  * fragment of an eroding crack is ever outlined (they end in the body, deep and burn bands: no dark scribble).
  */
-export const SCORCH_INK_AGE = Object.freeze({ end: 0.13, wobble: 0.08 });
+export const SCORCH_INK_AGE = Object.freeze({ end: 0.09, wobble: 0.02 });
 /**
  * The burn is inked outside this share of its radius only. While it holds, every edge it has lies out there (heat =
  * band × (0.3 + noise) ≥ 0.3 × (1 − x²) > erode[0] inside √(1 − erode[0] / 0.3), 0.93 for the presets): its outer
@@ -261,8 +315,10 @@ void main() {
     float n = toonNoise(uNoise, vec2(u * 3.0, x * 0.8 + vC.x), 0.0);
     float band = 1.0 - x * x;
     float heat = toonHeat(band, n);
-    // whole while it holds (the threshold at its young value), then eroding from its rim inward
+    // whole while it holds (the threshold at its young value), then eroding from its rim inward; its last flecks: the
+    // cut climbs past the hottest heat by the end of its life, so they shrink away (never pop off)
     float cut = toonCut(vD.xy, max(0.0, age - ${SCORCH_HOLD.toFixed(2)}) / ${(1 - SCORCH_HOLD).toFixed(2)});
+    cut += max(0.0, age - ${SCORCH_END.from.toFixed(2)}) / ${(1 - SCORCH_END.from).toFixed(2)} * ${SCORCH_END.add.toFixed(2)};
     float burn = toonMask(heat, cut) * step(0.0, band);
     // the crack net: Worley F2 - F1 (B) laid out round the middle and out from it (the cells narrow towards the middle,
     // so the cracks radiate); a hard step on its edges, a little thinner out at the rim; they race out first
@@ -300,9 +356,13 @@ void main() {
     cover = mix(cover, ${SCORCH_COVER.ink.toFixed(1)}, ink);
     hot = core;
     m = burn;
-  } else {
+  } else if (vB.x < 1.5) {
     // a ring (the charge ring under a crackling body, a drum beat's ring): a band of light broken by the polar noise
-    // (it turns in steps), inked on its outer edge, its middle hotter
+    // (it turns in steps), its middle hotter, inked on its outer edge. The ink only while it holds whole: it leaves in
+    // patches (a hard step on its ink phase, vD.w, wobbled by the noise) before the erosion opens a hole (the CPU holds
+    // the erosion age, vA.z, at 0 until the ink is gone), so an eroding ring ends in its light bands; and only where the
+    // band is at least RING_INK_PX wide on screen (its half width here is xo: the noise runs round it, not across), so a
+    // thin dash tip or a sliver draws no ink
     float x = (r - R) / max(vB.z, 1e-3);
     float band = 1.0 - x * x;
     float n = toonNoise(uNoise, vec2(u * 4.0 + vB.w, 0.35 + vC.x), 0.0);
@@ -310,7 +370,10 @@ void main() {
     float cut = toonCut(vD.xy, age);
     m = toonMask(heat, cut) * step(0.0, band);
     float above = heat - cut;
-    float ink = eRim(above, 1.2, 0.03) * step(0.0, x);
+    float xo = sqrt(max(0.0, 1.0 - cut / (${SCORCH_HEAT_FLOOR.toFixed(1)} + n)));
+    float wideR = step(${RING_INK_PX.toFixed(1)} * fwidth(x), xo);
+    float inkOn = step(vD.w + ${INK_WOBBLE.toFixed(2)} * (n - 0.5), 0.5);
+    float ink = eRim(above, 1.2, 0.03) * step(0.0, x) * wideR * inkOn;
     float glow = step(0.22, above);
     float core = step(0.48, above);
     b = mix(${GROUND_BAND.body.toFixed(1)}, ${GROUND_BAND.glow.toFixed(1)}, glow);
@@ -320,6 +383,18 @@ void main() {
     b = mix(b, ${GROUND_BAND.ink.toFixed(1)}, ink);
     cover = mix(cover, ${RING_COVER.ink.toFixed(1)}, ink);
     hot = core * (1.0 - ink);
+  } else {
+    // a glow pool (look B): light lying on the ground under a crackle or a beat ring. The house heat over a disc, a hard
+    // step (a ragged edge in tongues), its hotter middle in the glow band; added light that covers little; no ink
+    float x = r / R;
+    float band = 1.0 - x * x;
+    float n = toonNoise(uNoise, vec2(u * 3.0 + vB.w, x * 0.7 + vC.x), 0.0);
+    float heat = toonHeat(band, n);
+    float cut = toonCut(vD.xy, age);
+    m = toonMask(heat, cut) * step(0.0, band);
+    float hotter = step(${POOL_STEP.toFixed(2)}, heat - cut);
+    b = mix(${GROUND_BAND.deep.toFixed(1)}, ${GROUND_BAND.body.toFixed(1)}, hotter);
+    cover = mix(${POOL.cover[0].toFixed(2)}, ${POOL.cover[1].toFixed(2)}, hotter);
   }
   vec3 col = toonRamp(uRamp, eBand(b), vC.y);
   // the hot band goes a little over white on high with bloom (only while the flash guard allows it)
@@ -345,11 +420,20 @@ function boltSlot() {
 
 /**
  * @param {{ scene: THREE.Object3D, camera?: THREE.Camera|null, strokes?: object|null, quality?: 'high'|'medium'|'low',
- *   reduceMotion?: boolean, rand?: () => number, presets?: object, flashes?: boolean }} o
+ *   reduceMotion?: boolean, rand?: () => number, presets?: object, flashes?: boolean, look?: 'a'|'b'|null }} o
  *   strokes: the battle's shared toon strokes (its owner begins and ends them each frame); none: its own
+ *   look: every preset in this look (ELECTRIC_LOOKS); none: each preset's own `look`
  */
-export function createElectricFx({ scene, camera = null, strokes = null, quality = 'medium', reduceMotion = false, rand = null, presets = ELECTRIC_PRESETS, flashes = true }) {
+export function createElectricFx({ scene, camera = null, strokes = null, quality = 'medium', reduceMotion = false, rand = null, presets = ELECTRIC_PRESETS, flashes = true, look = null }) {
   const ids = Object.keys(presets);
+  // ---- the looks, by preset index (1: look B, the luminous sheath and the glow pools)
+  const LB = ELECTRIC_LOOKS.b;
+  const LOOKB = new Uint8Array(ids.length);
+  ids.forEach((id, i) => {
+    LOOKB[i] = ELECTRIC_LOOKS[ELECTRIC_LOOKS[look] ? look : presets[id].look]?.sheath ? 1 : 0;
+  });
+  /** Stroke layers a segment can take (the cap is counted in whole segments of this many). */
+  const LAYERS = LOOKB.some((v) => v) ? ELECTRIC_LAYERS_B.length : ELECTRIC_LAYERS.length;
   // (without a stream: a fixed fork of its own, so every bolt still has its own path, never one constant shape)
   const rnd = rand || createVisualRandom(visualSeed('electric', 'fallback'));
   let tierName = ELECTRIC_TIERS[quality] ? quality : 'medium';
@@ -368,14 +452,21 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
   const lines = strokes || createStrokes({ scene, max: ELECTRIC_TIERS.high.cap, name: 'electricFx' });
   const S = stroke();
   const segs = new Float32Array(MAX_SEGS * SEG);
-  /** Linear colours per preset: ink, body, core (parsed once). */
-  const cols = new Float32Array(ids.length * 9);
+  /**
+   * Linear colours per preset and layer (ELECTRIC_LAYERS_B: ink, sheath, mid, body, core; parsed once): look A's body is
+   * the bolt's body colour; look B's sheath is the ground ramp's deep band, its mid band the bolt's body colour and its
+   * body the glow band (brighter inward, to the white-hot core).
+   */
+  const NL = ELECTRIC_LAYERS_B.length;
+  const cols = new Float32Array(ids.length * NL * 3);
   ids.forEach((id, i) => {
-    ['ink', 'body', 'core'].forEach((k, j) => {
-      const c = new THREE.Color(presets[id][k]);
-      cols[i * 9 + j * 3] = c.r;
-      cols[i * 9 + j * 3 + 1] = c.g;
-      cols[i * 9 + j * 3 + 2] = c.b;
+    const p = presets[id];
+    const hexes = [p.ink, p.ground[GROUND_BAND.deep], p.body, LOOKB[i] ? p.ground[GROUND_BAND.glow] : p.body, p.core];
+    hexes.forEach((hex, j) => {
+      const c = new THREE.Color(hex);
+      cols[(i * NL + j) * 3] = c.r;
+      cols[(i * NL + j) * 3 + 1] = c.g;
+      cols[(i * NL + j) * 3 + 2] = c.b;
     });
   });
 
@@ -626,7 +717,7 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     s.on = rnd() < p.aura.duty;
     s.odd ^= 1;
     s.k = s.on ? gate(s.L, p.flicker) : 1;
-    s.next = rec.t + lerp(restrike[0], restrike[1], rnd());
+    s.next = rec.t + lerp(restrike[0], restrike[1], rnd()) * (LOOKB[rec.pi] ? LB.restrike : 1);
   }
 
   /** Strikes the bolts of a drum-beat ring (local: angle × r1, out from the ring, up). */
@@ -635,12 +726,13 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     const B = p.burst;
     const K = tier.burst;
     const span = TAU / K;
+    const reach = LOOKB[rec.pi] ? LB.burstSpan : 1;
     const R1 = B.r1 * rec.size;
     const levels = tier.arcLevels;
     for (let i = 0; i < K; i++) {
       const s = rec.bolts[i];
       const th0 = rec.seed * TAU + i * span + (rnd() - 0.5) * span * 0.25;
-      const th1 = th0 + span * (0.6 + 0.25 * rnd());
+      const th1 = th0 + span * (0.6 + 0.25 * rnd()) * reach;
       FP[0] = th0 * R1; FP[1] = 0; FP[2] = 0; FP[3] = th1 * R1; FP[4] = 0; FP[5] = 0;
       FP[6] = 0.18; FP[7] = B.zig; FP[8] = 0.4; FP[9] = p.aura.skew;
       s.n = fractalFill(s.P, levels, rnd);
@@ -783,7 +875,7 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     rec.k = 1;
     for (const s of rec.bolts) s.on = false;
     if (!rm) strikeBurst(rec);
-    rec.next = p.burst.restrike;
+    rec.next = p.burst.restrike * (LOOKB[rec.pi] ? LB.burstRestrike : 1);
     return rec;
   }
 
@@ -857,8 +949,9 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
       return;
     }
     if ('bolts' in rec && 'kind' in rec) rec.life = Math.min(rec.life, rec.t);
-    // (a web erodes out over its last LINK_END s, as at the end of its life: no re-strike from now)
-    else if ('arcs' in rec) rec.life = Math.min(rec.life, rec.t + LINK_END);
+    // (a web's ink leaves over LINK_INK s, then it erodes out over its last LINK_END s, as at the end of its life: no
+    // re-strike from now)
+    else if ('arcs' in rec) rec.life = Math.min(rec.life, rec.t + LINK_INK + LINK_END);
   }
 
   // ---- collecting the strokes (world segments, a whole bolt or none)
@@ -870,10 +963,13 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
   const WP = new Float64Array(3);
   /** The first joint of the path being pushed. */
   const PJ = new Float64Array(3);
-  /** The path being pushed: u0, u1, w0, w1, head, cut, seed, preset index, core strength, over-white, taper. */
-  const PP = new Float64Array(11);
-  /** A strike's state now: head, cut, shrink, core strength, over-white; [5] the beat ring's radius now. */
-  const ST = new Float64Array(6);
+  /** The path being pushed: u0, u1, w0, w1, head, cut, seed, preset index, core strength, over-white, taper, ink phase. */
+  const PP = new Float64Array(12);
+  /**
+   * A strike's state now: head, cut, shrink, core strength, over-white; [5] the beat ring's radius now; [6] its ink phase
+   * (INK_WOBBLE: 0 inked, ≥ 1 gone; 99: no ink, look B's micro-bolts).
+   */
+  const ST = new Float64Array(7);
   /** Ramp rows by preset index. */
   const ROWS = new Float32Array(ids.length);
   for (let i = 0; i < ids.length; i++) ROWS[i] = rowOf(i);
@@ -920,7 +1016,7 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     WP[2] = c.az + (c.bz - c.az) * f + c.sz * P[o + 2] * c.len;
   }
   /** A point's little crackle: struck round a small sphere at the ground's band, drawn round the point, lifted to it. */
-  const nodeRec = { x: 0, z: 0, rad: 0.07, y0: 0, h: 0.14, lift: 0, size: 0.6, p: null };
+  const nodeRec = { x: 0, z: 0, rad: 0.07, y0: 0, h: 0.14, lift: 0, size: 0.6, p: null, pi: 0 };
 
   let maxSegs = MAX_SEGS;
 
@@ -964,20 +1060,27 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
       segs[o + 13] = PP[7];
       segs[o + 14] = PP[8];
       segs[o + 15] = PP[9];
+      segs[o + 16] = PP[11];
       sn++;
     }
     return true;
   }
 
-  /** A strike's leader head, erosion and the core's strength now (into ST); false when it is over. */
+  /**
+   * A strike's leader head, erosion and the core's strength now (into ST); false when it is over. Its ink leaves over its
+   * hold (after the leader has grown, before the erosion: ST[6]); look B's micro-bolts have none, and hold longer.
+   */
   function strikeState(s, rec, a) {
     const age = rec.t - s.t0;
-    if (age < 0 || age > a.grow + a.hold + a.fade) return false;
+    const b = LOOKB[rec.pi];
+    const hold = a.hold * (b ? LB.hold : 1);
+    if (age < 0 || age > a.grow + hold + a.fade) return false;
     ST[0] = a.grow > 0 ? age / a.grow : 99;
-    ST[1] = age > a.grow + a.hold ? Math.min(1.05, ((age - a.grow - a.hold) / Math.max(1e-4, a.fade)) * 1.05) : 0;
+    ST[1] = age > a.grow + hold ? Math.min(1.05, ((age - a.grow - hold) / Math.max(1e-4, a.fade)) * 1.05) : 0;
     ST[2] = 1 - 0.35 * ST[1];
     ST[3] = (flashOn && !rm ? 1 - rec.p.flicker * s.odd : 1) * Math.min(1, s.k);
     ST[4] = tier.hdr && bloom && flashOn && s.k >= 1 ? 1 : 0;
+    ST[6] = b ? 99 : (age - a.grow) / Math.max(1e-4, hold);
     return true;
   }
 
@@ -986,7 +1089,7 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     const w0 = s.w * ST[2];
     const w1 = s.w * PP[10] * ST[2];
     PP[0] = 0; PP[1] = 1; PP[2] = w0; PP[3] = w1;
-    PP[4] = ST[0]; PP[5] = ST[1]; PP[6] = s.seed; PP[8] = ST[3]; PP[9] = ST[4];
+    PP[4] = ST[0]; PP[5] = ST[1]; PP[6] = s.seed; PP[8] = ST[3]; PP[9] = ST[4]; PP[11] = ST[6];
     if (!pushPath(s.P, s.n, map, ctx)) return false;
     if (s.nf > 1) {
       const uj = s.fj / (s.n - 1);
@@ -999,7 +1102,7 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
 
   function collect() {
     sn = 0;
-    maxSegs = Math.min(MAX_SEGS, Math.floor(tier.cap / ELECTRIC_LAYERS.length), Math.floor((lines.room ? lines.room() : Infinity) / ELECTRIC_LAYERS.length));
+    maxSegs = Math.min(MAX_SEGS, Math.floor(tier.cap / LAYERS), Math.floor((lines.room ? lines.room() : Infinity) / LAYERS));
     if (rm) {
       // Reduce Motion: only the links' arcs, struck once and held
       for (let ri = 0; ri < links.length; ri++) {
@@ -1012,7 +1115,7 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
       const rec = auras[ri];
       if (!rec.on) continue;
       const a = rec.p.aura;
-      const count = rec.kind === SHOCK ? tier.shock : tier.bolts;
+      const count = boltCount(rec);
       PP[7] = rec.pi;
       PP[10] = rec.p.taper;
       for (let b = 0; b < count; b++) {
@@ -1032,12 +1135,14 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
       for (let i = 0; i < tier.burst; i++) {
         const s = rec.bolts[i];
         if (!s.on) continue;
-        // a beat's bolts: the leader races round the ring at the start, the bolts erode over its second half
+        // a beat's bolts: the leader races round the ring at the start, the ink leaves over BURST_INK of its life, then
+        // the bolts erode over its second half
         ST[0] = Math.min(99, rec.t / Math.max(1e-4, B.restrike));
         ST[1] = age > 0.5 ? Math.min(1.05, ((age - 0.5) / 0.5) * 1.05) : 0;
         ST[2] = 1 - 0.35 * ST[1];
         ST[3] = (flashOn ? 1 - rec.p.flicker * s.odd : 1) * Math.min(1, rec.k);
         ST[4] = tier.hdr && bloom && flashOn && rec.k >= 1 ? 1 : 0;
+        ST[6] = (age - BURST_INK[0]) / (BURST_INK[1] - BURST_INK[0]);
         if (!pushBolt(s, mapBurst, rec)) return sn;
       }
     }
@@ -1052,9 +1157,10 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     const p = rec.p;
     const A = p.arc;
     const edges = rec.closed ? rec.n : rec.n - 1;
-    // the web erodes out over its last LINK_END s
+    // the web's ink leaves over the LINK_INK s before its last LINK_END s, then it erodes out over those
     const left = rec.life - rec.t;
     const cutAll = left < LINK_END ? Math.min(1.05, ((LINK_END - left) / LINK_END) * 1.05) : 0;
+    const inkK = (LINK_END + LINK_INK - left) / LINK_INK;
     PP[7] = rec.pi;
     for (let i = 0; i < edges; i++) {
       const s = rec.arcs[i];
@@ -1077,6 +1183,7 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
       ST[2] = 1 - 0.35 * cutAll;
       ST[3] = (flashOn && !rm ? 1 - p.flicker * s.odd : 1) * Math.min(1, s.k);
       ST[4] = tier.hdr && bloom && flashOn && s.k >= 1 ? 1 : 0;
+      ST[6] = inkK;
       PP[10] = 0.8;
       if (!pushBolt(s, mapArc, arc)) return;
     }
@@ -1097,37 +1204,61 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     }
   }
 
-  /** Pushes the collected segments layer by layer (ink, body, core); returns how many strokes. */
+  /**
+   * Pushes the collected segments layer by layer (ELECTRIC_LAYERS_B: ink, sheath, mid, body, core; look A's segments
+   * skip the sheath's two); returns how many strokes. A segment's ink is pushed only while its piece's ink phase leaves
+   * it on there (INK_WOBBLE: a hard step a segment, wobbled by a hash of its bolt's seed and its place along it), so a
+   * bolt's ink leaves in patches before it erodes and its dashes end in its colour.
+   */
   function write(count) {
     let j = 0;
     const dimBody = tier.hdr && bloom ? BODY_UNDER_BLOOM : 1;
-    for (let li = 0; li < ELECTRIC_LAYERS.length; li++) {
+    const inkAll = 0.5 - INK_WOBBLE / 2;
+    const inkNone = 0.5 + INK_WOBBLE / 2;
+    for (let li = 0; li < NL; li++) {
       S.minPx = MIN_PX_BY_LAYER[li];
       S.kind = SOLID;
-      const dim = li === 1 ? dimBody : 1;
       for (let s = 0; s < count; s++) {
         const o = s * SEG;
         const pi = segs[o + 13];
+        const b = LOOKB[pi];
+        if (!b && (li === 1 || li === 2)) continue;
+        if (li === 0) {
+          const k = segs[o + 16];
+          if (k >= inkNone) continue;
+          if (k > inkAll) {
+            const h = Math.sin(segs[o + 12] * 12.9898 + segs[o + 8] * 78.233) * 43758.5453;
+            if (k + INK_WOBBLE * (h - Math.floor(h) - 0.5) >= 0.5) continue;
+          }
+        }
         const p = plist[pi];
-        const wa = segs[o + 6];
-        const wb = segs[o + 7];
+        // look B: the body a little narrower, its sheath's bands round it
+        const wa = segs[o + 6] * (b ? LB.width : 1);
+        const wb = segs[o + 7] * (b ? LB.width : 1);
+        const dim = li === 3 || (b && li > 0 && li < 3) ? dimBody : 1;
         let ka = wa;
         let kb = wb;
         let alpha = 1;
         if (li === 0) {
-          ka = wa + p.inkWidth * (wa > 0 ? Math.max(0.7, Math.min(1, wa / p.width)) : 1);
-          kb = wb + p.inkWidth * (wb > 0 ? Math.max(0.7, Math.min(1, wb / p.width)) : 1);
-        } else if (li === 2) {
-          ka = wa * p.coreShare;
-          kb = wb * p.coreShare;
+          const oa = b ? wa * LB.bands[0] : wa;
+          const ob = b ? wb * LB.bands[0] : wb;
+          ka = oa + p.inkWidth * (wa > 0 ? Math.max(0.7, Math.min(1, segs[o + 6] / p.width)) : 1);
+          kb = ob + p.inkWidth * (wb > 0 ? Math.max(0.7, Math.min(1, segs[o + 7] / p.width)) : 1);
+        } else if (li === 1 || li === 2) {
+          ka = wa * LB.bands[li - 1];
+          kb = wb * LB.bands[li - 1];
+        } else if (li === 4) {
+          const share = b ? LB.coreShare : p.coreShare;
+          ka = wa * share;
+          kb = wb * share;
           alpha = segs[o + 14];
         }
-        const c = pi * 9 + li * 3;
+        const c = (pi * NL + li) * 3;
         S.ax = segs[o]; S.ay = segs[o + 1]; S.az = segs[o + 2]; S.wa = ka;
         S.bx = segs[o + 3]; S.by = segs[o + 4]; S.bz = segs[o + 5]; S.wb = kb;
         S.ua = segs[o + 8]; S.ub = segs[o + 9]; S.head = segs[o + 10]; S.tail = -99;
         S.r = cols[c] * dim; S.g = cols[c + 1] * dim; S.b = cols[c + 2] * dim; S.a = alpha;
-        S.seed = segs[o + 12]; S.hdr = li === 2 && segs[o + 15] > 0 ? p.hdr : 0;
+        S.seed = segs[o + 12]; S.hdr = li === 4 && segs[o + 15] > 0 ? p.hdr : 0;
         S.cut = segs[o + 11]; S.noise = 7; S.bandFreq = 0; S.bandSpeed = 0;
         if (!lines.push(S)) return j;
         j++;
@@ -1137,7 +1268,12 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
   }
   /** The presets by index, and each layer's pixel floor. */
   const plist = ids.map((id) => presets[id]);
-  const MIN_PX_BY_LAYER = ELECTRIC_LAYERS.map((l) => ELECTRIC_MIN_PX[l]);
+  const MIN_PX_BY_LAYER = ELECTRIC_LAYERS_B.map((l) => ELECTRIC_MIN_PX[l]);
+  /** A crackle's bolts: the tier's (a shock's smaller count), fewer in look B. */
+  function boltCount(rec) {
+    const n = rec.kind === SHOCK ? tier.shock : tier.bolts;
+    return LOOKB[rec.pi] ? Math.max(1, Math.round(n * LB.bolts)) : n;
+  }
 
   // ---- the ground pieces (numbers into the preallocated attributes, through the scratch GP)
   /**
@@ -1176,34 +1312,69 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
       GP[15] = rm ? 1 : 1 - Math.pow(1 - Math.min(1, rec.t / 0.12), 3);
       pushGround();
     }
-    // the charge ring at a crackling body's feet (Reduce Motion: the still glow ring that stands for the crackle)
+    // look B: a glow pool under each crackle (the light it throws on the ground; none under a shock) and each beat
+    // ring, under the rings; eroding in (from its young threshold) and out when it ends, turning in slow steps
+    for (let ri = 0; ri < auras.length; ri++) {
+      const rec = auras[ri];
+      if (!rec.on || rec.kind === SHOCK || !LOOKB[rec.pi]) continue;
+      const over = rec.t - rec.life;
+      GP[0] = rec.x; GP[1] = rec.z; GP[2] = over > 0 ? Math.min(1, over / RING_END) : 0;
+      GP[3] = Math.min(1, rec.t / 0.12) * POOL.strength * strength;
+      GP[4] = 2; GP[5] = rec.rad * POOL.aura; GP[6] = 0; GP[7] = rm ? 0 : Math.floor(rec.t / POOL_STEP_S) * POOL_TURN;
+      GP[8] = rec.seed; GP[9] = rec.pi; GP[10] = 0; GP[11] = 0;
+      GP[12] = POOL.erode[0]; GP[13] = POOL.erode[1]; GP[14] = still; GP[15] = 0;
+      pushGround();
+    }
+    for (let ri = 0; ri < bursts.length; ri++) {
+      const rec = bursts[ri];
+      if (!rec.on || !LOOKB[rec.pi]) continue;
+      const B = rec.p.burst;
+      const age = Math.min(1, rec.t / rec.life);
+      const fade = rm ? clamp(Math.min(rec.t, rec.life - rec.t) / REDUCE_FADE, 0, 1) : Math.min(1, rec.t / 0.05);
+      GP[0] = rec.x; GP[1] = rec.z; GP[2] = age; GP[3] = fade * POOL.strength * strength;
+      GP[4] = 2; GP[5] = (rm ? lerp(B.r0, B.r1, 0.75) : lerp(B.r0, B.r1, 1 - Math.pow(1 - age, 3))) * rec.size * POOL.burst;
+      GP[6] = 0; GP[7] = 0;
+      GP[8] = rec.seed; GP[9] = rec.pi; GP[10] = 0; GP[11] = 0;
+      GP[12] = POOL.erode[0]; GP[13] = POOL.erode[1]; GP[14] = still; GP[15] = 0;
+      pushGround();
+    }
+    // the charge ring at a crackling body's feet (Reduce Motion: the still glow ring that stands for the crackle). Its
+    // ink leaves over RING_INK_S once the crackle ends, then it erodes out over RING_END (the erosion age, GP[2], held
+    // at 0 until the ink is gone; a shock's ring under Reduce Motion: over the first SHOCK_RING_INK of its life)
     for (let ri = 0; ri < auras.length; ri++) {
       const rec = auras[ri];
       if (!rec.on || (rec.kind === SHOCK && !rm)) continue;
       const g = rec.p.aura.ring;
-      const ending = rec.t > rec.life ? Math.min(1, (rec.t - rec.life) / 0.3) : 0;
-      const shockAge = rec.kind === SHOCK ? Math.min(1, rec.t / rec.life) : 0;
-      GP[0] = rec.x; GP[1] = rec.z; GP[2] = Math.max(ending, shockAge); GP[3] = Math.min(1, rec.t / 0.1) * strength;
+      const over = rec.t - rec.life;
+      let inkK = over > 0 ? over / RING_INK_S : 0;
+      let age = over > RING_INK_S ? Math.min(1, (over - RING_INK_S) / RING_END) : 0;
+      if (rec.kind === SHOCK) {
+        const sa = Math.min(1, rec.t / rec.life);
+        inkK = Math.max(inkK, sa / SHOCK_RING_INK);
+        age = Math.max(age, Math.max(0, sa - SHOCK_RING_INK) / (1 - SHOCK_RING_INK));
+      }
+      GP[0] = rec.x; GP[1] = rec.z; GP[2] = age; GP[3] = Math.min(1, rec.t / 0.1) * strength;
       GP[4] = 1; GP[5] = rec.rad * g.radius * (rec.kind === SHOCK ? 0.85 : 1); GP[6] = g.width * rec.size;
       GP[7] = rm ? 0 : Math.floor(rec.t / RING_STEP) * RING_TURN;
       GP[8] = rec.seed; GP[9] = rec.pi; GP[10] = 0; GP[11] = 0;
-      GP[12] = rm ? 0.04 : AURA_RING_CUT; GP[13] = 0.95; GP[14] = still; GP[15] = 0;
+      GP[12] = rm ? 0.04 : AURA_RING_CUT; GP[13] = 0.95; GP[14] = still; GP[15] = inkK;
       pushGround();
     }
     // a drum beat's ring on the ground, bursting out under its bolts (Reduce Motion: still, at most of its reach, faded
     // in and out over REDUCE_FADE: no hard on-cut or off-cut each beat); no over-white on the ring: the bolts over it
-    // carry the glow (a wide ring over white would bloom into a soft halo)
+    // carry the glow (a wide ring over white would bloom into a soft halo). Whole (its young threshold) until
+    // BURST_HOLD of its life, its ink leaving over BURST_INK before that, then it erodes over the rest
     for (let ri = 0; ri < bursts.length; ri++) {
       const rec = bursts[ri];
       if (!rec.on) continue;
       const B = rec.p.burst;
       const age = Math.min(1, rec.t / rec.life);
       const fade = rm ? clamp(Math.min(rec.t, rec.life - rec.t) / REDUCE_FADE, 0, 1) : 1;
-      GP[0] = rec.x; GP[1] = rec.z; GP[2] = age; GP[3] = fade * strength;
+      GP[0] = rec.x; GP[1] = rec.z; GP[2] = Math.max(0, age - BURST_HOLD) / (1 - BURST_HOLD); GP[3] = fade * strength;
       GP[4] = 1; GP[5] = (rm ? lerp(B.r0, B.r1, 0.75) : lerp(B.r0, B.r1, 1 - Math.pow(1 - age, 3))) * rec.size * 0.94;
       GP[6] = 0.04 * rec.size; GP[7] = 0;
       GP[8] = rec.seed; GP[9] = rec.pi; GP[10] = 0; GP[11] = 0;
-      GP[12] = rm ? 0.04 : 0.22; GP[13] = 0.95; GP[14] = still; GP[15] = 0;
+      GP[12] = rm ? 0.04 : 0.22; GP[13] = 0.95; GP[14] = still; GP[15] = (age - BURST_INK[0]) / (BURST_INK[1] - BURST_INK[0]);
       pushGround();
     }
     geo.instanceCount = gn;
@@ -1224,13 +1395,14 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     }
     rec.t += dt;
     const p = rec.p;
-    const tail = p.aura.grow + p.aura.hold + p.aura.fade;
-    if (rec.t > rec.life + Math.max(tail, 0.3)) {
+    const tail = p.aura.grow + p.aura.hold * (LOOKB[rec.pi] ? LB.hold : 1) + p.aura.fade;
+    // (its last strikes erode out; its charge ring's ink leaves, then it erodes out)
+    if (rec.t > rec.life + Math.max(tail, RING_INK_S + RING_END)) {
       rec.on = false;
       return;
     }
     if (rm || rec.t > rec.life) return;
-    const count = rec.kind === SHOCK ? tier.shock : tier.bolts;
+    const count = boltCount(rec);
     const restrike = rec.kind === SHOCK ? p.shock.restrike : p.aura.restrike;
     // the shock thins out over its life (its later strikes more often off)
     for (let b = 0; b < count; b++) {
@@ -1251,7 +1423,7 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     if (rm) return;
     // re-struck on the beat while it bursts out (its first half), then it erodes on its last path
     if (rec.t >= rec.next && rec.t < rec.life * 0.5) {
-      while (rec.t >= rec.next) rec.next += rec.p.burst.restrike;
+      while (rec.t >= rec.next) rec.next += rec.p.burst.restrike * (LOOKB[rec.pi] ? LB.burstRestrike : 1);
       strikeBurst(rec);
     }
   }
@@ -1266,8 +1438,8 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     const edges = rec.closed ? rec.n : rec.n - 1;
     for (let i = 0; i < edges; i++) {
       const s = rec.arcs[i];
-      // Reduce Motion: struck once and held (it still follows its points)
-      if (rm ? s.t0 < 0 || !s.on : rec.t >= s.next && rec.t < rec.life - LINK_END) {
+      // Reduce Motion: struck once and held (it still follows its points); no re-strike once its ink starts leaving
+      if (rm ? s.t0 < 0 || !s.on : rec.t >= s.next && rec.t < rec.life - LINK_END - LINK_INK) {
         strikeArc(rec, s, i);
         const pa = rec.pts[i];
         const pb = rec.pts[(i + 1) % rec.n];
@@ -1278,15 +1450,16 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     for (let i = 0; i < rec.n; i++) {
       for (let b = 0; b < tier.nodes; b++) {
         const s = rec.nodes[i * MAX_NODE_BOLTS + b];
-        if (rec.t >= s.next && rec.t < rec.life - LINK_END) {
+        if (rec.t >= s.next && rec.t < rec.life - LINK_END - LINK_INK) {
           nodeRec.p = p;
+          nodeRec.pi = rec.pi;
           strikeCapsule(s, nodeRec, p.shock.len, 1, 0);
           // (struck at the origin's band; drawn round the point by its own frame each frame)
           s.t0 = rec.t;
           s.on = rnd() < p.aura.duty;
           s.odd ^= 1;
           s.k = s.on ? gate(s.L, p.flicker) : 1;
-          s.next = rec.t + lerp(p.aura.restrike[0], p.aura.restrike[1], rnd());
+          s.next = rec.t + lerp(p.aura.restrike[0], p.aura.restrike[1], rnd()) * (LOOKB[rec.pi] ? LB.restrike : 1);
         }
       }
     }
@@ -1401,6 +1574,7 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
         tier: tierName, auras: a, shocks: sh, bursts: bursts.filter((r) => r.on).length, links: links.filter((r) => r.on).length,
         scorches: scorches.filter((r) => r.on).length, casts: casts.filter((r) => r.on).length, segments: sn, strokes: drawn,
         ground: geo.instanceCount, gates, calls: (own && lines.mesh.visible ? 1 : 0) + (ground.visible ? 1 : 0),
+        look: LOOKB.every((v) => v) ? 'b' : LOOKB.some((v) => v) ? 'mixed' : 'a',
       };
     },
     /** Live records (lab, tests). */
