@@ -291,3 +291,17 @@ describe('beam wiring (display only)', () => {
     for (const f of ['src/render/vfx/beams.js', 'src/render/vfx/strokes.js']) expect(readFileSync(f, 'utf8')).not.toMatch(/\bsim\.\w|Math\.random\(/);
   });
 });
+
+describe('a preset with its own line count spreads its lines round the landing', () => {
+  it('four of eight rays at an even stride point all round (a cross), not a half fan; others keep the first n', async () => {
+    const { rayPick } = await import('../../src/render/vfx/beams.js');
+    const angles = [0, 1, 2, 3].map((i) => (rayPick(i, 4, 8, true) / 8) * Math.PI * 2);
+    const sx = angles.reduce((a, t) => a + Math.cos(t), 0);
+    const sy = angles.reduce((a, t) => a + Math.sin(t), 0);
+    expect(Math.hypot(sx, sy)).toBeLessThan(0.5); // balanced: the unit directions cancel out
+    expect([0, 1, 2, 3].map((i) => rayPick(i, 4, 8, true))).toEqual([0, 2, 4, 6]);
+    // no own count (the old presets), or all of them drawn: the first n, exactly as before
+    expect([0, 1, 2, 3, 4, 5].map((i) => rayPick(i, 6, 8, false))).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(rayPick(7, 8, 8, true)).toBe(7);
+  });
+});

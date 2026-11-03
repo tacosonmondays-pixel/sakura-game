@@ -36,6 +36,16 @@ const ease = (k) => 1 - (1 - k) * (1 - k);
  * @param {{ scene: THREE.Object3D, strokes?: object|null, batches?: object|null, atlas?: object|null, camera?: THREE.Camera|null,
  *   quality?: 'high'|'medium'|'low', reduceMotion?: boolean, rand?: () => number, presets?: object }} o
  */
+
+/**
+ * Which of a landing's `total` rays draws as its i-th of `n` impact lines. A preset with its own line count (`counted`:
+ * Iroha's mirror, 4) takes them at an even stride, so its few lines spread round the landing (a cross), not a half fan
+ * of the first slots; every other preset draws the first n as before. Pure.
+ */
+export function rayPick(i, n, total, counted) {
+  return counted && n < total ? Math.floor((i * total) / n) : i;
+}
+
 export function createBeamFx({ scene, strokes = null, batches = null, atlas = null, camera = null, quality = 'medium', reduceMotion = false, rand = null, presets = BEAM_PRESETS }) {
   const R = atlas?.regions || {};
   const rnd = rand || (() => 0.5);
@@ -239,7 +249,7 @@ export function createBeamFx({ scene, strokes = null, batches = null, atlas = nu
         S.b = col[2];
         S.a = rec.hitK;
         for (let i = 0; i < n; i++) {
-          const [ang, sz] = rec.rays[i];
+          const [ang, sz] = rec.rays[rayPick(i, n, rec.rays.length, L.count != null)];
           const r0 = 0.16 + (0.25 + rec.W) * ease(k) * sz;
           const r1 = r0 + L.length * sz * (1 - k) * 0.8;
           const cx = Math.cos(ang);

@@ -231,7 +231,9 @@ in the grid's order); past it the rest of that tick's beams hit nothing, so a hu
   frame (`BEAMS_PER_FRAME` 48); low graphics halves it; Reduce motion keeps the lines (fades only).
   With the styled beams (docs/VFX.md "Beams") her legs and each `'mirrorGlint'` are lilac glass beams (preset `mirror`);
   their landing burst and the mirror's glint draw once per spot per 0.1 s (`landFree`), so bolts arriving together on
-  one mirror or one clump land as one.
+  one mirror or one clump land as one. An ally's reflected copy (blue, no preset) shares that gate, so a copy landing
+  where her own leg landed in the same moment draws without its own burst. Her four impact lines take every other ray
+  of the landing (`rayPick`), so they spread round it as a cross.
 - **Laser web.** While it runs, a pulsing beam joins every pair of her mirrors (two ground quads per beam: a lilac glow
   and a white core; steady on Reduce motion).
 

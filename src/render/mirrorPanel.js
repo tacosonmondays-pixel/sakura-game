@@ -200,7 +200,7 @@ export function kaleidoscope(tier, quality = 'medium') {
 /** One landing burst per spot: within LAND_NEAR tiles (Manhattan) and LAND_GAP visual seconds of the last one there. */
 export const LAND_NEAR = 0.6;
 export const LAND_GAP = 0.1;
-const LAND_RING = 8;
+const LAND_RING = 16;
 
 /** The recent landings (a fixed ring). */
 export function createLandGate() {
