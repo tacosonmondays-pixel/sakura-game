@@ -611,6 +611,185 @@ ground pieces are hand-written on the toon core. Not in the battle yet: the lab 
   LightningStrike (MIT, `three-stdlib-MIT.txt`); the Worley cells are the toon core's (`webgl-noise-MIT.txt`). When the
   electricity is wired, add `three-stdlib-MIT.txt` to Settings → Licences (`LICENCE_FILES`).
 
+## Toon beams (`src/render/vfx/toonBeams.js`, `toonBeamPresets.js`, batch B3; lab only, not wired)
+
+Held beams, a charge-up and an impact crown on the toon core, in the tornado's house look: luminous, layered strokes,
+hard toon steps, noise erosion, an inked outer silhouette only, premultiplied (never a soft glow tube). Not in the battle
+yet: the lab is `previews/beams.html`, and `TOON_BEAM_GIRLS` names who will use which preset once it is wired. Display
+only: the sim id does not change.
+
+- **Pieces** (`fire(preset, a, b, { half | width, held, hold, hit, windup, face, faceR | faceBox })`,
+  `aim(rec, a, b, { hit, face })`, `release(rec)`):
+  - **body**: a band from the muzzle to the target, drawn as a ribbon along its path in view space (mitred joints, so a
+    zig-zag has no gap and no overlap at a kink), in layers:
+    - its **outer silhouette**: one clean curve an edge, each a function of the distance along it only: swept tongues
+      streaming out along it with the flow (`BEAM_TONGUE`: 2.6 half widths apart, their valleys at 0.6 of the half
+      width, their size and spacing from the house noise);
+    - a **sheath** inside it: its deep band at the outer edge, the body colour in (the band edge broken by the noise);
+    - **strands** twisting round its middle (`TOON_BEAM_TIERS.*.strands`: 3 on high and medium, 2 on low; `twist` turns a
+      tile) and running out along it with the flow, broken into swept strokes (`BEAM_STRAND`: tapered at both ends,
+      their tails towards the muzzle), each with its own deep rim, then light and core, white on the front strands'
+      hottest; the front-most stroke wins the pixel, so they cross over and under each other like the tornado's rings.
+    The **ink rim** (at least `BEAM_INK_PX` 1.3 px, or `BEAM_INK_X` of the half width, its weight varying along it like
+    a brush line, never more than `BEAM_INK_CAP` 0.42 of it) is worked out from the silhouette's own curves: the
+    distance in from the nearer edge. It is never worked out from heat minus the cut, so no noise valley, near-hole or
+    seam inside the colour is ever inked. There is no ink within `BEAM_FACE_CLEAR` (0.6 tiles) of the muzzle, none
+    within `CROWN_INK_CLEAR` (1.3) crown radii of a crown that is up (its own silhouette is there), and none while a Reduce Motion fade-in is under
+    full strength. **Her face:** none of the body is drawn over her head on screen: inside the box round her head in
+    the view plane (`faceBox`, the lab's box round her figure's top 42 %; or a circle of `faceR`) nothing is drawn, and
+    the beam grows out of its edge over `FACE_GROW` (1.4) half widths. So a beam from Miko's mirror behind her shoulder
+    leaves from beside her head, never over it.
+    Hard-stepped beats: the head races out in `HEAD_STEPS` (3) steps as a spear tip at `LEADER_WIDTH`, then the band
+    punches in at `BEAM_PUNCH` (1.42, 1.16 × its width, a step each 1/30 s) and settles; it holds (a fired lance for
+    `hold`, a held beam until `release()`); while it holds it is whole inside its silhouette (no holes); its end thins
+    in steps (`BEAM_END_WIDTH`), its ink leaves at `BEAM_INK.end` (0.12 of the end, ± 0.04 along it: one clean front from
+    the muzzle on) and only then, from `BEAM_ERODE_AT` (0.2), the erosion rises from the muzzle on to the target
+    (`BEAM_LAG`), so it erodes out along itself into its colour bands and never pops off. A zig-zag lance (Raika) is the
+    same band on a kinked path (long diagonals, short jogs), struck again every `restrike` (0.05 s, on twos).
+  - **prism** (Kohaku & Tsubaki): the same body with a strand per colour of the duo's Grand Spectrum braided round it
+    (`TOON_BEAM_TIERS.*.prism`: 5 on high and medium, 3 on low), each in its own colour, its light row over the core
+    heat, white on its peaks; twisting along it (`twist`) and turning (`spin`) over a lilac sheath; one ink rim round
+    the whole beam.
+  - **charge-up**: where the beam is first seen (the muzzle, or past her head on screen by `CHARGE_FACE_GAP` of its
+    size, with a camera to see it by; `CHARGE_AHEAD` 0.16 tiles out towards the target), over her wind-up (`WINDUPS`,
+    read from today's patterns: a staff girl's cast clip 0.6 s × 0.3 = 0.18 s, Miko's gohei 0.15 s, the duo's beam lock
+    0.08 s): a ring (0.58 to 0.62 tiles × the beam's width share) gathering in from `CHARGE_R[0]` to `[1]` in
+    `CHARGE_STEPS` (4) hard steps and streaks converging on it, both eroding in. No ink, and nothing of it inside her
+    face's box. Its release bursts out to `CHARGE_BURST` and erodes over `CHARGE_RELEASE` (0.18 s) with a short white
+    flash (flash-guarded).
+  - **crown**: at the hit point, a burst of uneven, curling tongues in two layers (`TOON_BEAM_TIERS.*.tongues`; the
+    outer layer in the body colour with its own deep rim, the inner one light and curled further, a core round its
+    middle; their lengths, where each one peaks and the curl re-rolled every `crown.beat` 0.08 s), drawn in front of the
+    enemy. No dark ink: it stands over the glow pool and the enemy, so its silhouette is its deep band (as the tornado's
+    rings have no outline), and that deep rim leaves at `CROWN_INK.end` before it erodes from `CROWN_ERODE_AT`. It
+    punches in at `CROWN_PUNCH` with a white flash in its middle (flash-guarded), then its hole opens (`CROWN_HOLE` 0.34:
+    the enemy stays visible through it). Its angle is seam-free: the record's seed is a whole number and every tongue
+    index is taken mod its count, so where atan wraps falls between two tongues (`crownOuter` is its JS mirror; the
+    tests hold it continuous). A held beam's crown bursts again on a new hit (`aim(…, { hit })`), at most once each
+    `CROWN_REBURST` (0.34 s, 3 a second at most); a hit back sooner brings the crown back in its punch steps with no
+    white flash and no new ask of the flash guard. It ends with the beam, or over `CROWN_END` when the hit stops.
+  - **ground**: a stepped ring running out from the hit point (`RING_STEPS` radius shares over `ring.life`, starting
+    outside the glow pool, again every `ring.every` while a held beam hits), inked on its outer edge only (worked out
+    from its actual eroded edge, as the body's) and on its front arc only (`RING_INK_FRONT`: its far arc runs behind
+    the crown and the beam on screen), its ink
+    leaving at `RING_INK.end` (0.42) before it breaks into dashes at `RING_ERODE_AT` (0.54); and a glow pool under the
+    hit (no ink) that cools in two steps into a small scorch as the beam ends and erodes from its rim inward over
+    `pool.linger`.
+- **Blend: the glow cover** (as the water's and the electricity's): the colour is encoded for the target, then added, and
+  each band hides `BEAM_COVER` of the board (deep 0.85, body 0.74, light 0.6, core 0.86, white and ink 1); on the canvas
+  tiers the translucent bands add `BEAM_CANVAS_ADD` (0.45). On high with bloom the white band goes `hdr` over white,
+  scaled by the flash guard's answer.
+- **Presets** (plain data, today's colours and widths, every preset the same shape: `SHAPE` fills the fields a preset
+  has none of, so the hot path reads one object shape): `umeko` (Searchlight Sweep: held.js `SWEEP_BODY` #fff3c4 and a
+  white core; the sim's `SWEEP_HALF_WIDTH` × `HELD_VISIBLE` 0.62, the share of today's soft band that reads), `luna`
+  (moonbeams: s5held.js `MOON_BODY` #d9ceff and `MOON_CORE` #f6f2ff on the moon lance's ink and body; `MOON_HALF_WIDTH` ×
+  0.62 × `PAIR_SWEEP` 0.78: her two beams always sweep in mirror, so each is drawn a little narrower and the pair's
+  per-frame change on a phone stays near one beam's; from her staff tip, as s5held.js draws them today), `kohaku` (the
+  prism: `LILAC` #c9a8ff and the Grand Spectrum; its width from Kohaku's beam × `PRISM_HALF_SHARE`), `miko`
+  (beamPresets.js `holy`: ink, body, core; × 1.1) and `raika` (`storm`, 6 kinks, 2 on low). A fired lance's half width
+  is today's `BEAM_HALF` from the sim's beam width (`LANCE_HALF`). No band above the ink and no stripe reaches the flash
+  guard's red share (tests hold it).
+- **Tiers** (`TOON_BEAM_TIERS`): high 9 crown tongues, 8 charge streaks, the ground ring and pool, 5 prism strands, 3
+  strands, 6 kinks, over white with bloom; medium 7, 6, ring and pool, 5, 3, 6; low 5 tongues, no streaks, ring or pool,
+  3 prism strands, 2 strands, 2 kinks.
+- **Reduce Motion:** a still beam (no flow, spin, re-strike, racing head or punch: its strands and tongues hold still)
+  whose colour fades in over `REDUCE_FADE` (0.12 s) while its ink comes in only at full strength (no muddy half-strength
+  rim); a still glow at the muzzle (no streaks, no gathering, no release burst); no crown and no ring at the hit, a held
+  glow pool instead; the end's ink leaves, then it erodes in place (no travelling front), over `TOON_REDUCE.life` ×
+  longer. The flash guard is not asked (nothing flashes).
+- **Flash safety:** every charge release and every impact (a held beam: a new hit, at most once each `CROWN_REBURST`)
+  asks `flashGate` once with its size (under 1.6 tiles: nothing near full screen); the answer scales the burst's white
+  flash and the over-white boost, so past the budget the burst is drawn at `WORLD_DIM` and nothing goes over white.
+  Flashes & shake off (`setFlashes(false)`, on beams already up too): the guard is not asked, no burst flash, nothing
+  over white. Nothing in a beam flickers: the crown's tongues change shape on the beat, not brightness, and a hit that
+  chatters (on and off every frame or two) bursts at most 3 times a second (tests hold it). The real `FlashGuard` at
+  phone size (844×390 and 390×844 on the lab patch's close framing): five held beams with hits toggling and three
+  lances every 1/3 s for 3 s stay under a quarter of the world budget and are never dimmed (tests hold it); the lab
+  asks the same guard (`__lab.stats()`).
+- **Draw cost:** three instanced draw calls at most (the bodies; the charge-ups and crowns, camera-facing; the ground
+  pieces), 0 when idle. Every record and buffer is allocated once for `MAX_TOON_BEAMS` (16) at the high tier's sizes
+  (`MAX_BEAM_JOINTS` 8 a path); `update()` writes numbers into them and uploads the small buffers whole (no update
+  ranges). An idle layer does no work.
+- **Cost:** per-frame allocation, node `--expose-gc`, heap delta over 20,000 frames after warm-up, against a harness that
+  itself allocates 0 to 0.2 B a frame: one aimed held beam, six aimed held beams, a held prism or a held zig-zag (struck
+  again every 3 frames) 0.01 B a frame; six held beams aimed every frame with faces plus two lances fired every 40 frames
+  about 3 B a frame on medium and low. Each `fire()` costs about 0.6 KB once (its cold path's numbers), not per frame.
+  The hot path reads plain number fields (each record's beats are worked out once at its fire), takes no double through
+  a call, uses no variadic `Math.hypot`/`Math.min`, and the zig-zag's jitter is hashed from the record's seeded value
+  (`toonHash`), not drawn a joint. Fragment cost: the body samples the noise texture 4 times plus once a strand (7 on high
+  and medium, 6 on low, 9 for the prism's five) over a thin strip of the screen.
+- **Dark-ink check** (`node e2e/beams-ink.mjs --port <dev server>`): every preset's whole loop stepped at 1/60 s, at
+  844×390 and 390×844, on high and medium, the whole view; a pixel the beams darkened under 0.2 luma is ink; a component
+  of such pixels under 40 px touching no colour pixel of the beams is a loose dark-ink fragment; a component that
+  touches the beams' colour but no untouched background pixel (the screen's edge counts as background) is **interior
+  ink** (ink inside the colour, not on its true outer silhouette); the beams' ink pixels inside each girl's face (the
+  top 42 % of her figure on screen) are counted apart. All three must be 0 (exit 1 otherwise). **Known open case:**
+  where two beams overlap (the moonbeams' pair converging on one enemy, the duo's second beam starting beside the
+  first), each keeps its own ink rim, so one's rim runs across the other's colour; on high the bloom lifts the board
+  between them, so the check counts those rims as interior (Luna and the duo fail it on high: up to 6 frames of a
+  loop, 24 px). A two-pass body (every beam's ink, then every beam's colour) was tried: it removes the long crossing
+  rims but leaves short seams where the two edges interleave and counted worse on medium, so it is not in. The fix is a
+  union outline (ink outside the silhouette, drawn under every beam's colour), still to do.
+- **Randomness:** the stream it is handed (`vrand.fork('beams')` when wired; without one, a fixed fork of its own) for
+  each record's seed and flow; everything after that is hashed from the seed (never Math.random); time from the visual
+  clock.
+- **Lab and boards:** `/previews/beams.html` (live loop; scene, tier, Reduce Motion and today's-look buttons;
+  `?scene=umeko|luna|kohaku|miko|raika|all`, `&old=1` draws today's live beam through the current code, `?manual=1` and
+  `window.__lab.shot(t)` for stepped stills, `__lab.moments()` for each preset's beats, `__lab.inkScan(t)` (loose,
+  interior and face ink), `__lab.bench()`). Real chibis and goblins for scale; the beams are aimed at the goblins, with
+  their muzzles where today's code starts them (the staff tip through the attack context, Miko's mirror, the duo's lens),
+  and each girl's head box passed as `faceBox`. The lab fires each beam with its preset's wind-up (`WINDUPS`), which is
+  the wiring's target (see the wiring note).
+  `node e2e/beams-board.mjs --port <dev server> --board 1 | 2 | quick --out <jpg>` writes the owner boards.
+- **Credits** (licence texts, with their authors, in `public/licenses/`): the beam's core with an outline round it and
+  its progress wipe follow the idea of the "Energy Beams" shader (CC0, `energy-beams-CC0-1.0.txt`; per-record seeds use a
+  common one-line sine hash of the same form as the one there); the gathering effect at the muzzle and a separate one
+  where it collides follow the idea of a laser beam demo's code (MIT, `laser-beam-MIT.txt`; none of its art). Our own
+  GLSL on the toon core, no code taken. When the beams are wired, add the two files to Settings → Licences
+  (`LICENCE_FILES`).
+
+### Wiring note (for the batch that wires it; nothing here is wired)
+
+- **What it replaces:**
+  - `src/render/attackFx/patterns/held.js` `drawHeld`, the `sweep` branch (Umeko's Searchlight Sweep: one alpha band and
+    one additive core quad a frame): a held `umeko` beam, fired when her channel opens (`t.ch` appears), `aim()`ed every
+    frame from `t.ch.k` and her range (the same `Lb` end), `release()`d when the channel closes or she is disabled. The
+    `stream` branch (Hearth Stream) stays: it is the flame stream of B7.
+  - `src/render/attackFx/patterns/s5held.js` `moon()` (Luna's Moonbeam Sweep: an alpha band and a core per beam, fading
+    over `MOON_LINGER`): one held `luna` beam per `m.hits` entry, fired on the `moon` event, aimed every frame from
+    `moonDir(m, b)`, released when the pass ends (its end erosion replaces the linger fade). `mist()` stays.
+  - `src/render/attackFx/styles/kohaku_tsubaki.js` `update()` (four soft quads a beam): a held `kohaku` beam per hold,
+    fired on a new lock (her `r.uid` changes: `windup` = today's `FADE_IN`), aimed every frame at the lens anchor and the
+    enemy (`r.bx/bh/by`; a long beam's edge-to-edge line as `b`), released on the fade-out branch; Resonant Light's ramp
+    `r.k` → `half` × (1 + 0.25 k); Grand Spectrum keeps the prism's strands (one beam, five colours) instead of one colour
+    a beam. Her prism's soft glow quad goes (the charge-up and the beam's own muzzle replace it).
+  - `src/render/vfx/beams.js` `fire()` for the presets `holy` (Miko's ray) and `storm` (Raika's lance): `miko.onBeam` and
+    `raika.onBeam` call the toon layer's `fire('miko' | 'raika', a, b, { width: ev.width })` instead. **The charge-up
+    needs the call moved to the attack's wind-up:** the sim's `beam` event is the hit, so fired there the lance has no
+    wind-up left. Fire it when her attack animation starts (the attack context's cast/swing start, `WINDUPS.gohei` 0.15
+    s and `WINDUPS.staff` 0.18 s before the hit, as the lab does), and give it `windup` = the time left to the hit. If the
+    call stays on the `beam` event, pass `windup` = today's `charge` (0.04 / 0.035 s): the beam still lands on time, but
+    its charge-up is 2 or 3 frames and its 4 `CHARGE_STEPS` cannot play (the boards do not show that case). `beams.js`
+    stays for Luna's moon lances and every default `fx.beam` (its strokes, its impact lines, its sprites in the shared
+    batches).
+- **Hooks:** `BattleRenderer` makes one layer (`createToonBeamFx({ scene, camera, quality, reduceMotion, rand:
+  vrand.fork('beams') })`; the camera is needed for the charge-up to gather past her head), hands it `flashGate` (as the
+  beams' and the electricity's), `setPixel(rig.scale)`, `setGlow(quality, bloom)`, `setQuality`, `setReduceMotion`,
+  `setFlashes`, `hold(impact.active)` and `update(visualDt)` between the batches' begin and end, `clear()` on a new
+  battle and `dispose()` with the renderer; the attack context carries it as `ctx.toonBeams` through a `guarded` entry
+  (`tests/render/vfx-library-guard.test.js`), so a library error sends the girl back to her old look. Each girl's `face`
+  is her head (her view's figure box, the top 42 %) and `faceBox` the half width and height of that box in the view
+  plane (as `previews/beams.js` works it out). `settings.attackFx === false`: nothing is fired.
+- **Handles:** `fire()` returns a pooled record. Keep `{ rec, gen: rec.gen }` and ignore the handle (no `aim()` and no
+  `release()`) once `rec.gen` differs from the kept `gen` or `rec.on` is false: past `MAX_TOON_BEAMS` a new beam takes a
+  record that is still ending (or the oldest), and a stale handle would steer another girl's beam.
+- **Deriving `hit`:** `hit` is true while the sim's hit list for that beam this step is not empty (a sweep: an enemy
+  under its end; the prism: its locked enemy alive). Keep it true for a few steps after the last hit (about 0.1 s) so a
+  sweep crossing a crowd does not chatter; the layer also never bursts a crown more than once each `CROWN_REBURST`.
+- **Draw calls:** +3 while any toon beam is up (+2 on low), 0 when none is; the old held quads (2 a sweep, 2 a moonbeam,
+  3–7 a prism beam (two lines, a glow quad and 0–4 extension lines) and 1 on her prism, in the shared batches: no calls
+  of their own) go, and `beams.js` keeps its share of the shared strokes' one call.
+
 ## VFX library: toon strokes, chain lightning and beams (`docs/specs/VFX_LIBRARY.md`)
 
 The owner's plan for a styled look on every attack is `docs/specs/VFX_LIBRARY.md`: the house style, the research notes,
@@ -659,7 +838,7 @@ every attack and the batch that styles it. Display only: the sim id does not cha
 ### Beams (`src/render/vfx/beams.js`, `beamPresets.js`)
 
 - **Who:**
-  - Luna's moon lance (it still sweeps: its end slides in from the last one), Miko's holy ray, Raika's Overcharge lance (a zig-zag struck again on the beat).
+  - Luna's moon lance (it still sweeps: its end slides in from the last one), Miko's holy ray, Raika's Overcharge lance (a zig-zag struck again on the beat). (B3's toon beams, lab only, will take Miko's ray and Raika's lance: see "Toon beams".)
   - Every beam the default layer draws (`fx.beam` hands it over, in the beam's own colour).
 - **Four beats:**
   - Charge: a thin line races out, with a muzzle flare.

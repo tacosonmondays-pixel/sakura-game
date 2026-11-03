@@ -1,0 +1,20 @@
+GDQuest godot-visual-effects (https://github.com/gdquest-demos/godot-visual-effects), its laser beam demo
+
+Used in: src/render/vfx/toonBeams.js, the charge-up and the impact. Only ideas from the demo's code (MIT) are used,
+re-implemented in our own GLSL on the toon core (no code taken): the beam appears by growing out from its muzzle and
+leaves by thinning, with a gathering "casting" effect at the muzzle while it starts and a separate effect where it
+collides (here: a ring gathering in and streaks converging on it at the muzzle over her wind-up, and at the hit point
+an inked crown of tongues, a stepped ring and a glow pool on the ground). The repository's art (textures and models)
+is CC BY-NC-SA 4.0 and none of it is used: no texture or model from it ships with the game.
+
+The licence of the demo's source code (the repository's LICENSE file, its MIT part):
+
+MIT License
+
+Copyright (c) 2020-present GDQuest
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
