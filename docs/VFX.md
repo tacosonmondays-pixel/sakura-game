@@ -334,6 +334,39 @@ twist round a helix and sway on X/Z. Display only: the sim id does not change.
 - **Captures:** `node tools/vfx/capture.mjs --events starmine@80,tornado-sakura@400 --hp 100000` (a tornado event
   spawns one on the crowd; `--hp` keeps the crowd alive against the max-build Sandbox girls).
 
+## Toon core (`src/render/vfx/toonCore.js`, batch B0)
+
+The tornado's fragment ideas, lifted into one shared module so every eroding-shape family (the water splash first, then
+electricity, beams, deaths, blasts and casts) draws in the same house look. Display only: the sim id does not change.
+
+- **What it holds.** Import-free GLSL chunks (plain strings) and the small painters and helpers that feed them:
+  - `TOON_NOISE`: the house noise (R 85 % + G 15 % at a second scale and drift, through `smoothstep(0.25, 0.75)`),
+    `toonCells` (the Worley F2 − F1 channel), `toonSwirl` (the uv pushed along the painted swirl field) and
+    `toonTwirl` (a polar twirl round a centre);
+  - `TOON_ERODE`: `toonHeat` (band × (0.3 + n)), `toonCut` (young → old), `toonMask` (the hard step: no fringe, no discard);
+  - `TOON_RAMP`: `toonIndex` (heat above the cut × 1.6, so the darkest band is every shape's ink rim), `toonIndexS` (a
+    family's own slope), `toonRamp`, `toonHot` (the k ≥ 0.8 band);
+  - `TOON_ALPHA`: `toonFade` (in over the first 10 % of an age, out over the last 18 %), `toonYoung`, the two blends
+    `toonCover` (high) and `toonAdd` (add + light body);
+  - `TOON_TIER` (`uSparse`, `uCover`) and `TOON_MOTION` (`uStill`, `toonMove`) uniforms; in JS `toonSparse` (high's
+    sparser mask), `toonHold` / `toonMotion` / `TOON_REDUCE` (Reduce Motion: nothing turns or scrolls, lives × 2.2,
+    alpha × 0.7);
+  - `paintToonNoise(n, seed, { cells, swirl })`: R and G as the tornado's, plus Worley F2 − F1 in B (a periodic port
+    of webgl-noise's cellular2D, MIT) and a domain-warped swirl in A (a domain-warping article's MIT snippets);
+    `paintToonRamp(rows)`: flat-band ramp rows with optional per-band gains. Painted once at load: no image files.
+- **The tornado draws with it** and looks identical. `e2e/toon-core-tornado-diff.mjs` shoots the real tornado layer on the
+  lab patch (`previews/tornado-stills.html`, built on `previews/vfxLabStage.js`: the real terrain painter on a
+  fixture board, the battle's lights, camera, batches and high's bloom + grade, every frame stepped at 1/60 s) for
+  fire, sakura and vortex × high and medium × 844×390 and 390×844 × 0.7 s and 1.6 s, and diffs the sets in the page.
+  Limits: max channel delta ≤ 2, mean < 0.1. Recorded on this change: two captures of the old build 24 / 24 stills
+  max 0, mean 0 (the noise floor); old vs new 24 / 24 max 0, mean 0 (bit-identical); a deliberate one-step change in the
+  noise chunk fails at max 153, so the check is live. The painters are byte-identical too (hashes pinned in
+  `tests/render/vfx-toon-core.test.js`).
+- **Pinned text.** The test hashes every chunk: changing one changes the tornado and every family built on it, so it is
+  a deliberate act (re-run the diff, re-pin).
+- **Licences:** `public/licenses/webgl-noise-MIT.txt`, `public/licenses/domain-warp-MIT.txt` (both listed in Settings →
+  Licences).
+
 ## VFX library: toon strokes, chain lightning and beams (`docs/specs/VFX_LIBRARY.md`)
 
 The owner's plan for a styled look on every attack is `docs/specs/VFX_LIBRARY.md`: the house style, the research notes,

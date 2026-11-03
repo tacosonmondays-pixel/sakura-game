@@ -422,10 +422,15 @@ function versionSection() {
     licencesRow());
 }
 
-/** [ui-ink] The menus' line icons are adapted from two open icon sets: their licence texts (public/licenses/), on a tap. */
+/**
+ * [ui-ink] The menus' line icons are adapted from two open icon sets, and the battle effects' toon core uses two open
+ * code snippets (src/render/vfx/toonCore.js): their licence texts (public/licenses/), on a tap.
+ */
 export const LICENCE_FILES = Object.freeze([
   { file: 'lucide-ISC.txt', title: 'Lucide (ISC)' },
   { file: 'feather-MIT.txt', title: 'Feather (MIT)' },
+  { file: 'webgl-noise-MIT.txt', title: 'webgl-noise (MIT)' },
+  { file: 'domain-warp-MIT.txt', title: 'Domain warping snippets (MIT)' },
 ]);
 function licencesRow() {
   const open = async () => {
