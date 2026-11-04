@@ -6,8 +6,16 @@
 // every band covers the board in its own colour (no red-over-green murk), its far arc eroded harder so what stands behind
 // stays visible. With bloom on, high renders into the linear composer, where covering rings settle on the ramp's own
 // colours, so it reads its own ramp row: the hot bands brighter by COVER_GAIN (the overshoot medium gets from adding on
-// the screen); the k ≥ 0.8 band also goes `hdr` over white for the bloom. With bloom off, high draws on the canvas like
-// medium and keeps the bands as given.
+// the screen), except at the very back of the funnel, which keeps the preset's own colours (amber, not a thin lime; the
+// back's sides can still read yellow-green over grass greener than Sakura Court's, as the lake and shrine maps' by day);
+// the k ≥ 0.8 band also goes `hdr` over white for the bloom. With bloom off, high draws on the canvas like medium and
+// keeps the bands as given. Reduce Motion dims what medium and low add. High is eroded instead of thinned (RM_COVER):
+// with bloom its cover adds no light in the linear composer and a thinner lemon over grass reads lime; with bloom off
+// erosion takes tongues away and cools the rest (it never adds light). Either way what stands behind a column that
+// stands still stays readable. Under Reduce Motion high's funnel faces the camera that draws it (uView: its front and
+// far arc, the erosion, the colour index and the back's given row; uYaw: its frozen noise, so the same tongues stand at
+// the same place on screen), so the portrait camera, which looks from the side, sees the same funnel as the landscape
+// camera.
 //
 //   const tornado = createTornadoFx({ scene, batches, atlas, quality, reduceMotion, rand });
 //   tornado.spawn('fire', x, z, { seconds: 2, size: 1.2 });   // world x / z (the sim's x / y), the cast's radius
@@ -39,8 +47,21 @@ export const COVER_YOUNG = 0.35;
  * own ramp row carries that overshoot, one gain per band, coolest → hottest.
  */
 export const COVER_GAIN = [1, 1.1, 1.25, 1.65, 1.9];
-/** High's cover blend: how much harder the far arc erodes (thinner, never fainter: no red-over-green brown). */
+/** High's cover blend: how much harder the far arc erodes (fewer tongues behind the column: what stands behind stays visible). */
 export const COVER_FAR_ERODE = 0.4;
+/**
+ * High under Reduce Motion (with bloom or without): the rings stand still, so what stands behind and inside a column
+ * that is fully up must stay at least as readable as on medium (on the landscape camera; on the portrait camera it stays
+ * above medium's floor but keeps less than medium does there, which sees its own column side-on). The column is eroded instead of thinned (a thinner
+ * lemon over grass reads lime): every ring `all` harder, the far arc `far` harder still, and the colour index follows
+ * the extra erosion (`all`), so the tongues that are left keep the whole ramp instead of only its hottest bands. Here the
+ * funnel's front and far arc (COVER_FAR_ERODE's too) and its frozen noise are the camera's, so the portrait camera, which
+ * looks from the side, sees the landscape camera's funnel (the same tongues survive the erosion); on the landscape camera
+ * they are the world's, as without Reduce Motion. (The noise scroll stops under Reduce Motion, so the frozen noise decides
+ * which tongues survive: in the world's frame the portrait camera saw other tongues, and with the camera's far arc eroded
+ * they left two walls over a bowl, not a funnel.)
+ */
+export const RM_COVER = { far: 0.3, all: 0.22 };
 
 const VERT = /* glsl */`
 attribute vec4 iA; // x, z, t (seconds since the cast), seconds the column is fed
@@ -60,6 +81,8 @@ varying float vRow;
 varying float vRnd;
 varying float vCore;
 varying float vFront;
+varying float vCam;
+uniform vec2 uView; // the ground direction toward the camera (unit; (0, 1) for the landscape battle camera)
 void main() {
   float t = iA.z;
   float life = iD.w;
@@ -81,6 +104,8 @@ void main() {
   vec3 wp = vec3(iA.x + p.x + helix.x + sway.x, 0.06 + age * iC.z, iA.y + p.y + helix.y + sway.y);
   // the arc facing the camera (+z) burns brighter, the far arc dimmer: the column reads as a funnel, not a stack
   vFront = 0.5 + 0.5 * (p.y / max(r, 1e-3));
+  // the same, facing the camera wherever it looks from (the portrait camera turns 90°): Reduce Motion's far arc
+  vCam = 0.5 + 0.5 * (dot(p, uView) / max(r, 1e-3));
   gl_Position = projectionMatrix * modelViewMatrix * vec4(wp, 1.0);
   // the ring's own (unrotated) position: the angle is taken per pixel (no seam where atan wraps)
   vXZ = position.xz;
@@ -102,6 +127,9 @@ uniform float uCover;  // 1 on high: every band covers the board in its own colo
 uniform vec2 uFront;   // COVER_FRONT
 uniform float uYoung;  // COVER_YOUNG
 uniform float uFar;    // COVER_FAR_ERODE
+uniform vec2 uRm;      // high under Reduce Motion: RM_COVER (far, all); (0, 0) otherwise
+uniform float uYaw;    // the camera's turn from the landscape camera's, in turns (0 there; the portrait camera -0.25)
+varying float vCam;    // as vFront, but facing the camera (uView) wherever it looks from
 varying vec2 vXZ;
 varying float vAge;
 varying float vOn;
@@ -118,38 +146,47 @@ void main() {
   // the flame band across the ring (0 at its edges, 1 in its middle; inside the hole it is negative: nothing)
   float x = vD * 2.0 - 1.0;
   float band = 1.0 - x * x;
-  float u = atan(vXZ.y, vXZ.x) / 6.2831853 + vRnd; // whole-number u scales: the noise wraps seamlessly
+  // whole-number u scales: the noise wraps seamlessly. Under Reduce Motion (high: uRm.x > 0) the frozen noise turns with
+  // the camera (uYaw), so every camera sees the landscape camera's tongues (0 there: the same pixels)
+  float u = atan(vXZ.y, vXZ.x) / 6.2831853 + vRnd - (uRm.x > 0.0 ? uYaw : 0.0);
   vec2 uv = vec2(u * vF.x, vD * vF.y - vAge * 0.9 - uTime * vF.z * 0.35);
   float n = texture2D(uNoise, uv).r * 0.85 + texture2D(uNoise, uv * vec2(2.0, 1.7) + vec2(0.37, uTime * vF.z * 0.2)).g * 0.15;
   n = smoothstep(0.25, 0.75, n); // bolder: fewer, bigger tongues
   float heat = band * (0.3 + 1.0 * n) + vCore * vF.w;
   float cut = mix(vG.x, vG.y, vAge); // the preset's erosion
   // the hard toon edge: in or out, no soft fringe and no discard (high's far arc erodes harder: it is behind)
-  float m = step(cut + uSparse + uFar * (1.0 - vFront), heat) * step(0.0, band);
+  // the funnel's front: the world's (+z) as on the landscape camera; under Reduce Motion (uRm.x > 0: high) the camera's,
+  // so the portrait camera, which looks from the side, sees the same funnel (on the landscape camera vCam is vFront)
+  float fr = uRm.x > 0.0 ? vCam : vFront;
+  float m = step(cut + uSparse + (uFar + uRm.x) * (1.0 - fr) + uRm.y, heat) * step(0.0, band);
   // the colour index from the preset's erosion (the tier's sparser mask never darkens it)
-  float k = clamp((heat - cut) * 1.6, 0.0, 0.999) * mix(0.7, 1.0, vFront);
+  float k = clamp((heat - cut - uRm.y) * 1.6, 0.0, 0.999) * mix(0.7, 1.0, fr);
   vec3 col = texture2D(uRamp, vec2(k, vRow)).rgb;
   float hot = step(0.8, k);
   // the band at k ≥ 0.8 (the top of the yellow, the white) burns above white (high + bloom: vE.w > 0)
   col *= 1.0 + vE.w * hot;
   float fade = smoothstep(0.0, 0.1, vAge) * (1.0 - smoothstep(0.82, 1.0, vAge));
   if (uCover > 0.5) {
-    // high: a toon layer over the board in its own colour (premultiplied over: stacked rings settle on the ramp colour)
-    float A = m * fade * vOn * vE.z * mix(uFront.x, uFront.y, vFront) * mix(uYoung, 1.0, smoothstep(0.12, 0.45, vAge));
+    // high: a toon layer over the board in its own colour (premultiplied over: in the linear composer, high with bloom,
+    // stacked rings settle on the ramp colour; on the canvas, bloom off, the output's encoding lifts them like medium's)
+    // On the cover row (the upper half of the ramp), the very back of the funnel (fr < 0.2) takes the preset's own
+    // colours, blending into the cover row's towards the sides: amber there, where a thin lemon over grass would read lime
+    if (vRow > 0.5) col = mix(texture2D(uRamp, vec2(k, vRow - 0.5)).rgb * (1.0 + vE.w * hot), col, smoothstep(0.0, 0.2, fr));
+    float A = m * fade * vOn * vE.z * mix(uFront.x, uFront.y, fr) * mix(uYoung, 1.0, smoothstep(0.12, 0.45, vAge));
     gl_FragColor = vec4(col * A, A);
     #include <colorspace_fragment>
     return;
   }
-  float a = m * fade * vOn * mix(0.35, 1.0, vFront);
+  float a = m * fade * vOn * mix(0.35, 1.0, fr);
   // premultiplied (One, OneMinusSrcAlpha): the cooler bands cover the board a little (body: the colour reads on a
-  // bright day), the hottest band is purely added light (alpha 0): one draw call gives the toon body and the glow.
+  // bright day), the band at k ≥ 0.8 is purely added light (alpha 0): one draw call gives the toon body and the glow.
   // Readability: the low rings (where the walkers are) and the near arc cover little, so the crowd stays visible.
-  float body = vG.z * (1.0 - step(0.8, k)) * (1.0 - vCore) * smoothstep(0.12, 0.45, vAge) * mix(1.0, 0.45, vFront);
+  float body = vG.z * (1.0 - step(0.8, k)) * (1.0 - vCore) * smoothstep(0.12, 0.45, vAge) * mix(1.0, 0.45, fr);
   gl_FragColor = vec4(col * a * vE.z, a * body);
   #include <colorspace_fragment>
 }`;
 
-/** sRGB hex → linear [r, g, b] 0..1 (the batches and the ramp are linear). */
+/** sRGB hex → linear [r, g, b] 0..1 (the batches take linear colours; the ramp is painted as sRGB bytes). */
 function lin(hex) {
   const c = new THREE.Color(hex);
   return [c.r, c.g, c.b];
@@ -274,6 +311,9 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
       uNoise: { value: noise }, uRamp: { value: ramp }, uTime: { value: 0 }, uSparse: { value: 0 }, uCover: { value: 0 },
       uFront: { value: new THREE.Vector2(COVER_FRONT[0], COVER_FRONT[1]) }, uYoung: { value: COVER_YOUNG },
       uFar: { value: 0 },
+      uRm: { value: new THREE.Vector2(0, 0) },
+      uView: { value: new THREE.Vector2(0, 1) },
+      uYaw: { value: 0 },
     },
     vertexShader: VERT,
     fragmentShader: FRAG,
@@ -290,6 +330,18 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
   const mesh = new THREE.Mesh(geo, material);
   mesh.frustumCulled = false;
   mesh.renderOrder = 22;
+  // the ground direction toward the camera that draws it (Reduce Motion's far arc is the camera's far arc: the portrait
+  // camera looks from the side), and its turn from the landscape camera's (+z: 0) in turns, which turns Reduce Motion's
+  // frozen noise with it; straight down keeps the last ones
+  const _dir = new THREE.Vector3();
+  mesh.onBeforeRender = (_r, _s, cam) => {
+    cam.getWorldDirection(_dir);
+    const l = Math.hypot(_dir.x, _dir.z);
+    if (l > 1e-4) {
+      const v = material.uniforms.uView.value.set(-_dir.x / l, -_dir.z / l);
+      material.uniforms.uYaw.value = (Math.atan2(v.y, v.x) - Math.PI / 2) / TAU;
+    }
+  };
   mesh.visible = false;
   mesh.name = 'tornadoFx';
   scene.add(mesh);
@@ -315,7 +367,7 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
     const n = tier.rings;
     const nc = tier.core;
     const total = n + nc;
-    // the hottest band over white for the bloom: high with bloom on only (the bloom state, not the preset)
+    // the band at k ≥ 0.8 over white for the bloom: high with bloom on only (the bloom state, not the preset)
     const hdr = tier.hdr && bloom ? p.hdr : 0;
     // high with bloom (the linear composer: no overshoot of its own) takes the cover row; with bloom off the canvas's
     // own blend already overshoots like medium's, so it keeps the bands as given
@@ -334,7 +386,7 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
       const D = attrs.iD.array;
       D[j] = rm ? 0 : p.sway; D[j + 1] = p.swayHz; D[j + 2] = rm ? 0 : p.spin; D[j + 3] = life;
       const E = attrs.iE.array;
-      E[j] = rm ? 0 : p.helix; E[j + 1] = p.inner; E[j + 2] = p.alpha * (rm ? 0.7 : 1) * (core ? 0.18 : 1); E[j + 3] = hdr;
+      E[j] = rm ? 0 : p.helix; E[j + 1] = p.inner; E[j + 2] = p.alpha * (rm && !tier.cover ? 0.7 : 1) * (core ? 0.18 : 1); E[j + 3] = hdr;
       const F = attrs.iF.array;
       F[j] = p.noise[0]; F[j + 1] = p.noise[1]; F[j + 2] = rm ? 0 : p.scroll; F[j + 3] = p.core?.heat ?? 0;
       const G = attrs.iG.array;
@@ -419,6 +471,9 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
       material.uniforms.uSparse.value = Math.max(0, 1 - TORNADO_TIERS.medium.rings / tier.rings) * SPARSE_ERODE;
       material.uniforms.uCover.value = tier.cover ? 1 : 0;
       material.uniforms.uFar.value = tier.cover ? COVER_FAR_ERODE : 0;
+      // Reduce Motion on high: the column eroded, not thinned (RM_COVER)
+      const rmc = reduceMotion && tier.cover;
+      material.uniforms.uRm.value.set(rmc ? RM_COVER.far : 0, rmc ? RM_COVER.all : 0);
       geo.instanceCount = n;
       for (const a of Object.values(attrs)) {
         a.clearUpdateRanges();
@@ -430,7 +485,7 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
     setQuality(q) {
       tier = TORNADO_TIERS[q] || TORNADO_TIERS.medium;
     },
-    /** Bloom on (high only): the hottest band gets the HDR boost. */
+    /** Bloom on (high only): the band at k ≥ 0.8 (the top of the yellow, the white) gets the HDR boost. */
     setGlow(q, on) {
       bloom = q === 'high' && !!on;
     },

@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { TORNADO_PRESETS, TORNADO_TIERS, MAX_TORNADOES, TORNADO_CASTS } from '../../src/render/vfx/tornadoPresets.js';
-import { createTornadoFx, paintTornadoNoise, paintTornadoRamp, SPARSE_ERODE, COVER_FAR_ERODE } from '../../src/render/vfx/tornado.js';
+import { createTornadoFx, paintTornadoNoise, paintTornadoRamp, SPARSE_ERODE, COVER_FAR_ERODE, RM_COVER } from '../../src/render/vfx/tornado.js';
 import { createVisualRandom } from '../../src/render/vfx/random.js';
 import { ABILITIES } from '../../src/data/abilities.js';
 
@@ -18,6 +18,8 @@ describe('tornado presets and tiers', () => {
     expect(Object.keys(TORNADO_PRESETS)).toEqual(['fire', 'sakura', 'vortex']);
     for (const p of Object.values(TORNADO_PRESETS)) {
       expect(p.ramp.length).toBeGreaterThanOrEqual(3);
+      // the ramp is painted from the hex's own bytes: only '#rrggbb' is read (a short hex or a colour name would paint 0)
+      for (const c of p.ramp) expect(c).toMatch(/^#[0-9a-f]{6}$/i);
       expect(p.r1).toBeGreaterThan(p.r0);
       expect(p.erode[1]).toBeGreaterThan(p.erode[0]);
       expect(JSON.parse(JSON.stringify(p))).toEqual(p);
@@ -142,6 +144,70 @@ describe('tornado layer', () => {
     for (const a of pushed) expect(a[10] ?? 0).toBe(0); // rotation argument
   });
 
+  it('under Reduce Motion the far arc is the camera\'s: uView follows the camera that draws it (the portrait camera looks from the side)', () => {
+    const s = new THREE.Scene();
+    const t = make('high', { scene: s, reduceMotion: true });
+    t.spawn('fire', 0, 0);
+    t.update(1 / 60);
+    const mesh = s.children[0];
+    const view = (cam) => {
+      cam.updateMatrixWorld();
+      mesh.onBeforeRender(null, s, cam);
+      return mesh.material.uniforms.uView.value.toArray().map((v) => Math.round(v * 1e6) / 1e6 + 0);
+    };
+    const P = (48 * Math.PI) / 180;
+    const land = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 100);
+    land.position.set(0, Math.sin(P) * 30, Math.cos(P) * 30);
+    land.lookAt(0, 0.6, 0);
+    expect(view(land)).toEqual([0, 1]); // the landscape camera: the world's front (+z), as without Reduce Motion
+    const port = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 100);
+    port.position.set(Math.cos(P) * 30, Math.sin(P) * 30, 0);
+    port.lookAt(0, 0.6, 0);
+    expect(view(port)).toEqual([1, 0]); // the portrait camera (turned 90°): toward +x
+    const down = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 100);
+    down.position.set(0, 30, 0);
+    down.lookAt(0, 0, 0);
+    expect(view(down)).toEqual([1, 0]); // straight down: the last one stays
+    // the vertex shader faces vCam toward uView; the mask uses it only under Reduce Motion (uRm.x > 0)
+    expect(mesh.material.vertexShader).toMatch(/vCam = 0\.5 \+ 0\.5 \* \(dot\(p, uView\) \/ max\(r, 1e-3\)\);/);
+  });
+
+  it('under Reduce Motion the frozen noise turns with the camera (uYaw): the portrait camera sees the landscape camera\'s tongues', () => {
+    const s = new THREE.Scene();
+    const t = make('high', { scene: s, reduceMotion: true });
+    t.spawn('fire', 0, 0);
+    t.update(1 / 60);
+    const mesh = s.children[0];
+    const yaw = (cam) => {
+      cam.updateMatrixWorld();
+      mesh.onBeforeRender(null, s, cam);
+      return mesh.material.uniforms.uYaw.value;
+    };
+    const P = (48 * Math.PI) / 180;
+    const cam = (x, y, z) => {
+      const c = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 100);
+      c.position.set(x, y, z);
+      c.lookAt(0, 0.6, 0);
+      return c;
+    };
+    // the landscape camera: exactly 0 (the same pixels as before the noise turned); the portrait camera: a quarter turn
+    expect(yaw(cam(0, Math.sin(P) * 30, Math.cos(P) * 30))).toBe(0);
+    expect(yaw(cam(Math.cos(P) * 30, Math.sin(P) * 30, 0))).toBeCloseTo(-0.25, 9);
+    expect(yaw(cam(-Math.cos(P) * 30, Math.sin(P) * 30, 0))).toBeCloseTo(0.25, 9);
+    // straight down keeps the last one
+    const down = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 100);
+    down.position.set(0, 30, 0);
+    down.lookAt(0, 0, 0);
+    expect(yaw(down)).toBeCloseTo(0.25, 9);
+    // the noise's angle takes it only under Reduce Motion on high (uRm.x > 0): normal play, medium and low are unchanged
+    const frag = mesh.material.fragmentShader;
+    expect(frag).toMatch(/float u = atan\(vXZ\.y, vXZ\.x\) \/ 6\.2831853 \+ vRnd - \(uRm\.x > 0\.0 \? uYaw : 0\.0\);/);
+    expect(frag).toMatch(/uniform float uYaw;/);
+    // the erosion stays flat round the ring (the front arc keeps it too: on the landscape camera it is what lets a
+    // stand-in 0.9 tiles behind the centre and one in the middle of the column show through)
+    expect(frag).toMatch(/step\(cut \+ uSparse \+ \(uFar \+ uRm\.x\) \* \(1\.0 - fr\) \+ uRm\.y, heat\)/);
+  });
+
   it('is the same column for the same seed (seeded visual randomness)', () => {
     const a = new THREE.Scene();
     const b = new THREE.Scene();
@@ -167,6 +233,42 @@ describe('tornado layer', () => {
     expect(g.getAttribute('iF').array[2]).toBe(0); // no scroll
   });
 
+  it('reduce motion dims what medium and low add; high\'s cover is eroded instead, never thinned (thin lemon over grass reads lime)', () => {
+    const read = (q, rm) => {
+      const s = new THREE.Scene();
+      const t = make(q, { scene: s, reduceMotion: rm });
+      t.spawn('fire', 0, 0);
+      t.update(1 / 60);
+      const m = s.children[0];
+      return { alpha: m.geometry.getAttribute('iE').array[2], rm: m.material.uniforms.uRm.value.toArray() };
+    };
+    for (const q of ['medium', 'low']) {
+      expect(read(q, true).alpha).toBeCloseTo(read(q, false).alpha * 0.7, 6);
+      expect(read(q, true).rm).toEqual([0, 0]); // their blend adds: dimmed, never eroded
+      expect(read(q, false).rm).toEqual([0, 0]);
+    }
+    expect(read('high', true).alpha).toBeCloseTo(read('high', false).alpha, 6);
+    expect(read('high', false).alpha).toBeCloseTo(TORNADO_PRESETS.fire.alpha, 6);
+    // high under Reduce Motion: every ring erodes `all` harder and the far arc `far` harder still (what stands behind a
+    // standing column stays readable); without it nothing changes
+    expect(read('high', true).rm).toEqual([RM_COVER.far, RM_COVER.all]);
+    expect(read('high', false).rm).toEqual([0, 0]);
+    expect(RM_COVER.far).toBeGreaterThan(0);
+    expect(RM_COVER.all).toBeGreaterThan(0);
+    // a quality switch follows: high → medium under Reduce Motion drops the erosion, back to high brings it back
+    const s = new THREE.Scene();
+    const t = make('high', { scene: s, reduceMotion: true });
+    t.spawn('fire', 0, 0);
+    t.update(1 / 60);
+    const u = s.children[0].material.uniforms.uRm.value;
+    t.setQuality('medium');
+    t.update(1 / 60);
+    expect(u.toArray()).toEqual([0, 0]);
+    t.setQuality('high');
+    t.update(1 / 60);
+    expect(u.toArray()).toEqual([RM_COVER.far, RM_COVER.all]);
+  });
+
   it('packs each tornado\'s own erosion, cover, hole and core radius (two presets at once); high is sparser in shape only', () => {
     const s = new THREE.Scene();
     const t = make('high', { scene: s });
@@ -189,11 +291,22 @@ describe('tornado layer', () => {
     expect(E[per * 4 + 1]).toBeCloseTo(TORNADO_PRESETS.vortex.inner, 5);
     // the shader: the sparser cut shapes the mask, the preset's cut picks the colour
     const frag = mesh.material.fragmentShader;
-    expect(frag).toMatch(/step\(cut \+ uSparse \+ uFar \* \(1\.0 - vFront\), heat\)/);
-    expect(frag).toMatch(/clamp\(\(heat - cut\) \* 1\.6/);
+    expect(frag).toMatch(/float fr = uRm\.x > 0\.0 \? vCam : vFront;/);
+    expect(frag).toMatch(/step\(cut \+ uSparse \+ \(uFar \+ uRm\.x\) \* \(1\.0 - fr\) \+ uRm\.y, heat\)/);
+    // (Reduce Motion's extra erosion on high moves the colour index with it: the tongues left keep the whole ramp)
+    expect(frag).toMatch(/clamp\(\(heat - cut - uRm\.y\) \* 1\.6/);
+    // (the colour index's front, the far arc's faintness and the back's given-row blend follow the same front)
+    expect(frag).toMatch(/mix\(0\.7, 1\.0, fr\)/);
+    expect(frag).toMatch(/mix\(uFront\.x, uFront\.y, fr\)/);
+    expect(frag).toMatch(/smoothstep\(0\.0, 0\.2, fr\)\);/);
   });
 
-  it('high with bloom: the hottest band goes over white, nothing else changes with the bloom (it keys on the bloom, not the preset)', () => {
+  it('high with bloom: the band at k ≥ 0.8 goes over white, nothing else changes with the bloom (it keys on the bloom, not the preset)', () => {
+    const s0 = () => {
+      const s = new THREE.Scene();
+      make('high', { scene: s });
+      return s.children[0];
+    };
     const read = (bloom, presets) => {
       const s = new THREE.Scene();
       const t = make('high', { scene: s, presets });
@@ -216,6 +329,11 @@ describe('tornado layer', () => {
     const n = Object.keys(TORNADO_PRESETS).length;
     expect(on.row).toBeCloseTo((n + 0.5) / (2 * n), 6);
     expect(off.row).toBeCloseTo(0.5 / (2 * n), 6);
+    // the cover rows are the ramp's upper half: the very back of the funnel reads the given row half a texture below
+    // (amber, not a thin lime over grass), blending into the cover row towards the sides
+    expect(on.row - 0.5).toBeCloseTo(off.row, 6);
+    const frag = s0().material.fragmentShader;
+    expect(frag).toMatch(/if \(vRow > 0\.5\) col = mix\(texture2D\(uRamp, vec2\(k, vRow - 0\.5\)\)\.rgb \* \(1\.0 \+ vE\.w \* hot\), col, smoothstep\(0\.0, 0\.2, fr\)\);/);
     // a preset with no HDR boost still gets the same high look under the bloom (no haze path keyed on the preset)
     const flat = { ...TORNADO_PRESETS, fire: { ...TORNADO_PRESETS.fire, hdr: 0 } };
     const f = read(true, flat);

@@ -291,12 +291,19 @@ twist round a helix and sway on X/Z. Display only: the sim id does not change.
     what stands behind the column stays visible; the young rings at the base are faint (`COVER_YOUNG`).
   - **High with bloom** renders into the linear composer, where covering rings settle exactly on the ramp's colours (no
     overshoot). So it reads its own ramp row: every band × `COVER_GAIN` in display bytes (the overshoot medium gets on the
-    canvas, baked in), which brings back the lemon and white. The k ≥ 0.8 band also goes `hdr` over white so the bloom
+    canvas, baked in), which brings back the lemon and white. The very back of the funnel (the far arc, `vFront` < 0.2)
+    takes the preset's own colours instead, blending into the cover row towards the sides: the back stays amber where a
+    thin lemon over grass would read lime, and the rest burns lemon and white. The back's sides can still read
+    yellow-green over grass greener than Sakura Court's (the lake and shrine maps by day; figures below). The k ≥ 0.8 band also goes `hdr` over white so the bloom
     catches it; the hot bands sit above the grade's knee, so its tone curve rolls them off as it does every bright core.
   - **High with bloom off** draws on the canvas like medium and keeps the bands as given.
 - **Vertex shader:** age = fract(t / life + phase); radius r0 → r1 along age^0.7; the ring spins and twists with its
   height, its centre wanders on a helix and sways. A ring is drawn only if it was born inside the cast, so the column
   builds from the ground up and leaves by rising away. The arc facing the camera burns brighter (it reads as a funnel).
+  That front is the world's +z (the landscape camera's), for every tier's front and far arc outside Reduce Motion: on the
+  portrait camera, which looks from the side, they fall on the column's walls (high's right wall keeps 0.62 of its left's
+  pixels; what stands behind keeps about medium's share). Making them follow the camera changes the phones' look on
+  every tier, so it is left for its own round.
 - **Fragment shader:** noise in the ring's polar coordinates (the angle is taken per pixel: no seam), scrolled over time; an erosion threshold that rises with
   age; `step()` for a hard toon edge (it multiplies the colour: no `discard`); a stepped ramp (`NearestFilter`) per
   preset. On high with bloom the k ≥ 0.8 band gets a small HDR boost (`hdr`) for the bloom; never on medium / low.
@@ -319,13 +326,69 @@ twist round a helix and sway on X/Z. Display only: the sim id does not change.
     `SPARSE_ERODE × (1 − 13 ÷ 22)`. That is the same for every ring of the tier (one uniform), core rings included.
     It shapes the mask only. The colour index still comes from the preset's own erosion, so high's colours are never
     darker for it.
-  - Measured in the lab (bloom and grade on, fire, column masked, high vs medium; colours split by hue):
-    - lemon (hue 48–70°) 0.13 vs 0.12, white 0.05 vs 0.05, murky 0 vs 0, brightness 0.73 vs 0.73;
-    - what stands 0.9–2.4 tiles behind the column keeps a median 0.52 of its contrast (medium 0.33); right at the base
-      every tier hides most of it.
+  - Measured in the lab (bloom and grade on, fire at t = 1.2, column masked, high vs medium; colours split by hue):
+    - on the lab's green: lemon (hue 48–70°) 0.13 vs 0.12, white 0.05 vs 0.05, yellow-green (hue 66–95°) 0.05 vs 0.00,
+      murky 0 vs 0, brightness 0.73 vs 0.73;
+    - on the game's grass colour (`#9dba5f`): lemon 0.20 vs 0.20, white 0.05 vs 0.05, yellow-green 0.03 vs 0.00;
+    - in the game on a dark ground (the shrine map, Torii Corridor, which the Sandbox shows as its campaign night
+      stage; Akane's cast and the fire preset, 1280x720): no yellow-green on high, with or without Reduce Motion (at
+      most 0.002 of a box round the column; medium at most 0.003);
+    - on a greener ground (`#8fbf62`, the lake and shrine maps by day, as in Tryouts and on Market Canal), high's thin
+      lemon reads yellow-green: 0.15 at t = 1.2 and 0.19 fully up, against medium's 0.01 (LOW 2's residual, an owner
+      call). In the game, Market Canal by day (`--map arena_market`; the board's canal rows): high's thin top tongues read
+      yellow-green over its grass in normal play; under Reduce Motion its short column reads orange with a little lemon at
+      the top; medium reads red and orange (that grass falls in the yellow-green hue class itself, so the board shows it
+      rather than a share);
+    - what stands behind the column (27 spots: three stand-ins at a time 0.9–2.4 tiles behind the centre, at t = 0.9,
+      1.2 and 2.0) keeps a median 0.30 of its contrast on high and 0.35 on medium (Reduce Motion: 0.99 and 0.70, see
+      Reduce motion); right at the base every tier hides most of it.
 - **Errors:** a tornado error switches the tornadoes off for the battle (`tornadoSafe` in `BattleRenderer`, logged once). The
   battle and every other effect carry on.
-- **Reduce motion:** no spin, twist, sway, helix or noise scroll; the ground rings and petals do not turn; slower rise; dimmer.
+- **Reduce motion:** no spin, twist, sway, helix or noise scroll; the ground rings and petals do not turn; slower rise.
+  Medium and low are dimmer (the colour they add × 0.7). High is not thinned but eroded (`RM_COVER`): with bloom its
+  cover adds no light in the linear composer and a thinner lemon over grass reads lime; with bloom off it draws on the
+  canvas like medium, and erosion takes tongues away and cools the rest (it never adds light). Every ring erodes 0.22
+  harder and the far arc 0.3 harder still, with the colour index following the extra erosion (the tongues that are left
+  keep the whole ramp). That keeps what stands behind at least as readable as on medium on the landscape camera; on the
+  portrait camera it stays above medium's floor but keeps less than medium does there (0.18 against 0.27 at 0.9 tiles,
+  0.26 against 0.57 in the centre), because medium's column is the world's and that camera sees it side-on.
+  - **The funnel faces the camera** under Reduce Motion: its front and far arc (the erosion, `COVER_FAR_ERODE`'s too, the
+    colour index, the far arc's faintness and the back's given row) are the camera's that draws the column (`uView`, set
+    as it is drawn), and so is its frozen noise (`uYaw`, the camera's turn from the landscape camera's, in turns: the
+    noise's angle turns with it). With the noise scroll stopped, the frozen noise decides which tongues survive the
+    erosion; the column has no helix, sway or twist then, so with both turned every camera sees the landscape camera's
+    funnel, the same tongues in the same places. On the landscape camera `uYaw` is 0 and the front is the world's, as
+    without Reduce Motion (the same pixels). On the portrait camera, which looks from the side, it is now that same
+    funnel, in one piece (fully up, its largest piece 0.99–1.0 of its pixels and 0.72–0.76 of its convex hull, as on the
+    landscape camera); with the camera's far arc but the world's noise it was two walls over a bowl, in two pieces (0.75
+    and 0.44), and with the world's far arc one wall.
+  - **What stands behind** a column that is fully up keeps (lab, as above, Reduce Motion; t = 2.4, 2.8 and 3.2, the same
+    27 spots), on the landscape camera, a median 0.13 of its contrast at 0.9 tiles, 0.64 at 1.2–1.6 and 0.99 at 2.0–2.4
+    (medium 0.11, 0.27 and 0.56; high without the erosion 0.01, 0.19 and 0.37), and a stand-in in the middle of the
+    column (t = 2.8) 0.27 (medium 0.15, without 0.06). The portrait camera now sees the landscape camera's funnel, so it
+    keeps what the landscape camera keeps. Measured the same way on both cameras (the Akane focus preview, a fire
+    column of size 1.2 stepped at 1/60 s, dark stand-ins 0.9–2.4 tiles behind the centre and ±0.35 to the sides, and
+    three in the middle; the contrast a stand-in keeps where the column is drawn): landscape 0.12, 0.49 and 0.98, the
+    centre 0.28 (medium 0.10, 0.24 and 0.50, the centre 0.21); portrait 0.12, 0.42 and 0.98, the centre 0.29 (it was
+    0.85, 0.89 and 0.97, the centre 0.41, where there was no funnel in front of them; medium there 0.22, 0.46 and 0.65,
+    the centre 0.44: medium's own front is the world's, its side on that camera).
+  - **The cost:** high's column is smaller and calmer under Reduce Motion. Fully up on the lab's landscape camera it is
+    93 px tall and 4,300 px in area, against medium's 164 px and 14,200 px (high without Reduce Motion: 155 px and
+    10,800 px), with less lemon and white than medium's (on Sakura Court's grass at t = 1.2: lemon 0.13 vs 0.27, white
+    0.01 vs 0.04). Yellow-green stays low on Sakura Court's grass (0.04 at t = 1.2 and 0.03 fully up, medium 0.005 and
+    0.003) and the lab's green (0.03; without the erosion 0.07 and 0.11), but on greener grass (`#8fbf62`) it is 0.26
+    at t = 1.2 (the rising column's upper half 0.44; without the erosion 0.29) and 0.20 fully up, against medium's
+    0.02 and 0.01. Measured the preview's way (above; a `#8fbf62` ground under the column, hue 66–95° over the
+    column's pixels): on the landscape camera 0.19 at t = 1.2 and 0.12 fully up (high without Reduce Motion 0.14 and
+    0.13, medium 0.00 with or without it); on the portrait camera 0.24 and 0.14, down from 0.36 and 0.26 now that it
+    shows the landscape camera's tongues.
+    - **Its shape:** the frozen noise decides which tongues survive, and the column is not even: on every camera it is a
+      small funnel, solid on its left, thinner on its right, with a thin lemon tongue off its right shoulder (over
+      the preview's grass at most 0.02 of its pixels read yellow-green). Filling it costs what stands behind, because
+      on these cameras (48° down) a stand-in near the column is seen through its front, not its far arc: weighting the
+      extra erosion onto the far half (`uRm.y * smoothstep(0.35, 0.0, fr - 0.5)`), `all` at 0.11, or both, fill the
+      landscape funnel but leave 0.01–0.04 at 0.9 tiles and 0.06–0.12 in the middle, below medium's 0.10 and 0.21. So
+      the erosion stays flat round the ring (`RM_COVER` unchanged).
 - **Impact frames** hide the column for both their frames (`tornado.hold(impact.active)` before its update), like the
   other normal-blend layers.
 - **Dev lab:** `?tornadoLab` in the dev server (`npm run dev`, e.g. `/?tornadoLab#/lobby`, then a battle) mounts a

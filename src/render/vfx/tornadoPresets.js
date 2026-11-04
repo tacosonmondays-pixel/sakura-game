@@ -12,11 +12,12 @@
 //   sway      sideways drift of the upper rings on X/Z (tiles at the top), swayHz its speed
 //   noise     [around, along] scale of the noise in the ring's polar coordinates; scroll: its drift
 //   erode     [young, old] threshold: the flame breaks up into tongues and wisps as a ring ages
-//   ramp      the toon bands, coolest → hottest: sRGB hex, exactly as drawn (painted as sRGB bytes, decoded once on the
+//   ramp      the toon bands, coolest → hottest: '#rrggbb' sRGB hex, exactly as drawn (painted as sRGB bytes, decoded once on the
 //             GPU); the band at k ≥ 0.8 (the top of the yellow, the white) gets the HDR boost (high with bloom)
-//   hdr       extra brightness of the hottest band (high tier with bloom only; feeds the bloom)
+//   hdr       extra brightness of the band at k ≥ 0.8 (high tier with bloom only; feeds the bloom)
 //   alpha     overall strength (the colour added / painted)
-//   body      how much the cooler bands cover what is behind them (0 = pure added light; the hottest band always is)
+//   body      medium and low: how much the bands under k 0.8 cover what is behind them (0 = pure added light; the band
+//             at k ≥ 0.8 always is). High's cover blend ignores it: every band covers in its own colour
 //   scale     size of the column × the cast's radius
 //   core      the bright inner column on high: radius share, extra heat
 //   base      the glowing ring on the ground: colour, size (× r1), pulse Hz
