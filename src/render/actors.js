@@ -916,7 +916,7 @@ export class Actors {
       // the hero keeps her gold ring; every girl's tiers read from her path pips (the old max-tier ring), her hand
       // glows, pieces and T5 aura (src/render/pathLooks)
       if (tw.isHero) gA.push(tw.x, y + 0.004, tw.y, 0.86 * (v.scale / TOWER_SCALE), 0.86 * (v.scale / TOWER_SCALE), R.ring, 1, 0.85, 0.3, 0.7 + 0.25 * Math.sin(t * 3 + tw.uid));
-      this.pathLooks.draw({ tw, v, y, gN, gA, bbA: this.b.bbA, R, time: t, cameraYaw: this.cameraYaw, fx: this.fx });
+      this.pathLooks.draw({ tw, v, y, gN, gA, bbA: this.b.bbA, R, time: t, cameraYaw: this.cameraYaw, fx: this.fx, dt });
       if (tw.buffed) {
         gA.push(tw.x, y + 0.003, tw.y, 0.7, 0.7, R.ring, 1, 0.55, 0.8, 0.45 + 0.2 * Math.sin(t * 4 + tw.uid));
       }

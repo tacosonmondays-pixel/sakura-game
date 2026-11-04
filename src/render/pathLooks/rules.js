@@ -76,6 +76,29 @@ export function pipAngles(cameraYaw = 0, { group = 1.1, step = 0.215 } = {}) {
 }
 
 /**
+ * The T5 aura at close zoom (docs/review/t5-aura-zoom): bloom spreads over a share of the SCREEN, so the closer the
+ * camera, the more of its glow lands on the girl herself (at the wheel's max zoom a yellow or pink aura washed her face
+ * out). Its ground glow (`core`) and rising motes (`motes`) fade from full at the battle zoom (≤ `from`: exactly 1, the
+ * look is unchanged) to their floor at the wheel's max zoom (`to`, src/render/camera.js MAX_ZOOM), on a smoothstep.
+ */
+export const AURA_ZOOM = Object.freeze({ from: 1, to: 3.2, core: 0.45, motes: 0.3 });
+
+/**
+ * Opacity factor of one aura layer at a camera zoom (pure).
+ * @param {number} zoom the camera's zoom (1 = the fitted battle view)
+ * @param {number} floor the factor at `to` and beyond (AURA_ZOOM.core / AURA_ZOOM.motes)
+ * @param {number} [from] the zoom where the fade starts
+ * @param {number} [to] the zoom where it reaches `floor`
+ * @returns {number} 1 at zoom ≤ from, falling smoothly to `floor` at zoom ≥ to
+ */
+export function auraZoomFade(zoom, floor, from = AURA_ZOOM.from, to = AURA_ZOOM.to) {
+  if (!(zoom > from)) return 1; // also NaN / undefined: the battle look
+  const u = zoom >= to ? 1 : (zoom - from) / (to - from);
+  const k = u * u * (3 - 2 * u);
+  return 1 - (1 - floor) * k;
+}
+
+/**
  * Draw calls one girl's pieces cost (review r1 MEDIUM-1, r2 LOW-2; src/render/pathLooks/pieces.js): every piece, static
  * or animated, rides one merged skinned mesh, and medium / high add its outline hull. Pips, glows, sparkles and the aura
  * ride the shared quad batches and cost nothing.

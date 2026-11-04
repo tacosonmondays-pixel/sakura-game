@@ -10,7 +10,7 @@
 // Actors owns one PathLooks; each tower view carries its own state in `v.pl`.
 import * as THREE from 'three';
 import { heroLookTiers } from '../../sim/hero.js';
-import { pathLayers, stagePieces, pipAngles } from './rules.js';
+import { pathLayers, stagePieces, pipAngles, auraZoomFade, AURA_ZOOM } from './rules.js';
 import { pathLooksFor, pieceFile } from './catalog.js';
 import { findBone } from '../../models/glbChibi.js';
 import { WEAPON_TIPS } from '../../models/weaponTip.js';
@@ -57,6 +57,7 @@ export class PathLooks {
     this.overrides = new Map(); // uid -> tiers (staging / previews only: e2e/path-looks.mjs)
     this.enabled = true;
     this.gen = 0; // bumped by setEnabled: every view re-dresses
+    this.zoom = 1; // the camera's zoom this frame (BattleRenderer): the T5 aura fades at close zoom (rules.js auraZoomFade)
   }
 
   setQuality(q) {
@@ -207,9 +208,12 @@ export class PathLooks {
 
   /**
    * Ground and billboard layers of one girl (drawn by Actors.drawGround).
-   * @param {object} o { tw (sim tower), v (view), y (ground y), gN, gA, bbA, R, time, cameraYaw, fx }
+   * @param {object} o { tw (sim tower), v (view), y (ground y), gN, gA, bbA, R, time, cameraYaw, fx, dt }
+   *   dt: this frame's visual dt; a frozen frame (0: a hit-stop, a held render) spawns no sparkles or motes, which
+   *   would never age and pile up into a bloom over her (docs/review/t5-aura-zoom)
    */
-  draw({ tw, v, y, gN, gA, bbA, R, time, cameraYaw, fx }) {
+  draw({ tw, v, y, gN, gA, bbA, R, time, cameraYaw, fx, dt }) {
+    const live = dt !== 0;
     const st = this._state(v);
     if (!st.layers || !this.enabled) return;
     const L = st.layers;
@@ -264,7 +268,7 @@ export class PathLooks {
     // ---- T4 sparkles and the T5 aura ----
     for (const pc of L.pieces) {
       if (pc.tier !== 4) continue;
-      if (this.rand() < 0.04) {
+      if (this.rand() < 0.04 && live) {
         const c = PATH_COLORS[pc.path];
         fx?.spawn({ batch: 'bbA', uv: R.star, x: tw.x + (this.rand() - 0.5) * 0.5 * s, y: y + (0.5 + this.rand() * 0.5) * s, z: tw.y + (this.rand() - 0.5) * 0.4 * s, vy: 0.35, s0: 0.09, s1: 0.01, life: 0.8, color: c });
       }
@@ -276,13 +280,16 @@ export class PathLooks {
       const p = L.aura[idx];
       const c = PATH_RGB[p];
       const d = 0.8 * s;
-      gA.push(tw.x, y + 0.003, tw.y, d, d, R.glow, c.r, c.g, c.b, 0.18 + 0.05 * Math.sin(time * 2 + tw.uid));
+      // close zoom: the glow and motes fade so bloom does not wash her face out (1 at the battle zoom: unchanged)
+      const kc = auraZoomFade(this.zoom, AURA_ZOOM.core);
+      const km = auraZoomFade(this.zoom, AURA_ZOOM.motes);
+      gA.push(tw.x, y + 0.003, tw.y, d, d, R.glow, c.r, c.g, c.b, (0.18 + 0.05 * Math.sin(time * 2 + tw.uid)) * kc);
       const ph = (time * 0.55 + tw.uid * 0.37) % 1;
-      gA.push(tw.x, y + 0.005, tw.y, d * (0.55 + 0.6 * ph), d * (0.55 + 0.6 * ph), R.ringSoft, c.r, c.g, c.b, 0.38 * (1 - ph));
-      if (this.rand() < 0.12) {
+      gA.push(tw.x, y + 0.005, tw.y, d * (0.55 + 0.6 * ph), d * (0.55 + 0.6 * ph), R.ringSoft, c.r, c.g, c.b, 0.38 * (1 - ph) * kc);
+      if (this.rand() < 0.12 && live) {
         const a = this.rand() * TAU;
         const rr = (0.12 + this.rand() * 0.22) * s;
-        fx?.spawn({ batch: 'bbA', uv: this.rand() < 0.5 ? R.star : R.glow, x: tw.x + Math.cos(a) * rr, y: y + 0.08, z: tw.y + Math.sin(a) * rr, vy: 0.55 + this.rand() * 0.3, s0: 0.1, s1: 0.02, life: 1.1, color: PATH_COLORS[p] });
+        fx?.spawn({ batch: 'bbA', uv: this.rand() < 0.5 ? R.star : R.glow, x: tw.x + Math.cos(a) * rr, y: y + 0.08, z: tw.y + Math.sin(a) * rr, vy: 0.55 + this.rand() * 0.3, s0: 0.1, s1: 0.02, life: 1.1, color: PATH_COLORS[p], a0: km });
       }
     }
   }

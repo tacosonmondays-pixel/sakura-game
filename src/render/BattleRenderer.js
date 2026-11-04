@@ -1168,6 +1168,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
         propsFail(err);
       }
     }
+    actors.pathLooks.zoom = rig.zoom; // the T5 aura fades at close zoom (src/render/pathLooks/rules.js auraZoomFade)
     actors.drawGround(d);
     doublesSafe(() => doubles.update(d));
     if (attackFx) fxSafe(() => attackFx.update(d, fd));
