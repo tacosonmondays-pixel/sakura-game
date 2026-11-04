@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Star Trail Lab</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #04081a; color: #e8ecff; font: 13px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  /* the stage is the phone / laptop screen being previewed; it fills the window in capture mode */
+  #stage { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); overflow: hidden; background: #0b1430; box-shadow: 0 0 0 1px #24305e; }
+  body.fill #stage { left: 0; top: 0; transform: none; width: 100% !important; height: 100% !important; box-shadow: none; }
+  /* a recruit-like sky: the Gate's dark navy after it opens, a blue bloom in the far corner, a faint star field */
+  .sky { position: absolute; inset: 0;
+    background:
+      radial-gradient(70% 85% at 86% 8%, rgba(60, 75, 216, 0.5) 0%, rgba(60, 75, 216, 0.16) 38%, rgba(60, 75, 216, 0) 62%),
+      radial-gradient(60% 60% at 50% 56%, rgba(255, 190, 230, 0.07) 0%, rgba(255, 190, 230, 0) 60%),
+      radial-gradient(120% 100% at 45% 60%, #15204a 0%, #0b1430 62%, #070c20 100%); }
+  canvas.stars, canvas.fx { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+  canvas.fx { z-index: 5; }
+  /* the landing target: a recruit card (the game's card back, then her card art) */
+  .card { position: absolute; z-index: 2; aspect-ratio: 3 / 5; perspective: 900px; }
+  .card-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .card.flipped .card-inner { transform: rotateY(180deg); }
+  .card.instant .card-inner { transition: none; }
+  .card-back, .card-front { position: absolute; inset: 0; border-radius: 10px; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; border: 2px solid var(--rc); }
+  .card-back { background: linear-gradient(160deg, #2b4f8f, #18284d); box-shadow: 0 0 28px var(--rc), 0 0 60px color-mix(in srgb, var(--rc) 55%, transparent); display: grid; place-items: center; }
+  .card-back svg { width: 44%; height: auto; color: var(--rc); filter: drop-shadow(0 0 6px var(--rc)); }
+  .card-front { transform: rotateY(180deg); background: #22385c; box-shadow: 0 0 26px var(--rc), 0 0 50px color-mix(in srgb, var(--rc) 45%, #ffd166); }
+  .card-front img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .card-front .rar { position: absolute; left: 6px; top: 3px; font-weight: 900; font-style: italic; color: var(--rc); text-shadow: 0 1px 2px #000, 0 0 6px #000; }
+  .card-front .nm { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 6px 4px; background: linear-gradient(0deg, rgba(10, 20, 40, 0.9), transparent); color: #fff; font-weight: 900; }
+  .card.lr .card-back { background: linear-gradient(160deg, #233470, #0e1930); }
+  #hud { position: fixed; left: 8px; bottom: 8px; z-index: 20; background: rgba(4, 8, 26, 0.78); border: 1px solid #2a3770; border-radius: 8px; padding: 6px 9px; white-space: pre; font: 12px/1.35 ui-monospace, Menlo, Consolas, monospace; pointer-events: none; }
+  body.fill #hud { display: none; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="sky"></div>
+  <canvas class="stars"></canvas>
+  <div class="card"><div class="card-inner">
+    <div class="card-back"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 1.5c.5 4.6 1.6 7.4 3.2 8.9 1.6 1.4 4.2 2 7.3 1.6-3.1.4-5.7 1.2-7.3 2.6-1.6 1.5-2.7 4.3-3.2 8.9-.5-4.6-1.6-7.4-3.2-8.9-1.6-1.4-4.2-2.2-7.3-2.6 3.1.4 5.7-.2 7.3-1.6 1.6-1.5 2.7-4.3 3.2-8.9z"/></svg></div>
+    <div class="card-front"><img alt=""><span class="rar"></span><span class="nm"></span></div>
+  </div></div>
+  <canvas class="fx"></canvas>
+</div>
+<div id="hud"></div>
+<script type="module" src="./star-trail.js"></script>
+</body>
+</html>
