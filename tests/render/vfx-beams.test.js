@@ -272,8 +272,9 @@ import {
 } from '../../src/render/vfx/toonBeams.js';
 import {
   TOON_BEAM_PRESETS, TOON_BEAM_TIERS, TOON_BEAM_GIRLS, BEAM_BAND, LANCE_HALF, HELD_VISIBLE, PRISM_SPECTRUM, WINDUPS,
-  MAX_TOON_BEAMS, PAIR_SWEEP,
+  MAX_TOON_BEAMS, PAIR_SWEEP, TOON_BEAM_LOOKS,
 } from '../../src/render/vfx/toonBeamPresets.js';
+import { LIGHT_RIBBON_TIERS } from '../../src/render/vfx/lightRibbon.js';
 import { SWEEP_HALF_WIDTH, MOON_HALF_WIDTH } from '../../src/sim/constants.js';
 import { RED_SHARE, WORLD_DIM, WORLD_BUDGET, FlashGuard, redShare, screenShare } from '../../src/render/vfx/flashGuard.js';
 import { CameraRig } from '../../src/render/camera.js';
@@ -874,5 +875,181 @@ tbDescribe('toon beams: review r1 (interior ink, the face, chatter)', () => {
     tbExpect(dx > box[0] + gap * 0.99 || dy > box[1] + gap * 0.99).toBe(true);
     tbExpect(c.sE[3]).toBeCloseTo(box[0], 6);
     tbExpect(c.sD[3]).toBeCloseTo(box[1], 6);
+  });
+});
+
+tbDescribe('toon beams, look C: light ribbons (src/render/vfx/lightRibbon.js; lab only)', () => {
+  const LC = TOON_BEAM_LOOKS.c;
+  const ribbonRows = (fx) => rows(fx.meshes[3]);
+
+  tbIt('names look C (A stays the default); its body is light ribbons round a core, no body strokes; at most four calls, none idle', () => {
+    tbExpect(Object.keys(TOON_BEAM_LOOKS)).toEqual(['a', 'c']);
+    tbExpect(tbMake('high').fx.stats.look).toBe('a');
+    tbExpect(tbMake('high').fx.meshes.length).toBe(3);
+    const { fx, body } = tbMake('high', { look: 'c' });
+    tbExpect(fx.stats.look).toBe('c');
+    tbExpect(fx.stats.drawn).toBe('c');
+    tbExpect(fx.meshes.length).toBe(5); // bodies, spots, ground, the ribbons, their halos
+    tbRun(fx, 0.2);
+    tbExpect(fx.stats.calls).toBe(0);
+    const recs = Object.keys(TOON_BEAM_PRESETS).map((id) => fx.fire(id, A0, B0, { width: 0.2 }));
+    let most = 0;
+    let ribbons = 0;
+    let rims = 0;
+    let halo = 0;
+    for (let f = 0; f < 50; f++) {
+      fx.update(1 / 60);
+      const s = fx.stats;
+      tbExpect(body.geometry.instanceCount).toBe(0);
+      most = Math.max(most, s.calls);
+      ribbons = Math.max(ribbons, s.ribbons);
+      rims = Math.max(rims, s.rims);
+      halo = Math.max(halo, s.halo);
+    }
+    tbExpect(most).toBeLessThanOrEqual(4);
+    tbExpect(ribbons).toBeGreaterThan(0);
+    tbExpect(rims).toBeGreaterThan(0);
+    tbExpect(halo).toBeGreaterThan(0);
+    for (const r of recs) fx.release(r);
+    tbRun(fx, 2.5);
+    tbExpect(fx.stats.calls).toBe(0);
+    tbExpect(fx.meshes.every((m) => !m.visible)).toBe(true);
+  });
+
+  tbIt('the bodies twist round a core in the tier\'s 4 / 3 ribbons; the prism braids its colour ribbons, a ramp row each', () => {
+    for (const [q, n] of [['high', LIGHT_RIBBON_TIERS.high.ribbons], ['medium', LIGHT_RIBBON_TIERS.medium.ribbons]]) {
+      const { fx } = tbMake(q, { look: 'c' });
+      fx.fire('umeko', A0, B0);
+      fx.fire('kohaku', [1, 1, 3], [4, 0.35, 5]);
+      tbRun(fx, 0.5);
+      const R = ribbonRows(fx).filter((r) => r.lH[3] === 0);
+      const prism = R.filter((r) => r.lJ[1] === 1);
+      const plain = R.filter((r) => r.lJ[1] === 0);
+      tbExpect(prism.length).toBeGreaterThan(0);
+      tbExpect(plain.length).toBeGreaterThan(0);
+      for (const r of prism) tbExpect(r.lG[0]).toBe(TOON_BEAM_PRESETS.kohaku.stripes.length);
+      for (const r of plain) tbExpect(r.lG[0]).toBe(n);
+      tbExpect(R.every((r) => r.lG[3] > 0)).toBe(true); // a core in every bundle
+    }
+    // the prism's ribbon ramps follow its spectrum, one a colour
+    tbExpect(TOON_BEAM_PRESETS.kohaku.stripeRibbons.length).toBe(TOON_BEAM_PRESETS.kohaku.stripes.length);
+  });
+
+  tbIt('the rim: drawn first, only while the beam is whole (it leaves before the erosion starts), never at the muzzle', () => {
+    const { fx } = tbMake('high', { look: 'c' });
+    const r = fx.fire('raika', A0, B0, { width: 0.2 });
+    let whole = 0;
+    let ending = 0;
+    let after = 0;
+    for (let f = 0; f < 120; f++) {
+      fx.update(1 / 60);
+      const R = ribbonRows(fx);
+      const nr = fx.stats.rims;
+      R.forEach((x, i) => tbExpect(x.lH[3]).toBe(i < nr ? 1 : 0));
+      for (const x of R.slice(0, nr)) {
+        tbExpect(x.lM[0]).toBeGreaterThan(0); // none at the muzzle
+        tbExpect(x.lM[1]).toBeGreaterThan(x.lM[0]);
+        tbExpect(x.lE[2]).toBe(0); // only while whole: it leaves before the erosion starts
+      }
+      if (nr > 0) whole++;
+      // (its end beat: the rim leaves at BEAM_INK.end of it, before the erosion starts at BEAM_ERODE_AT)
+      if (r.t > r.endAt && (r.t - r.endAt) / r.fadeT >= BEAM_INK.end) {
+        ending++;
+        if (nr > 0) after++;
+      }
+    }
+    tbExpect(BEAM_INK.end).toBeLessThan(BEAM_ERODE_AT);
+    tbExpect(whole).toBeGreaterThan(0);
+    tbExpect(ending).toBeGreaterThan(0);
+    tbExpect(after).toBe(0);
+  });
+
+  tbIt('the crown: curling tongues like the tornado\'s rings (mode 2) in the ribbons\' own bands; no crown ink in look C', () => {
+    const { fx, spots } = tbMake('high', { look: 'c' });
+    fx.fire('raika', A0, B0, { width: 0.2 });
+    let crowns = 0;
+    for (let f = 0; f < 40; f++) {
+      fx.update(1 / 60);
+      for (const s of rows(spots)) if (s.sB[0] === 2) crowns++;
+      tbExpect(rows(spots).some((s) => s.sB[0] === 1)).toBe(false); // (look A's inked crown never)
+    }
+    tbExpect(crowns).toBeGreaterThan(0);
+    tbExpect(LC.crown.rings).toBeGreaterThanOrEqual(2);
+    const f = spots.material.fragmentShader;
+    tbExpect(f).toContain('uniform sampler2D uRRamp;');
+    tbExpect(f).toMatch(/sB\.x|vB\.x|mode/);
+  });
+
+  tbIt('its halo fades in once the beam lands (no glow switched on at once); its end is the erosion alone (no width steps)', () => {
+    const { fx } = tbMake('high', { look: 'c' });
+    const r = fx.fire('umeko', A0, B0);
+    const haloK = () => {
+      const h = rows(fx.meshes[4]);
+      return h.length ? h[0].hD[2] : 0;
+    };
+    const seen = [];
+    for (let f = 0; f < 60; f++) {
+      fx.update(1 / 60);
+      seen.push(haloK());
+    }
+    const first = seen.findIndex((v) => v > 0);
+    tbExpect(first).toBeGreaterThan(0);
+    // rising over LC.haloIn s, never a jump to its full strength
+    for (let i = first + 1; i < seen.length; i++) tbExpect(seen[i] - seen[i - 1]).toBeLessThan(0.2 * LC.haloK);
+    tbExpect(Math.max(...seen)).toBeCloseTo(LC.haloK, 5);
+    // the end: the bundle's half width stays as it was while it erodes away
+    fx.release(r);
+    const widths = new Set();
+    for (let f = 0; f < 40; f++) {
+      fx.update(1 / 60);
+      for (const x of ribbonRows(fx)) widths.add(x.lC[3].toFixed(5));
+    }
+    tbExpect(widths.size).toBe(1);
+    tbExpect(LC.punch).toBeLessThan(1);
+  });
+
+  tbIt('low draws look A; Reduce Motion: a still bundle (no flow, no spin, no halo), faded in', () => {
+    const low = tbMake('low', { look: 'c' });
+    low.fx.fire('umeko', A0, B0);
+    tbRun(low.fx, 0.5);
+    tbExpect(low.fx.stats.drawn).toBe('a');
+    tbExpect(low.fx.stats.ribbons).toBe(0);
+    tbExpect(low.body.geometry.instanceCount).toBeGreaterThan(0);
+    const rm = tbMake('high', { look: 'c', reduceMotion: true });
+    rm.fx.fire('kohaku', A0, B0);
+    let n = 0;
+    for (let f = 0; f < 40; f++) {
+      rm.fx.update(1 / 60);
+      for (const r of ribbonRows(rm.fx)) {
+        n++;
+        tbExpect(r.lF[1]).toBe(0);
+        tbExpect(r.lG[2]).toBe(0);
+      }
+      tbExpect(rm.fx.stats.halo).toBe(0);
+    }
+    tbExpect(n).toBeGreaterThan(0);
+  });
+
+  tbIt('keeps her face clear and allocates once: the same arrays over 600 busy frames', () => {
+    const { fx } = tbMake('high', { look: 'c' });
+    fx.fire('miko', A0, B0, { width: 0.2, face: [1, 1.1, 1], faceBox: [0.3, 0.25] });
+    tbRun(fx, 0.4);
+    const R = ribbonRows(fx);
+    tbExpect(R.length).toBeGreaterThan(0);
+    for (const r of R) tbExpect(r.lI[3]).toBeGreaterThan(0);
+    const before = fx.buffers;
+    const lens = before.map((a) => a.length);
+    const held = [fx.fire('umeko', A0, B0), fx.fire('kohaku', A0, B0), fx.fire('luna', A0, B0)];
+    const b = [4, 0.35, 3];
+    for (let f = 0; f < 600; f++) {
+      if (f % 25 === 0) fx.fire(f % 50 ? 'raika' : 'miko', [f % 7, 1, 1], [3, 0.35, f % 5], { width: 0.2 });
+      b[0] = 4 + Math.sin(f * 0.1);
+      for (const r of held) fx.aim(r, A0, b, { hit: f % 80 < 50 });
+      fx.update(1 / 60);
+    }
+    fx.buffers.forEach((x, i) => {
+      tbExpect(x).toBe(before[i]);
+      tbExpect(x.length).toBe(lens[i]);
+    });
   });
 });

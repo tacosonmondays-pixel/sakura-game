@@ -458,8 +458,17 @@ ground pieces are hand-written on the toon core. Not in the battle yet: the lab 
     axis. The side away from the camera is hidden by the body itself.
     Each bolt is re-struck on its own beat (`restrike` 0.06–0.11 s: every few frames, never every frame) and shows for
     `duty` of its strikes, so the crackle thins and thickens bolt by bolt instead of the whole aura blinking. A strike's
-    leader races along it (`grow`), holds, then erodes. A charge ring glows on the ground at the feet, broken into a few
-    dashes that turn in steps (`RING_TURN` every `RING_STEP`). `follow` (an object with x and z) moves it with the body.
+    leader races along it (`grow`), holds (inked whole through the first half of the hold; its ink leaves, segment by
+    segment, over the rest, `STRIKE_INK` [0.5, 1] of the hold, gone at 0.95 of it), then erodes in its colour. A charge
+    ring glows on the ground at the feet, broken into a few dashes that turn in steps (`RING_TURN` every `RING_STEP`).
+    It inks all or nothing: only when its band's widest on-screen half width (its half width over the pixel along the
+    least foreshortened screen direction, the same for the whole ring on the battle's orthographic camera) is at least
+    `RING_INK_RING_PX` (3.5) px, so a ring too thin to hold an outline beside its light carries none instead of a few
+    dark ticks where it is widest (at 3 and 9 o'clock). On the lab patch at 1:1 (844×390: 2.4 px, 390×844: 2.0 px at a
+    pixel ratio of 1) the rings are uninked; in a 2.5× close-up (6.0 and 5.1 px), at 1280×720 (4.0 px) or at a pixel
+    ratio of 2 they are outlined. An inked ring draws no ink on a dash's thin tip (under `RING_INK_PX`, 1.5 px, by the
+    band's gradient length), and when the crackle ends its ink leaves over `RING_INK_S` (0.08 s) before it erodes out
+    over `RING_END` (0.3 s). `follow` (an object with x and z) moves it with the body.
   - **shock** (`shock(preset, x, z, { radius, height })`): the same crackle, smaller and short-lived (`shock.life`
     0.5 s), on an enemy's body after a chain hit: a first burst of bolts at once, then sparser, then gone. No ground ring
     (it would read as a selection ring under every shocked enemy).
@@ -471,21 +480,79 @@ ground pieces are hand-written on the toon core. Not in the battle yet: the lab 
     its ragged outer silhouette), then erodes from its rim inward. While young, ink rims every crack and the burn's
     outer silhouette (outside `SCORCH_RIM_X` of its radius, where every edge of the held burn lies); a crack narrower on
     screen than `SCORCH_INK_PX` (6) of its rim's pixels draws no rim (it would be all ink: dark specks). All of the ink
-    leaves at `SCORCH_INK_AGE` (0.13 of its age, ± 0.04 by the noise: a hard step, so it goes in patches), before the
-    hold ends, so the holes the erosion opens and the fragments of eroding cracks are never outlined: the burn goes in
-    quiet tongues and the cracks end in the body and deep bands, never a scribble of dark specks (tests hold the timing).
-    The cracks race out over the first 0.12 s.
+    leaves at `SCORCH_INK_AGE` (0.09 of its age, ± 0.01 by the noise: a hard step that goes in patches over about two
+    frames, so no patch of the silhouette lingers as a loose dark dash on the burn), before the hold ends, so the holes
+    the erosion opens and the fragments of eroding cracks are never outlined: the burn goes in quiet tongues and the
+    cracks end in the body and deep bands, never a scribble of dark specks (tests hold the timing). From
+    `SCORCH_END.from` (0.82) of its age the cut climbs `SCORCH_END.add` (0.5) more, past its hottest heat, so its last
+    flecks shrink away instead of popping off when it ends. The cracks race out over the first 0.12 s.
   - **burst** (`burst(preset, x, z)`): one drum beat's ring of bolts bursting out (`r0` → `r1` tiles over `life`, an
     ease-out), every other bolt with a spoke shooting out of the ring, re-struck on the beat while it bursts, eroding
     over its second half; a thin ring of light on the ground under it (never over white: a wide ring over white blooms
-    into a soft halo).
+    into a soft halo). The ground ring holds whole (its young threshold, under the heat's floor in its middle: no hole)
+    until `BURST_HOLD` (half its life); the bolts' and the ring's ink leave over `BURST_INK` (0.26 to 0.44 of its life),
+    then both erode in their colour.
   - **link** (`link(preset, points, { life, closed })`): bolts arcing from point to point (in a loop when closed),
     each held and re-struck in place on its own beat (`arc.restrike` 0.1–0.16 s; its leader grows only on its first
     strike, so no half-grown arc ends in mid-air) with a small bow up or down, and little crackles where they join. An
     arc is on for `arc.duty` (0.95) of its strikes and never while another arc of the web is off: at least n − 1 of its
     n arcs are whole in every frame after the launch (tests hold it), so it reads as a web drone to drone. The points
-    are the caller's objects, read every frame, so the arcs follow what they join. `stop()` erodes the web out over
-    `LINK_END` (0.3 s), as at the end of its life, with no new strike.
+    are the caller's objects, read every frame, so the arcs follow what they join. At its end, or after `stop()`, the
+    web holds still while its ink leaves over `LINK_INK` (0.1 s), then erodes out over `LINK_END` (0.3 s), with no new
+    strike.
+- **The house rule: ink leaves before erosion opens holes** (as B1's foam): every eroding piece's ink leaves over a
+  window of its life that ends before its erosion starts, so it ends in its colour bands, never as loose dark dashes.
+  Its ink phase k runs 0 → 1 over that window, and a bit of ink (a bolt's segment, a ring's pixel) stays while
+  k + `INK_WOBBLE` (0.8) × (w − ½) < ½, with w its own 0..1 (a hash of the bolt's seed and the segment's place, a ring's
+  noise): a hard step in patches, all on below k 0.1, all gone from k 0.9. The windows: the last half of a strike's
+  hold (`STRIKE_INK`; crackles, shocks, the little crackles where arcs join), `BURST_INK` of a beat ring's life (its
+  bolts and its ground ring),
+  `LINK_INK` before a web's last `LINK_END`, `RING_INK_S` after a crackle ends (its charge ring), the first
+  `SHOCK_RING_INK` (0.3) of a shock's ring under Reduce Motion, and the scorch's own `SCORCH_INK_AGE`. The strokes'
+  ink is simply not pushed once it has left (strokes.js is unchanged). Tests hold every window (wobble included), that no
+  ink stroke is ever drawn with an erosion cut on any piece, tier or look, and that no ring is drawn eroding with any
+  ink left. Measured with `e2e/electric-ink.mjs` (below; 844×390 and 390×844). Round 2 stepped every scene from 0 to
+  2.5 s (24 runs of 150 frames): 2,218 loose dark-ink fragments before (da4e8102; most of them the charge rings' inked
+  dash tips, then the beat ring's eroding bolts and its ink ellipse), 18 after in look A and 10 in look B. Round 3 steps
+  every scene until it is idle, so every ending is in (to 3.48 s for the auras, 4.07 s for the Drumstorm and the all
+  scene): look A on medium (no bloom, the worst case for ink; 12 runs, 2,170 frames) 11 fragments, look B on high and
+  medium (24 runs, 4,340 frames) 9. Every one left is 1 or 2 px except one of 18 px in A (the Drumstorm scorch's
+  silhouette ink at 0.15 s, its last patch leaving just before its hold ends), and none is an eroding piece: a whole
+  piece's ink cut short by a chibi standing in front of it, or a single aliased pixel. The charge rings' isolated dark
+  ticks at 3 and 9 o'clock (dark groups of at most 12 px among the ground pieces alone, `__lab.bare('ground')`, in the
+  aura scene: 1,172 at 844×390 and 607 at 390×844 in about 165 frames, 1,645 under Reduce Motion on medium) are 0 now
+  at both sizes (look A on high and medium, with and without Reduce Motion; look B on medium); the ground ink left in
+  the Drumstorm and the all scene is the scorch's own, in its first 0.2 s.
+- **Two looks** (`ELECTRIC_LOOKS`; a preset's `look`, the lab's `?look=a|b`, `createElectricFx({ look })` for every
+  preset):
+  - **A, inked line-work** (the presets' default): ink, body, white-hot core (the chain lightning's layers) on every
+    bolt.
+  - **B, thicker opaque stepped bands plus a ground glow:** every bolt wears stepped solid bands of its own colour
+    round its body (`ELECTRIC_LAYERS_B`, back to front: the ground ramp's deep band at `bands[0]` (2.15) × the body's
+    half width, the bolt's body colour at `bands[1]` (1.5) ×, the glow band as the body (× `width` 0.8), the white-hot
+    core): hard toon steps, solid (premultiplied over, so the joints stay clean; translucent bands would bead where the
+    capsules overlap), no soft blur. Ink only outside the bands of the main bolts (the beat rings' and the arcs'); the
+    micro-bolts round bodies (crackles, shocks, the little crackles) have none. A crackle shows `bolts` (0.75) × the
+    tier's bolts, each held `hold` (1.5) × longer and re-struck `restrike` (1.3) × less often; a beat ring's bolts span
+    `burstSpan` (0.7) × the ring and re-strike `burstRestrike` (2) × less often (its wider bands bursting out would
+    otherwise light more of the screen in a frame than the flash rule allows). A glow lies on the ground under each beat
+    ring (`pool.burst` 0.6 × the ring's radius): the toon core's heat and hard step over the ground ramp's deep and body
+    bands, added light that covers little (`pool.cover`), no ink, eroding in and out (`pool.erode` past the hottest
+    heat, so no tongue pops off). `pool.aura` (× a crackle's radius) would put one under every crackle too; it is 0
+    (none): at 1:1 a tinted disc under every crackling girl read as a selection or range disc rather than as light, too
+    close to the battle's selection tint and placement discs (owner's call to bring back). Same calls as A (the strokes,
+    the ground).
+  - Flash rules for B (the review's per-frame method, `e2e/electric-ink.mjs`, every scene until idle, 24 runs): at most
+    1.45 % of the pixels change by 0.1 or more in linear luminance in any frame (the all scene on medium, as the
+    Drumstorm's beat ring bursts out), near-white at most 0.21 % (small cores), reddish effect pixels at most 0.03 %
+    (A, the 12 medium runs: 1.46 %, 0.21 %, 0.01 %). Its first try in round 2 (the beat ring's bolts as long as A's,
+    re-struck as often) reached 1.65 %; the shorter, slower beat-ring bolts brought it under.
+  - Neither look is in the tornado's family. The tornado's look comes from translucent overlapping brush ribbons with no
+    ink; A is inked line-work, and B is opaque line-work fattened by its bands (on the beat-ring bolts, which keep an
+    ink outline, it reads at 1:1 and 2.5× as chunky outlined bolts, and its micro-bolts at 390×844 as fat yellow
+    squiggles). A tornado-family look needs translucent layered bands, which means an opt-in translucent stroke mode in
+    `strokes.js` that handles the joints: its own round, re-run with the tornado diff. Board: `board-electric-3.jpg`
+    (A and B shown the same way, each beside the tornado, at 1:1 and at 2.5× of the same pixels).
 - **Cast hooks** (`ELECTRIC_CASTS`, lab presets; the battle's ⚡ casts are not wired to them yet):
   `cast('raika.drumstorm', x, z)`: her crackle for the boost, a burst ring on every drum beat (`beat` 0.5 s) and a
   scorch on the first (then every `scorchEvery`). `cast('chika.droneSurge', x, z, { points })`: bolts arcing drone to
@@ -531,7 +598,11 @@ ground pieces are hand-written on the toon core. Not in the battle yet: the lab 
 - **Randomness:** the stream it is handed (`vrand.fork('electric')` when wired; without one, a fixed fork of its own, so
   the bolts still differ); time from the visual clock.
 - **Cost:** CPU about 70–90 µs a frame on high and medium, 33 µs on low (node, this machine) with seven crackling
-  bodies, a Drumstorm and a Drone Surge up (about 900 strokes on high): mostly the stroke writes. The hot path keeps
+  bodies, a Drumstorm and a Drone Surge up (about 900 strokes on high): mostly the stroke writes. Round 2 (the same busy scene,
+  node, this machine): look A high 99 µs, medium 91, low 28 (618, 615 and 180 strokes); look B high 115 µs, medium 87, low
+  26 (888, 688 and 216 strokes: its five layers, fewer bolts), the same two calls; B's glow adds one ground instance
+  per beat ring (and one per crackle if `pool.aura` is set; `MAX_GROUND` holds them). The `stats` getter (lab, tests;
+  never on a battle's per-frame path) fills one object in place: nothing allocated a read. The hot path keeps
   its numbers in typed scratch arrays (never boxed into helper arguments or closure variables) and walks its pools
   with index loops (no iterators), so an idle layer does no work and allocates nothing (sampling heap profiler: about
   360 B a frame of for-of iterators before, 0 now). A busy frame (seven crackles, a Drumstorm, a Drone Surge; node,
@@ -545,8 +616,26 @@ ground pieces are hand-written on the toon core. Not in the battle yet: the lab 
 - **Lab and boards:** `/previews/electric.html` (live loop; scene, preset, tier and Reduce Motion buttons; `?scene=aura|
   shock|scorch|drumstorm|surge|all`, `?manual=1` and `window.__lab.shot(t)` for stepped stills, `window.__lab.bench()`
   for the frame time). The shock scene strikes Raika's live chain (lightning.js, `storm`) through three goblins and
-  starts the shock on each as its hop lands. Real chibis (and goblins) for scale; the drones are lab stand-ins.
-  `node e2e/electric-board.mjs --board 1 | 2 | quick --out <jpg>` writes the owner boards.
+  starts the shock on each as its hop lands. Real chibis (and goblins) for scale; the drones are lab stand-ins. The lab
+  is ready only once every figure wears its final model and is posed on it: the goblin's own model is preloaded with
+  its family's (`enemyModelKeys`), so it is never swapped in mid-run, and the lab waits (up to 20 s) for any figure still
+  on a placeholder, then poses every figure again; so the same frame is the same picture on every run however loaded
+  the machine is (a review found the shock scene's bare frames in one of two states under heavy load: the goblins'
+  own models arriving at different frames). `window.__lab.bare()` draws the frame just shot again with the electric
+  layer hidden, `bare('ground')` with only its ground pieces, `bare('strokes')` with only its bolts;
+  `window.__lab.models()` says which figures wear their final model.
+  `node e2e/electric-board.mjs --board 1 | 2 | 3 | quick --out <jpg> [--look a|b] [--url http://127.0.0.1:<port>]`
+  writes the owner boards (3: look A and look B shown the same way, each beside the tornado, at 1:1 and at 2.5× of the
+  same pixels). `node e2e/electric-ink.mjs --url … --look a|b [--rm 0,1] --out ink.json` steps every scene at 1/60 s
+  from 0 until it is idle (nothing up and nothing drawn for 20 frames after its first second; at most `--until`, 9 s),
+  so every ending is seen (measured: the last electric pixel of the aura scene at 3.17 s, its charge rings' ink leaving
+  and their erosion; the Drone Surge web's end at 2.75 s; the Drumstorm's second scorch at 3.67 s, in the Drumstorm and
+  the all scene, which step to 4.07 s), at 844×390 and 390×844, high and medium, draws each frame
+  again with the layer hidden (`__lab.bare()`), and counts loose dark-ink fragments (8-connected groups of pixels the
+  layer made dark, luma under 0.2, smaller than 40 px, with no colour pixel of the layer within 2 px, or fewer colour
+  pixels within 2 px than ink pixels) and the flash numbers (pixels whose linear luminance changes by 0.1 or more in a
+  frame, near-white, reddish). `node e2e/electric-chain-diff.mjs --capture | --ref … --out …` diffs stills of the live
+  chain lightning in the shock scene with the electric layer hidden.
 - **Credits** (licence texts, with their authors, in `public/licenses/`): the branching ideas from three-stdlib's
   LightningStrike (MIT, `three-stdlib-MIT.txt`); the Worley cells are the toon core's (`webgl-noise-MIT.txt`). When the
   electricity is wired, add `three-stdlib-MIT.txt` to Settings → Licences (`LICENCE_FILES`).
@@ -669,7 +758,8 @@ only: the sim id does not change.
   between them, so the check counts those rims as interior (Luna and the duo fail it on high: up to 6 frames of a
   loop, 24 px). A two-pass body (every beam's ink, then every beam's colour) was tried: it removes the long crossing
   rims but leaves short seams where the two edges interleave and counted worse on medium, so it is not in. The fix is a
-  union outline (ink outside the silhouette, drawn under every beam's colour), still to do.
+  union outline (ink outside the silhouette, drawn under every beam's colour), still to do in look A; look C has one
+  (its rims drawn first in one call, under every ribbon: 0 interior components; "Light ribbons (look C)").
 - **Randomness:** the stream it is handed (`vrand.fork('beams')` when wired; without one, a fixed fork of its own) for
   each record's seed and flow; everything after that is hashed from the seed (never Math.random); time from the visual
   clock.
@@ -729,6 +819,230 @@ only: the sim id does not change.
 - **Draw calls:** +3 while any toon beam is up (+2 on low), 0 when none is; the old held quads (2 a sweep, 2 a moonbeam,
   3–7 a prism beam (two lines, a glow quad and 0–4 extension lines) and 1 on her prism, in the shared batches: no calls
   of their own) go, and `beams.js` keeps its share of the shared strokes' one call.
+
+## Light ribbons (look C, `src/render/vfx/lightRibbon.js`; lab only, not wired)
+
+The owner asked for electricity, beams and the other effects to have the same look and quality as the tornado. Two
+independent reviews found that neither electricity look (A, B) nor the B3 beams reach it: they read as single opaque
+inked lines or tubes. Look C draws a bolt's or a beam's path the tornado's way. Display only: the sim id does not change.
+
+### What makes the tornado read as luminous volume (the study)
+
+Read from `tornado.js`, `tornadoPresets.js` and `toonCore.js`; every number is the code's.
+
+- **Ribbon geometry.** One flat annulus (`RingGeometry(0.3, 1, 40)` laid on the ground, its hole cut per pixel at the
+  preset's `inner`, 0.42–0.48 of its radius). Seen by the battle's tilted camera each ring is an ellipse band, so the
+  column is a stack of curved brush ribbons. A ring rises `height` (2.8–3 tiles) over its `life` (0.95–1.25 s) and
+  widens from `r0` to `r1` along age^0.7.
+- **Layers.** High draws 22 rings plus 4 faint core rings (alpha × 0.18, radius share 0.4–0.45, heat + 0.1–0.12),
+  medium 13, low 8. A new ring is born every life ÷ rings (about 0.07 s on medium), so any pixel of the column sees
+  two to five ring bands at once, at different depths. The overlap is what makes the volume.
+- **Alpha and the blend.** Premultiplied (One, OneMinusSrcAlpha), `depthWrite` off. On medium and low (`toonAdd`)
+  every band adds its colour × the preset's alpha (0.67–0.75) × a front share (0.35 on the far arc, 1 on the near
+  one), and the cooler bands also hide part of the board: `body` 0.55 × (1 − hot) × young × (1 on the far arc, 0.45 on
+  the near one). The hottest band hides nothing: it is pure light. The canvas blends sRGB-encoded colour, so stacked
+  rings overshoot (yellow to lemon, cream to white): where layers overlap, the column gets brighter. On high
+  (`toonCover`) every band covers the board in its own colour, A = alpha × (0.45 far, 0.85 near) × (0.35 young, 1
+  old). With bloom it reads its cover row, each band × `COVER_GAIN` [1, 1.1, 1.25, 1.65, 1.9] in display bytes (the
+  overshoot the canvas gets for free), and the band at k ≥ 0.8 goes `hdr` 0.3 over white for the bloom.
+- **The band ramp.** Five flat bands, deep to bright (vortex #031d7a, #0758be, #14afd2, #64e7e2, #e2ffff), 8 texels,
+  NearestFilter. heat = band × (0.3 + n), where band = 1 − x² across the ring and n is the house noise. The index k =
+  clamp((heat − cut) × 1.6, 0, 0.999) × (0.7 on the far arc, 1 near). On the 8 texels that makes deep k < 0.25, body
+  < 0.5, light < 0.625, core < 0.875 and white above it; k ≥ 0.8 is the hot flag. The deepest band sits where heat − cut
+  is small, at the edge of every shape. That deep, saturated, translucent band is the tornado's only outline. There is
+  no dark ink anywhere: the darkest colour is a hue (navy, wine, plum), never black, and it is translucent.
+- **The erosion.** cut = mix(`erode`[0], `erode`[1], age): 0.06–0.08 when young (whole; the noise only ripples the
+  edge), 0.58–0.6 when old. A ring breaks into tongues, then wisps, as it rises. The step is hard (`step(cut, heat)`
+  multiplies the colour: no soft fringe, no discard). High adds `SPARSE_ERODE` × (1 − 13 ÷ 22) = 0.13 to the mask
+  only (more rings, each sparser, the colours unchanged) and erodes the far arc 0.4 harder.
+- **Curl and twist.** Every ring turns: `spin` 2.6–4.2 rad/s for the column, plus `twist` 3–4.4 rad over a ring's
+  rise. Its centre wanders on a helix (0.12–0.16 tiles at the top) and sways (0.16–0.22 tiles at 1–1.6 Hz). The
+  near arc burns brighter than the far one, so the column reads as a turning funnel, not a stack.
+- **Internal flow.** The noise is laid in the ring's polar coordinates (whole-number scales round it: no seam) and runs
+  out through it: its along-coordinate moves by age × 0.9 plus time × `scroll` (1–1.9) × 0.35, with a second drift
+  of time × scroll × 0.2. So the tongues flow while the ring rises and turns.
+- **The halo.** Two quads on the ground under it in the additive ground batch: a soft ring at 1.7 × r1 × the base
+  size (alpha 0.28 in `base.color`) and a smaller ring at 0.62 × that (alpha 0.4 in `base.inner`), pulsing 6 % at
+  `base.pulse` Hz and turning slowly. Embers (12 on high, 6 on medium, none on low) spiral up round it.
+- **The life.** Each ring fades in over the first 10 % of its age and out over the last 18 % (it is already eroding).
+  The young rings at walker height cover little (`toonYoung`), so the crowd stays readable. A ring is drawn only if it
+  was born inside the cast, so the column builds from the ground up and leaves by rising away.
+- **Medium (no bloom).** The add + body blend on the canvas, 13 rings, 6 embers, no core rings, no over-white. It is
+  still luminous, because the stacked translucent bands add up on the canvas. Bloom is not what makes it glow.
+- **Reduce Motion.** Nothing turns, twists, sways, wanders or scrolls (`toonHold`). Lives are × 2.2 (a slower rise) and
+  alpha × 0.7. The ground rings neither turn nor pulse, and the embers are slower and unrotated.
+
+So the recipe: several translucent ribbon layers at different depths, each with its own stepped bands from a deep hue
+at its edge to light in its middle, whose light adds where they overlap; the near side brighter than the far side;
+noise flowing through them; erosion only with age; a glow on the ground; no ink.
+
+### The module (`src/render/vfx/lightRibbon.js`, opt-in)
+
+One shared layer: a polyline (a bolt's path, a beam's) drawn as 2–4 translucent ribbons twisting round a bright core
+(the prism: its five colours, one ribbon each), on the shared toon core's chunks (noise, heat, mask, index, hot, ramp;
+`toonCore.js`, `strokes.js` and `tornado.js` are not changed). Nothing uses it unless a look asks for it.
+
+- **API.** `createLightRibbons({ scene, ramps, max, haloMax, rims, quality, reduceMotion })`: `ramps` is one row of
+  five sRGB bands (deep → white) per colour, spread over the tornado's 8 texels. A frame is `begin()`, `path(P, n, S)`
+  for each path (n joints in `P`, a style `S` from `ribbonStyle()`, copied in; false, and nothing of it drawn, when it
+  does not fit), `end()`. Also `room()`, `hold(on)` (impact frames), `setPixel`, `setQuality`, `setGlow`,
+  `setReduceMotion`, `setFlashes`, `clear()`, `dispose()`, `stats` (one object filled in place), `buffers`.
+- **The strip.** One instanced strip per segment, mitred at each joint in view space (both segments of a joint work
+  out the same corners), narrowed at a sharp kink so its inner edge never folds back; room for the rim outside the
+  bundle.
+- **The ribbons.** Per pixel, ribbon i's phase is 2π(u · twist + i / N + spin) + seed · 7 (u: tiles along the path, in
+  a frame that flows with the noise). It swings `reach` × sin(phase) round the axis and is widest face-on, thinnest
+  edge-on: half width `width` × (0.35 + 0.65 |cos(phase)|). Across it, band = 1 − x² and heat = the toon core's band ×
+  (0.3 + n) × `RIBBON_HEAT` (0.5: at phone scale a ribbon is a few pixels wide, and the tornado's full heat would put
+  most of it in white). A hard step on the cut, the index through `toonIndexS` (slope 1.6, × 0.72 on the far side
+  of the twist, 1 on the near side), the colour from its ramp row. The near side is also brighter (strength × 0.55 far,
+  1 near): the tornado's front arc.
+- **The core.** Along the axis, heat lifted by `coreHeat` into the light, core and white bands. The lift goes with the
+  erosion (`lift = coreHeat × (1 − erosion)`), so the core never outlives its ribbons as a bare white line.
+- **Layering.** Per pixel: the ribbons behind the core (cos(phase) < 0), then the core, then the ribbons in front,
+  each premultiplied over the last. On the canvas tiers every band adds its light (`RIBBON_CANVAS_ADD` 0.72 where it
+  covers little) and hides `RIBBON_COVER` [0.6, 0.46, 0.3, 0.14, 0] of the board, deep → white: translucent bands,
+  the white pure light, so where two ribbons cross they add up. High with bloom draws into the linear target, where
+  added light would sum into a soft white blob: there every band covers the board in its own colour
+  (`RIBBON_COVER_K` 0.72 × its strength) from the ramp's gain rows (`RIBBON_BLOOM_GAIN` [1, 1.1, 1.25, 1.55, 1.75],
+  as the tornado's `COVER_GAIN`), and its hot band goes over white only there (`hdr`, through the flash guard, and
+  never with Flashes & shake off).
+- **Erosion and ends.** The threshold rises from `RIBBON_YOUNG` (0.06: whole, the noise only ripples the edges) to
+  `RIBBON_OLD` (2.2: past every heat a ribbon or its core can reach), from the path's start on (`lag`). Its shape
+  tapers at both ends, behind a racing head (`head`) and a tail, and out of the edge of her face's box: none of it is
+  drawn inside the box (`faceW`, `faceH`) or within `RIBBON_FACE_PX` (1.5 CSS px) of it (a pixel whose centre is just
+  outside still covers the box's edge).
+- **The union rim** (optional, `rims`). The one thin outline: a band `RIBBON_RIM.px` (1.3 CSS px) just outside the
+  bundle's outer edges, in a deeper shade (× 0.78) of the deep band, never black, hiding 0.62 of the board. The edges
+  are the topmost and bottommost places where a ribbon's or the core's colour actually ends, worked out per pixel from
+  the same noise, cut and width as the colour itself, so the rim can never be inside a colour of its path, nor round a
+  gap between two ribbons, nor round an erosion hole (the tests sweep a mirror of the shader to show it). Every rim of
+  a frame is drawn first in the same instanced call (the colours are moved down behind them at `end()`), so a rim lies
+  under every ribbon of every path: where two beams cross, neither's rim runs over the other's colour (the union
+  outline the B3 beams lacked). It is drawn only while the piece is whole: the caller's rim strength leaves before its
+  erosion starts.
+- **The halo** (optional). A strip on the ground under the path: the toon heat across it flowing along it, a hard
+  step, its index walking from the body band (0.26) at its rim to the light band (0.62) in its middle (a coloured
+  glow, never a dark smudge, never a white light), adding 0.62 of its colour and hiding 0.1 of the ground, fainter
+  under the higher parts of the path (gone at 1.4 tiles up). It follows the head and tail, erodes with the path, and
+  callers fade it in (a glow switched on at once is a large change in one frame).
+- **Tiers** (`LIGHT_RIBBON_TIERS`): high 4 ribbons round a single-colour core (the prism 5), halo, rim, over-white with
+  bloom; medium 3 (the prism 5), halo, rim, no over-white; low names look A as its fallback (the callers draw their
+  look A: the per-pixel ribbon loop costs more than a stroke on the weakest phones).
+- **Reduce Motion:** nothing flows or turns (flow and spin written as 0); lives, fades and strengths are the callers'.
+- **Cost:** one instanced call for every ribbon and rim of every path, one for the halos (drawn with the ground
+  pieces), none while nothing is pushed. Every buffer is allocated once; `end()` uploads whole arrays (three's update
+  ranges allocate); no double is passed into the per-segment writer (a double crossing a call is boxed). No randomness
+  or clock of its own: a path's seed, flow and spin are the caller's.
+
+### Electricity, look C (`createElectricFx({ look: 'c' })`, `?look=c` in `previews/electric.html`)
+
+`ELECTRIC_LOOKS.c` (`electricPresets.js`); each preset has a `ribbon` ramp in her chain's colours (Raika gold,
+Chika ice blue, Tenka violet, Seiran storm blue, Yuzuha pink), every band above the deepest under the flash guard's red
+share.
+
+- **Main bolts and arcs** (a beat ring's bolts, the web's arcs) are light ribbons: 3 ribbons (the
+  tier caps it) round a core 0.18 of the bundle, `half` 4 × the bolt's body half width, twisting 2.4 turns a tile,
+  turning 1.1 turns a second, the noise flowing 2.2 tiles a second, pointed ends, her ribbon ramp. A short life: the
+  leader races out in 2 hard steps, holds, then erodes from its start on (lag 0.6); re-struck on a stepped beat 1.6 ×
+  less often than A (a beat ring's bolts 2 ×), each beat ring with 0.6 × A's bolts, each spanning 1.05 × its sector, the
+  zig-zag 0.5 × A's (a wide bundle reads its own wiggle).
+- **Micro-bolts** (the crackle round a body, a shocked crackle, the little crackles where the web's arcs join) are thin
+  cores only: a bundle with no ribbons, 0.7 × the bolt's half width, heat 0.35.
+- **Halos:** a beat ring's bolts skim the ground and have none of their own: its stepped ground ring, wider and softer
+  in look C (`ringHalo`, `ringK`), is their halo. The web's arcs have none (`halo` 0): at drone height their glow on the
+  road read as a pale smudge at 1:1.
+- **No ink anywhere:** the ribbons draw no rim (`rims: false`: a bolt's silhouette is its deep band), the charge and
+  beat rings and the scorch carry the no-ink flag (their shaders skip every ink term).
+- **Faces:** the web's arcs and their crackles carry her face box (`LINK_FACE`), so none of them is drawn over Chika's
+  face.
+- **Calls:** the ribbons and the ground pieces: at most 2 while up, as look A (the halo call stays empty), 0 idle.
+  Low draws look A.
+  Reduce Motion: the arcs are struck once and held (as in A), still (no flow, no spin), the crackles still glow rings.
+- **Kept as they were:** looks A (the default) and B, every test of them, and the lightning lab's stills.
+
+### Beams, look C (`createToonBeamFx({ look: 'c' })`, `?look=c` in `previews/beams.html`)
+
+`TOON_BEAM_LOOKS.c` (`toonBeamPresets.js`); each preset has a `ribbon` ramp of its body colour, the prism one per
+spectrum colour (`stripeRibbons`).
+
+- **Bodies** are light ribbons: the tier's 4 (high) or 3 (medium) ribbons round a core 0.2 of the bundle (heat + 0.5),
+  the bundle 1.15 × the B3 body's half width, twisting at the preset's `twist`, the noise flowing at its band speed.
+  The same beats as look A: the head races out in hard steps, a landing punch (half of A's: a wider, brighter bundle
+  changes more of the screen a frame for the same punch), the end's width steps, the erosion from the muzzle on.
+- **The prism** braids its five colour ribbons (one ramp row each) round a white core, turning at its spin.
+- **The rim:** the union rim, only while the beam is whole (it leaves at `BEAM_INK.end` of its end beat, before the
+  erosion starts at `BEAM_ERODE_AT`), none at the muzzle (`BEAM_FACE_CLEAR`) or under a crown.
+- **The halo:** a stepped glow on the ground 1.5 × the beam's half width (strength 0.7), following the head out and
+  fading in over 0.3 s once the beam lands; none on Reduce Motion.
+- **The crown** (mode 2 in the spot shader): curling tongues like the tornado's rings. 3 camera-facing rings at once,
+  each born in turn (every 0.3 s ÷ 3), widening from 0.3 of the crown's radius to all of it along age^0.7, a flame band
+  of the house noise in polar coordinates (whole-number scales round it: no seam), twirled 0.22 so its tongues curl,
+  its threshold rising with its age (whole, then tongues, then wisps), stepped through the tornado's 8-texel layout over
+  the preset's ribbon ramp, translucent, laid one over another; the hit's white punch in its middle while it bursts
+  (flash-guarded); its hole open once the punch is over (the enemy stays visible); no ink. The stepped ground ring
+  under it carries no ink in look C.
+- **Calls:** the ribbons, their halos, the spots (charge and crown), the ground pieces: at most 4 while up (look A: 3),
+  0 idle. Low draws look A. Faces stay clear: none of a bundle inside her head's box.
+- **Flash:** the halo fades in over 0.3 s once the beam lands and is faint (strength 0.35: on the tilted board it lies
+  below the beam on screen, and stronger it read as a second, paler stripe); the landing punch is half of look A's; the
+  end is the erosion alone (no width steps: they moved every ribbon of the bundle at once, the largest change a frame of
+  a beam's life); the ribbons flow at half the band speed. Measured below.
+
+### Measured (lab, stepped at 1/60 s, SwiftShader; the reviews' own scans)
+
+- **Dark ink** (`node e2e/beams-ink.mjs --port <p> --look c`, `node e2e/electric-ink.mjs --url <u> --look c`): beams,
+  every preset's whole loop at 844×390 and 390×844 on high and medium: **0 loose dark-ink fragments, 0 interior ink
+  components**, and no face ink from the ribbons; one face-ink pixel in one frame (Miko, 390×844 high, 0.15 s) comes
+  from the shared charge-up, which look A draws the same (look A also still has the documented B3 case: 13 interior
+  components where Luna's pair and the duo's two beams cross on high; the union rim is the fix it named).
+  Electricity, every scene until idle (Drumstorm, Drone Surge, the aura, the shocked crackle, the scorch, all together):
+  **0 fragments** (loose or ink-led) at 844×390 on high and medium, at 390×844 on high, and with Reduce Motion.
+- **Flash rules** (the same frames): the share of the screen whose linear luminance changes by 0.1 or more in one frame,
+  near-white pixels, reddish pixels of the effect.
+  - Electricity C: changed ≤ 1.45 % on high (Drumstorm's beat 1.44, the shocked crackle 1.32, the web 0.56, the aura
+    0.32), ≤ 1.40 % on medium, ≤ 1.08 % at 390×844 high, ≤ 0.50 % with Reduce Motion; near-white ≤ 0.37 %; red ≤ 0.04 %.
+  - Beams C, 844×390 high: Umeko 1.49 %, Luna 1.96 %, the duo 1.71 %, Miko 1.30 %, Raika 1.20 % (look A: 1.31, 1.59,
+    1.64, 1.33, 1.20); medium Umeko 1.46, Luna 1.93, the duo 1.60, Miko 1.01, Raika 0.98; 390×844 ≤ 1.39 %; near-white
+    ≤ 0.71 %; red ≤ 0.05 %. **Over the 1.5 % target:** Luna's sweeping pair (both moonbeams moving every frame) and the
+    moment the duo's second beam fires, as in look A (1.59, 1.64) but by more (Luna +0.37). Means are 0.1–0.9 %.
+  - For scale, the tornado itself, by the same measure (`vortex` and `fire`, 110 frames from 0.5 s): 3.0–3.4 % a frame at
+    its peak on high (mean 2.2–2.6 %), 3.7–4.4 % on medium (mean 2.7–3.4 %). The measure counts motion, not only flashes.
+- **Draw calls** (the layer's own): electricity C 2 while up on high and medium (the ribbons, the ground pieces; the halo
+  call stays empty), as look A; beams C 4 (the ribbons, their halos, the spots, the ground) against look A's 3; low
+  draws look A (2); 0 idle in every look.
+- **CPU a frame** (node, the JS side, median of 600 busy frames: two auras, a Drumstorm and a four-drone web; four held
+  beams and a lance every 25 frames): electricity C 0.032 ms high, 0.022 ms medium (A 0.052 / 0.051); beams C 0.010 /
+  0.008 ms (A 0.013 / 0.016). Look C writes one instance a segment where A writes one a stroke layer.
+- **GPU side:** the per-pixel ribbon loop (2–5 ribbons and a core, a noise lookup each) costs more than a stroke. The
+  labs' `__lab.bench()` on SwiftShader (a CPU rasteriser, the machine under load, so only a rough relative measure):
+  the scene costs about 20–35 ms a frame more than the board on medium in look C against 0–16 ms in look A, and up to
+  about 100 ms more on high. A phone measurement is still needed before anything is wired; low draws look A.
+- **Garbage a frame** (node `--expose-gc`, 20 000 frames warm, then 20 000 with a 256 MB young generation and no
+  collection between, heap before and after a final collection): the ribbon layer alone 0.2–0.4 bytes (20 paths a frame:
+  nothing); beams C 32 bytes (A 0); electricity C 133–179 bytes, as look A (27–187: its seeded strikes box their random
+  numbers, the code both looks share). No per-segment double is passed to a call (V8 boxes it; that was 15 bytes a path
+  before).
+- **Caps:** `LIGHT_RIBBON_TIERS` above; electricity's ribbon layer holds `RIBBON_SEGS` segments a frame and
+  `RIBBON_HALO_SEGS` halo segments, the beams' `SEGS` each (a path that does not fit is dropped whole: `stats.refused`).
+- **The tornado** stays pixel-identical (`e2e/toon-core-tornado-diff.mjs`: 24 stills, max channel delta 0) and so do the
+  lightning lab's stills (`e2e/electric-chain-diff.mjs`: 12 of 12, max 0): `toonCore.js`, `strokes.js` and
+  `tornado.js` are unchanged. Sim id unchanged (display only).
+
+### Honest comparison with the tornado
+
+- **What look C has of the tornado's recipe:** translucent stepped bands from a deep hue at the edge to white in the
+  middle, light that adds where ribbons cross, the near side of a twist brighter than the far side, the house noise
+  flowing along, erosion only with age (and the start first), no ink inside, a glow on the ground; for the beams one
+  outer rim under everything (no crossing ink).
+- **What it still lacks:** the tornado's depth. Its column is 13–26 ribbons, 2–5 deep at any pixel, at different
+  depths, curling as they rise; a bundle is 3–4 ribbons, 1–2 deep, twisting round a straight line, and at the battle's
+  scale a bolt or a beam is 6–14 px wide, so most of the layering shows only in the 2.5× close-ups. At 1:1 a look C beam
+  reads as a bright twisted cord (the prism as a striped braid), an electric bolt as a thin bright crackle with a
+  coloured edge: closer to light than A or B, still a line rather than a volume. The beams keep a thin dark rim (allowed:
+  the outer silhouette only), which still reads as an outline at 1:1. The crown (tornado-ring tongues) is the closest
+  piece to the house look.
+- **Ranking against the tornado:** C closest, then B (bands but opaque), then A (inked line-work).
 
 ## VFX library: toon strokes, chain lightning and beams (`docs/specs/VFX_LIBRARY.md`)
 

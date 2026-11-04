@@ -32,6 +32,51 @@ export const HELD_VISIBLE = 0.62;
 export const PAIR_SWEEP = 0.78;
 /** The prism's stripe colours: the duo's Grand Spectrum (kohaku_tsubaki.js SPECTRUM, the white is the core thread). */
 export const PRISM_SPECTRUM = Object.freeze(['#c9a8ff', '#8fd8ff', '#ffd27a', '#ff9ad5', '#9dffc4']);
+/**
+ * Look C's prism: a ribbon ramp a colour of the Grand Spectrum (five bands, deep → white, each on its own hue: its third
+ * band is the spectrum colour itself), braided round the white core.
+ */
+export const PRISM_RIBBONS = Object.freeze([
+  Object.freeze(['#4a2ea0', '#9a6cf2', '#c9a8ff', '#ece0ff', '#ffffff']),
+  Object.freeze(['#1d4f9e', '#3f9ae0', '#8fd8ff', '#d2f0ff', '#ffffff']),
+  Object.freeze(['#7a5a12', '#ccaa3a', '#ffd27a', '#ffeebd', '#ffffff']),
+  Object.freeze(['#7a2468', '#c4509e', '#ff9ad5', '#ffd6ee', '#ffffff']),
+  Object.freeze(['#146a44', '#3cbc7c', '#9dffc4', '#d8ffe8', '#ffffff']),
+]);
+/**
+ * The looks (createToonBeamFx({ look })): A, the B3 beam (an inked outer silhouette, a sheath and strands; the default);
+ * C, light ribbons (src/render/vfx/lightRibbon.js, docs/VFX.md "Light ribbons (look C)"): the body as the tier's
+ * translucent ribbons (4 high, 3 medium) twisting round a bright core in the preset's `ribbon` ramp, flowing out along
+ * it, `half` × the beam's half width (the bundle's visible edge then sits where the B3 silhouette did), `core` and
+ * `coreHeat` its core; a deep union rim drawn under every ribbon (`rim`: px; none near the muzzle, none under a crown,
+ * gone before it erodes); the prism its colour ribbons braided (`PRISM_RIBBONS`, one a colour); a stepped halo on the
+ * ground under the beam (`halo` × its half width, `haloK`); the crown as curling tongues like the tornado's rings
+ * (`crown`: rings at once, each living `life` s, born in turn, widening from r0 to 1 of the crown's radius, twirled by
+ * `curl` turns, their hole `hole`); no ink on the ground ring. Low: look A.
+ */
+export const TOON_BEAM_LOOKS = Object.freeze({
+  a: Object.freeze({ id: 'a', ribbon: false }),
+  c: Object.freeze({
+    id: 'c',
+    ribbon: true,
+    half: 1.0,
+    core: 0.2,
+    coreHeat: 0.5,
+    rim: true,
+    // (a faint glow on the ground under the beam: on the tilted board it lies below the beam on screen, and any stronger
+    // it read as a second, paler stripe at 1:1)
+    halo: 1.1,
+    haloK: 0.35,
+    // (flash: the halo fades in over haloIn s once the beam lands, and the landing punch is this share of look A's: a
+    // wider, brighter bundle changes more pixels a frame than look A's body for the same punch)
+    haloIn: 0.3,
+    punch: 0.5,
+    // (the ribbons' flow along the beam × this share of its band speed: the twist slides with the noise, and a whole
+    // twisted bundle sliding at full speed changes most of its pixels every frame)
+    flow: 0.5,
+    crown: Object.freeze({ rings: 3, life: 0.3, r0: 0.3, curl: 0.22, hole: 0.3, inner: 0.42 }),
+  }),
+});
 
 /**
  * The wind-ups the charge-up runs over, read from today's patterns: a staff girl's cast clip (src/models/weapons.js
@@ -51,7 +96,7 @@ const IMPACT = Object.freeze({
  * path then reads one object shape, so the engine keeps it fast and allocation free (no polymorphic reads).
  */
 const SHAPE = Object.freeze({
-  held: false, prism: false, half: null, width: null, twist: 0.6, spin: 0, stripes: null,
+  held: false, prism: false, half: null, width: null, twist: 0.6, spin: 0, stripes: null, stripeRibbons: null,
   zig: 0, restrike: 0, jag: 0, jagMax: 0, lift: 0,
 });
 const preset = (o) => Object.freeze({ ...SHAPE, ...o });
@@ -73,6 +118,7 @@ export const TOON_BEAM_PRESETS = Object.freeze({
     coreHeat: 0.18,
     charge: Object.freeze({ size: 0.62 }),
     ramp: Object.freeze(['#3a2806', '#d9b85a', '#ffe08a', '#fff3c4', '#fffbe6', '#ffffff', '#ffffff', '#ffffff']),
+    ribbon: Object.freeze(['#7a5a12', '#d4b04a', '#ffe08a', '#fff3c4', '#ffffff']),
     hdr: 0.3,
     zig: 0,
     ...IMPACT,
@@ -94,6 +140,7 @@ export const TOON_BEAM_PRESETS = Object.freeze({
     coreHeat: 0.16,
     charge: Object.freeze({ size: 0.58 }),
     ramp: Object.freeze(['#1d0f4f', '#a77bff', '#c4a8ff', '#d9ceff', '#ece6ff', '#f6f2ff', '#f6f2ff', '#f6f2ff']),
+    ribbon: Object.freeze(['#4a2ea0', '#9a72f0', '#c4a8ff', '#ece6ff', '#f6f2ff']),
     hdr: 0.3,
     zig: 0,
     ...IMPACT,
@@ -116,6 +163,8 @@ export const TOON_BEAM_PRESETS = Object.freeze({
     coreHeat: 0.14,
     charge: Object.freeze({ size: 0.58 }),
     ramp: Object.freeze(['#24154f', '#9a6cf2', '#c9a8ff', '#ddc8ff', '#efe6ff', '#ffffff', '#ffffff', '#ffffff']),
+    ribbon: Object.freeze(['#4a2ea0', '#9a6cf2', '#c9a8ff', '#efe6ff', '#ffffff']),
+    stripeRibbons: PRISM_RIBBONS,
     stripes: PRISM_SPECTRUM,
     hdr: 0.3,
     zig: 0,
@@ -136,6 +185,7 @@ export const TOON_BEAM_PRESETS = Object.freeze({
     coreHeat: 0.18,
     charge: Object.freeze({ size: 0.58 }),
     ramp: Object.freeze(['#4a2a05', '#d9ad48', '#ffd65a', '#ffe680', '#fff3c0', '#fffdf0', '#fffdf0', '#fffdf0']),
+    ribbon: Object.freeze(['#7a5a10', '#ccb040', '#ffd65a', '#fff3c0', '#fffdf0']),
     hdr: 0.35,
     zig: 0,
     ...IMPACT,
@@ -156,6 +206,7 @@ export const TOON_BEAM_PRESETS = Object.freeze({
     coreHeat: 0.18,
     charge: Object.freeze({ size: 0.58 }),
     ramp: Object.freeze(['#33216e', '#e0b44a', '#ffd23f', '#ffe45c', '#fff6cc', '#fffbea', '#fffbea', '#fffbea']),
+    ribbon: Object.freeze(['#7a5410', '#ccb036', '#ffd23f', '#ffeb8c', '#fffbea']),
     hdr: 0.35,
     zig: 6, // kinks (straight: 0)
     restrike: 0.05, // a new zig-zag path this often (on twos; Reduce Motion: one still path)
