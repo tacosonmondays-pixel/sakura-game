@@ -5,6 +5,7 @@
 //   /previews/beams.html            live: the scene loops; scene / tier / Reduce Motion / today's look buttons
 //   ?scene=umeko|luna|kohaku|miko|raika|all  &quality=high|medium|low  &rm=1  &flashes=0  &zoom=2.5 (a close-up)
 //   &focus=crown|muzzle|beam (what the crops and close-ups centre on)  &clean=1 (no buttons)
+//   &look=a|c (TOON_BEAM_LOOKS: a, the B3 beam, the default; c, the light ribbons)
 //   &old=1: today's live look of the same beam, drawn by the current code (held.js, s5held.js, kohaku_tsubaki.js,
 //   beams.js) through the real attack context, for the side-by-side boards
 //   &manual=1: no loop; window.__lab.shot(t) steps the scene to t s and draws it (call in rising order);
@@ -14,7 +15,7 @@
 import * as THREE from 'three';
 import { createLabStage } from './vfxLabStage.js';
 import { createToonBeamFx } from '../src/render/vfx/toonBeams.js';
-import { TOON_BEAM_PRESETS } from '../src/render/vfx/toonBeamPresets.js';
+import { TOON_BEAM_PRESETS, TOON_BEAM_LOOKS } from '../src/render/vfx/toonBeamPresets.js';
 import { createVisualRandom, visualSeed } from '../src/render/vfx/random.js';
 import { FlashGuard, screenShare } from '../src/render/vfx/flashGuard.js';
 import { createContext } from '../src/render/attackFx/context.js';
@@ -37,6 +38,7 @@ const flashes = Q.get('flashes') !== '0';
 const manual = Q.get('manual') === '1';
 const zoom = Number(Q.get('zoom') || 1);
 const focusOn = ['crown', 'muzzle', 'beam'].includes(Q.get('focus')) ? Q.get('focus') : 'beam';
+const look = TOON_BEAM_LOOKS[Q.get('look')] ? Q.get('look') : 'a';
 if (Q.get('clean') === '1') document.body.classList.add('clean');
 
 const W = innerWidth;
@@ -73,7 +75,7 @@ async function main() {
   const stage = await createLabStage({ canvas, width: W, height: H, quality, girl: null, zoom, focus: lay.focus });
   const scene = stage.scene;
   const rand = createVisualRandom(visualSeed('lab', 'beams', sceneId)).fork('beams');
-  const beams = createToonBeamFx({ scene, camera: stage.camera, quality, reduceMotion: rm, rand, flashes });
+  const beams = createToonBeamFx({ scene, camera: stage.camera, quality, reduceMotion: rm, rand, flashes, look });
   beams.setGlow(quality, stage.glow);
   beams.setPixel(stage.rig.scale);
   // the battle's flash guard, asked as BattleRenderer's flashGate does (screen share of each flash, on the lab clock)
@@ -368,7 +370,7 @@ async function main() {
   const info = document.getElementById('info');
   const show = () => {
     const s = beams.stats;
-    info.textContent = `${sceneId} · ${quality}${rm ? ' · Reduce Motion' : ''}${old ? ' · today\'s look' : ''} · ${(frame * DT).toFixed(2)} s · calls ${s.calls} · segs ${s.segments} · spots ${s.spots} · ground ${s.ground} · flash ${guard.worldArea.sum(clock.t).toFixed(3)} screens/s`;
+    info.textContent = `${sceneId} · look ${s.look} · ${quality}${rm ? ' · Reduce Motion' : ''}${old ? ' · today\'s look' : ''} · ${(frame * DT).toFixed(2)} s · calls ${s.calls} · segs ${s.segments} · ribbons ${s.ribbons} · spots ${s.spots} · ground ${s.ground} · flash ${guard.worldArea.sum(clock.t).toFixed(3)} screens/s`;
   };
   const focusPt = () => {
     const st = actorsFor[0];
@@ -391,6 +393,30 @@ async function main() {
   const cls = new Uint8Array(N);
   const seen = new Uint8Array(N);
   const stack = new Int32Array(N);
+  // the flash rules on the same frames (as the electricity scan measures them): the share of pixels whose linear
+  // luminance changes by 0.1 or more from the frame before (where either is under 0.8), near-white pixels (every channel
+  // over 245) and reddish effect pixels (linear r over 60 % of r + g + b, r + g + b over 0.3, changed from the board)
+  const lin = new Float32Array(256);
+  for (let i = 0; i < 256; i++) { const c = i / 255; lin[i] = c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }
+  const prevL = new Float32Array(N);
+  const flash = (first) => {
+    let changed = 0;
+    let white = 0;
+    let red = 0;
+    for (let p = 0, o = 0; p < N; p++, o += 4) {
+      const lr = lin[px[o]];
+      const lg = lin[px[o + 1]];
+      const lb = lin[px[o + 2]];
+      const L = 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+      if (!first && Math.abs(prevL[p] - L) >= 0.1 && Math.min(prevL[p], L) < 0.8) changed++;
+      prevL[p] = L;
+      if (px[o] > 245 && px[o + 1] > 245 && px[o + 2] > 245) white++;
+      const d = Math.max(Math.abs(px[o] - base[o]), Math.abs(px[o + 1] - base[o + 1]), Math.abs(px[o + 2] - base[o + 2]));
+      const tt = lr + lg + lb;
+      if (d > 10 && tt > 0.3 && lr / tt >= 0.6) red++;
+    }
+    return { changed: (changed / N) * 100, white: (white / N) * 100, red: (red / N) * 100 };
+  };
   const read = (out) => gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, out);
   let settled = false;
   const meshes = [...beams.meshes];
@@ -505,6 +531,7 @@ async function main() {
     quality,
     rm,
     old,
+    look,
     loop: lay.loop,
     moments,
     /** Steps the scene to t seconds (rising order) and draws that frame. */
@@ -561,11 +588,23 @@ async function main() {
       let interiorFrames = 0;
       const examples = [];
       const interiorExamples = [];
+      let changedMax = 0;
+      let changedSum = 0;
+      let whiteMax = 0;
+      let redMax = 0;
+      let changedAt = 0;
       while (frame < target) {
         step();
         stage.render();
         read(px);
         const r = analyse(maxSize);
+        const fl = flash(frames === 0);
+        if (frames > 0) {
+          changedSum += fl.changed;
+          if (fl.changed > changedMax) { changedMax = fl.changed; changedAt = +(frame * DT).toFixed(3); }
+        }
+        whiteMax = Math.max(whiteMax, fl.white);
+        redMax = Math.max(redMax, fl.red);
         frames++;
         total += r.frags.length;
         worst = Math.max(worst, r.frags.length);
@@ -577,7 +616,12 @@ async function main() {
         for (const f of r.frags) if (examples.length < 24) examples.push({ t: +(frame * DT).toFixed(3), ...f });
         for (const f of r.interior) if (interiorExamples.length < 24) interiorExamples.push({ t: +(frame * DT).toFixed(3), ...f });
       }
-      return { frames, frags: total, worst, interior, interiorFrames, darkComponentsMax: darkMax, faceInkMax: faceMax, faceInkFrames: faceFrames, faces, examples, interiorExamples, ...guardStats() };
+      const r3 = (v) => +v.toFixed(3);
+      return {
+        frames, frags: total, worst, interior, interiorFrames, darkComponentsMax: darkMax, faceInkMax: faceMax, faceInkFrames: faceFrames, faces, examples, interiorExamples,
+        flash: { changedMax: r3(changedMax), changedAt, changedMean: r3(changedSum / Math.max(1, frames - 1)), whiteMax: r3(whiteMax), redMax: r3(redMax) },
+        ...guardStats(),
+      };
     },
     /**
      * Frame time on this machine (headless SwiftShader: compare runs, nothing absolute about a phone): `n` drawn frames
@@ -627,6 +671,9 @@ async function main() {
   const ob = document.getElementById('old');
   ob.classList.toggle('on', old);
   ob.onclick = () => reload('old', old ? '0' : '1');
+  const lk = document.getElementById('look');
+  lk.value = look;
+  lk.onchange = () => reload('look', lk.value);
   document.getElementById('go').onclick = () => start();
   let last = performance.now();
   let since = 0;

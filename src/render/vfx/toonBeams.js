@@ -30,6 +30,11 @@
 //   beams.release(b)              // a held beam ends (a fired lance ends by itself)
 //   beams.update(dt)              // the visual clock's dt
 //
+// Two looks (TOON_BEAM_LOOKS, createToonBeamFx({ look })): A, the above (the default); C, light ribbons
+// (src/render/vfx/lightRibbon.js, docs/VFX.md "Light ribbons (look C)"): the body as translucent ribbons twisting round a
+// bright core (the prism: its colour ribbons braided), a deep union rim under every ribbon, a stepped halo on the ground
+// under it, and the crown as curling tongues like the tornado's rings; on low, look A.
+//
 // Draw cost: three instanced draw calls at most (the bodies, the camera-facing pieces, the ground pieces), 0 when idle.
 // Every record, path and buffer is allocated once at the high tier's sizes; update() writes numbers into them.
 // Randomness: the stream it is handed (createVisualRandom fork; without one a fixed fork of its own), never Math.random.
@@ -44,8 +49,9 @@
 // the idea of a laser beam demo's charge and impact (MIT, laser-beam-MIT.txt). Our own GLSL, no code copied.
 import * as THREE from 'three';
 import {
-  TOON_BEAM_PRESETS, TOON_BEAM_TIERS, TOON_BEAM_RAMP_W, BEAM_BAND, LANCE_HALF, MAX_TOON_BEAMS, MAX_BEAM_JOINTS,
+  TOON_BEAM_PRESETS, TOON_BEAM_TIERS, TOON_BEAM_RAMP_W, BEAM_BAND, LANCE_HALF, MAX_TOON_BEAMS, MAX_BEAM_JOINTS, TOON_BEAM_LOOKS,
 } from './toonBeamPresets.js';
+import { createLightRibbons, ribbonStyle } from './lightRibbon.js';
 import { TOON_CORE, TOON_NOISE_N, TOON_REDUCE, paintToonNoise, paintToonRamp, toonHash } from './toonCore.js';
 import { createVisualRandom, visualSeed } from './random.js';
 
@@ -247,6 +253,10 @@ uniform sampler2D uNoise;
 uniform sampler2D uRamp;
 uniform float uRows;  // ramp rows (three a preset: its bands, its stripes, its light stripes)
 uniform float uAdd;   // the glow's added share where a band covers little: 1 into the linear target, less on the canvas
+uniform float uCoverMode; // look C's crown: 1 into the linear target (bloom), every band covering in its own colour
+uniform sampler2D uRRamp; // look C's crown: the light ribbons' ramp (its rows, then their bloom gain rows)
+uniform float uRRows;
+uniform float uRGain;
 ${TOON_CORE}
 // [beam] the ramp texel of band i in row r of preset p (8 a row, NearestFilter: flat steps)
 vec3 bRamp(float i, float p, float r) { return toonRamp(uRamp, (i + 0.5) / 8.0, (p * 3.0 + r + 0.5) / uRows); }
@@ -530,6 +540,48 @@ void main() {
     vec2 lv = bLevel(above);
     bi = mix(lv.x, ${BEAM_BAND.white.toFixed(1)}, flash);
     hot = max(lv.y, flash);
+  } else if (vB.x > 1.5) {
+    // look C: the crown as curling tongues like the tornado's rings. ${TOON_BEAM_LOOKS.c.crown.rings} rings at once, camera-facing, each born
+    // in turn (every life / rings s) and widening from r0 to the crown's radius along age^0.7: a flame band of the house
+    // noise in its polar coordinates (whole-number scales round it: no seam), twirled so its tongues curl, flowing out,
+    // its threshold rising with its age (whole when young, then tongues, then wisps); stepped through the tornado's
+    // 8-texel layout over the preset's bands (deep at its edges, light in its middle, core and white at its hottest),
+    // translucent, laid one over another; the hit's white punch in its middle while it bursts (flash-guarded); its hole
+    // open once the punch is over (the enemy stays visible); no ink
+    float R = vB.y;
+    float rr = r / max(R, 1e-3);
+    float tc = vD.w;
+    float e = vB.z;
+    float endCut = e < 0.0 ? 0.0 : e * 1.5;
+    vec2 pq = vQ / max(R, 1e-3);
+    vec4 acc = vec4(0.0);
+    for (int j = 0; j < ${TOON_BEAM_LOOKS.c.crown.rings}; j++) {
+      float fj = float(j);
+      float a = fract(tc / ${f2(TOON_BEAM_LOOKS.c.crown.life)} + fj / ${TOON_BEAM_LOOKS.c.crown.rings.toFixed(1)});
+      float born = tc - a * ${f2(TOON_BEAM_LOOKS.c.crown.life)};
+      float Rj = mix(${f2(TOON_BEAM_LOOKS.c.crown.r0)}, 1.0, pow(a, 0.7));
+      float x = (rr / Rj - ${f2(TOON_BEAM_LOOKS.c.crown.inner)}) / ${f2(1 - TOON_BEAM_LOOKS.c.crown.inner)};
+      float xb = x * 2.0 - 1.0;
+      float band = 1.0 - xb * xb;
+      vec2 tw = toonTwirl(pq / max(Rj, 1e-3), ${f2(TOON_BEAM_LOOKS.c.crown.curl)});
+      float ua = atan(tw.y, tw.x) / 6.2831853 + 0.5;
+      float n = toonNoise(uNoise, vec2(ua * 3.0 + fj * 0.31 + seed * 0.37, x * 0.8 - a * 0.9 - tc * 0.5), tc * 0.3);
+      float heat = toonHeat(band, n);
+      float cut = mix(0.06, 0.62, a) + endCut;
+      float mj = toonMask(heat, cut) * step(0.0, band) * step(0.0, born) * smoothstep(0.0, 0.1, a) * (1.0 - smoothstep(0.82, 1.0, a)) * step(vD.z, rr);
+      float k = toonIndex(heat - cut, 1.0);
+      // (the preset's ribbon row: the tornado's five bands on its 8 texels)
+      vec3 col = texture2D(uRRamp, vec2(k, (vD.x + uRGain + 0.5) / uRRows)).rgb * (1.0 + vC.y * step(0.8, k));
+      float cv = k < 0.25 ? 0.6 : k < 0.5 ? 0.46 : k < 0.625 ? 0.3 : k < 0.875 ? 0.14 : 0.0;
+      vec3 en = linearToOutputTexel(vec4(col, 1.0)).rgb;
+      float A = mj * vC.z;
+      vec4 Lj = mix(vec4(en * A * mix(uAdd, 1.0, cv), A * cv), vec4(en * A * 0.72, A * 0.72), uCoverMode);
+      acc = Lj + acc * (1.0 - Lj.a);
+    }
+    float flashC = step(rr, 0.42) * vC.w;
+    vec3 wc = linearToOutputTexel(vec4(texture2D(uRRamp, vec2(0.95, (vD.x + uRGain + 0.5) / uRRows)).rgb * (1.0 + vC.y), 1.0)).rgb;
+    gl_FragColor = mix(acc, vec4(wc, 1.0), flashC);
+    return;
   } else {
     // the crown: a burst of uneven, curling tongues round the hit point in two layers (the outer one in the body colour
     // with its own deep rim, the inner one light, a core round its middle), their lengths and leans re-rolled on the
@@ -632,7 +684,8 @@ void main() {
     // (worked out from its actual outer edge, where its heat meets the cut: xr = sqrt(1 - cut / (0.3 + n)), never from
     // heat minus the cut, so no pixel inside its colour is inked)
     float xo = sqrt(max(1.0 - cut / (0.3 + n), 0.0));
-    ink = bEdgeInk((xo - xr) * vC.z, ${f2(BEAM_INK_PX)}, ${f2(BEAM_INK_X)} * vC.z, 0.45 * vC.z) * m * step(0.0, xr) * inked * step(${f2(RING_INK_FRONT)}, vP.y / max(r, 1e-3));
+    // (look C: no ink, its end flag -2)
+    ink = bEdgeInk((xo - xr) * vC.z, ${f2(BEAM_INK_PX)}, ${f2(BEAM_INK_X)} * vC.z, 0.45 * vC.z) * m * step(0.0, xr) * inked * step(${f2(RING_INK_FRONT)}, vP.y / max(r, 1e-3)) * step(-1.5, vB.y);
   } else {
     // the glow pool under the hit point: light bands that cool as the beam ends (a small scorch) and erode from
     // its rim inward (no ink)
@@ -700,7 +753,7 @@ function beamRec(slot) {
  * @param {{ scene: THREE.Object3D, camera?: THREE.Camera|null, quality?: 'high'|'medium'|'low', reduceMotion?: boolean,
  *   rand?: () => number, presets?: object, flashes?: boolean }} o
  */
-export function createToonBeamFx({ scene, camera = null, quality = 'medium', reduceMotion = false, rand = null, presets = TOON_BEAM_PRESETS, flashes = true }) {
+export function createToonBeamFx({ scene, camera = null, quality = 'medium', reduceMotion = false, rand = null, presets = TOON_BEAM_PRESETS, flashes = true, look = null }) {
   const ids = Object.keys(presets);
   const rnd = rand || createVisualRandom(visualSeed('toonBeams', 'fallback'));
   let tierName = TOON_BEAM_TIERS[quality] ? quality : 'medium';
@@ -725,7 +778,7 @@ export function createToonBeamFx({ scene, camera = null, quality = 'medium', red
   ramp.minFilter = THREE.NearestFilter;
   ramp.colorSpace = THREE.SRGBColorSpace;
   ramp.needsUpdate = true;
-  const shared = { uNoise: { value: noise }, uRamp: { value: ramp }, uRows: { value: ids.length * 3 }, uAdd: { value: BEAM_CANVAS_ADD } };
+  const shared = { uNoise: { value: noise }, uRamp: { value: ramp }, uRows: { value: ids.length * 3 }, uAdd: { value: BEAM_CANVAS_ADD }, uCoverMode: { value: 0 } };
 
   const material = (vert, frag, extra = {}) => new THREE.ShaderMaterial({
     uniforms: { ...shared, ...extra },
@@ -774,6 +827,28 @@ export function createToonBeamFx({ scene, camera = null, quality = 'medium', red
   const spots = layer(quad, ['sA', 'sB', 'sC', 'sD', 'sE'], PIECES, spotMat, 23, 'toonBeamSpots');
   const ground = layer(flat, ['gA', 'gB', 'gC'], PIECES, groundMat, 6, 'toonBeamGround');
   const layers = [body, spots, ground];
+
+  // ---- look C: the light ribbons (made only in look C): every preset's ribbon row, then its prism's colour rows
+  const LOOK = TOON_BEAM_LOOKS[look] || TOON_BEAM_LOOKS.a;
+  const LC = TOON_BEAM_LOOKS.c;
+  const RROW = new Float32Array(ids.length);
+  const ribbonRamps = [];
+  ids.forEach((id, i) => {
+    RROW[i] = ribbonRamps.length;
+    ribbonRamps.push(presets[id].ribbon);
+    for (const r of presets[id].stripeRibbons || []) ribbonRamps.push(r);
+  });
+  const ribbons = LOOK.ribbon
+    ? createLightRibbons({ scene, ramps: ribbonRamps, max: SEGS, haloMax: SEGS, rims: true, quality: tierName, reduceMotion: rm, name: 'toonBeamRibbons' })
+    : null;
+  const RS = ribbonStyle();
+  let drawnRibbons = 0;
+  // (look C's crown reads the ribbons' ramp; look A has none: a stand-in it never samples)
+  spotMat.uniforms.uRRamp = { value: ribbons ? ribbons.ramp : ramp };
+  spotMat.uniforms.uRRows = { value: ribbons ? ribbons.rampRows : 1 };
+  spotMat.uniforms.uRGain = { value: 0 };
+  /** Drawn in look C now (look C, and a tier over low: low draws look A)? */
+  const inC = () => ribbons !== null && tierName !== 'low';
   // (the attribute arrays, named once: the hot path never destructures, so nothing is allocated a frame)
   const [bA, bB, bC, bD, bE, bF, bG, bH, bI] = body.A;
   const [sA, sB, sC, sD, sE] = spots.A;
@@ -1081,6 +1156,71 @@ export function createToonBeamFx({ scene, camera = null, quality = 'medium', red
   }
 
   /**
+   * Look C: the beam's body as light ribbons (its path whole, pushed to the ribbon layer), with the same beats as the
+   * body: the head racing out in hard steps, a gentler punch, the end by erosion alone, the rim leaving at BEAM_INK.end of its
+   * end (one hard step: the whole rim at once, before the erosion), then the erosion from the muzzle on (BEAM_LAG); no
+   * rim near the muzzle or under a crown; none of it over her face (it grows out of the edge of her head's box).
+   */
+  function writeRibbon(rec) {
+    const p = rec.p;
+    const t = rec.t;
+    const w = rec.wu;
+    if (t < w || rec.endAt < w) return;
+    const e = t < rec.endAt ? -1 : Math.min(1, (t - rec.endAt) / rec.fadeT);
+    if (e >= 1) return;
+    const L = rec.U[rec.nj - 1];
+    let head = 99;
+    if (!rm && t < rec.landT) head = (Math.floor(((t - w) / p.grow) * HEAD_STEPS) + 1) / HEAD_STEPS;
+    const alpha = rm ? smooth(0, REDUCE_FADE, t - w) : 1;
+    // (its end is the erosion's, from the muzzle on, as the tornado's rings leave: no width steps, which would move every
+    // ribbon of the bundle at once, the largest change a frame of its whole life)
+    let ws = 1;
+    if (!rm && e < 0) {
+      if (t < rec.landT) ws = LEADER_WIDTH;
+      else {
+        const k = Math.floor((t - rec.landT) / PUNCH_STEP);
+        ws = k < BEAM_PUNCH.length ? 1 + (BEAM_PUNCH[k] - 1) * LC.punch : 1;
+      }
+    }
+    const crownUp = !rm && rec.crownAt >= 0 && !(rec.crownEnd >= 0 && t - rec.crownEnd >= CROWN_END);
+    const endClear = crownUp ? CROWN_INK_CLEAR * rec.crownS : 0;
+    // (the halo comes on over haloIn s once it lands: a glow switched on at once changes a large area in one frame)
+    const haloIn = t < rec.landT ? 0 : Math.min(1, (t - rec.landT) / LC.haloIn);
+    RS.row = RROW[rec.pi];
+    RS.rowStep = rec.prism ? 1 : 0;
+    RS.half = rec.half * ws * LC.half;
+    RS.ribbons = rec.prism ? rec.stripes : ribbons.tier.ribbons;
+    RS.twist = p.twist;
+    RS.spin = rec.spin;
+    RS.flow = (rec.flow / p.noise[0]) * LC.flow;
+    RS.noise = p.noise[0] * 2.5;
+    RS.core = LC.core;
+    RS.coreHeat = LC.coreHeat;
+    RS.coreK = 1;
+    RS.seed = rec.seed * 0.013;
+    RS.head = head;
+    RS.tail = -99;
+    RS.erode = e < 0 ? 0 : Math.max(0, (e - BEAM_ERODE_AT) / (1 - BEAM_ERODE_AT));
+    RS.lag = rm ? 0 : BEAM_LAG;
+    RS.strength = alpha;
+    RS.hdr = tier.hdr && bloom && flashOn ? p.hdr * Math.min(1, rec.relK) : 0;
+    // (the rim at full strength only: none while a Reduce Motion fade-in is under it, none once its end passes BEAM_INK.end)
+    RS.rim = LC.rim && e < BEAM_INK.end && alpha >= 0.999 ? 1 : 0;
+    RS.rimFrom = L > 1e-4 ? BEAM_FACE_CLEAR / L : 1;
+    RS.rimTo = L > 1e-4 ? (L - endClear) / L : 0;
+    RS.halo = tier.pool && !rm ? rec.half * LC.halo : 0;
+    RS.haloK = LC.haloK * haloIn * haloIn * (3 - 2 * haloIn);
+    RS.pointed = 0;
+    RS.taper = 1;
+    RS.fx = rec.F[0];
+    RS.fy = rec.F[1];
+    RS.fz = rec.F[2];
+    RS.faceW = rec.faceR;
+    RS.faceH = rec.faceH;
+    ribbons.path(rec.P, rec.nj, RS);
+  }
+
+  /**
    * Where the beam is first seen, into rec.V: the muzzle, or (her face given and a camera to see it by) the first point
    * of its path past her face on screen, CHARGE_FACE_GAP of the charge-up's size more out. Plain numbers, no double
    * argument or result (they would be boxed across the call): no allocation.
@@ -1196,11 +1336,13 @@ export function createToonBeamFx({ scene, camera = null, quality = 'medium', red
     const scale = k < CROWN_PUNCH.length ? CROWN_PUNCH[k] : 1;
     const size = p.crown.size * rec.cScale * 1.25;
     const j = at * 4;
+    // (look C: mode 2, the tornado-ring crown, its age in sD.w)
+    const c = inC();
     sA[j] = rec.B[0]; sA[j + 1] = rec.B[1]; sA[j + 2] = rec.B[2]; sA[j + 3] = size;
-    sB[j] = 1; sB[j + 1] = scale / 1.25; sB[j + 2] = e; sB[j + 3] = rec.seed % 97;
+    sB[j] = c ? 2 : 1; sB[j + 1] = scale / 1.25; sB[j + 2] = e; sB[j + 3] = rec.seed % 97;
     sC[j] = rec.pi; sC[j + 1] = tier.hdr && bloom && flashOn ? p.hdr * rec.hitK : 0; sC[j + 2] = 1;
     sC[j + 3] = flashOn && rec.crownFlash && k < CROWN_PUNCH.length ? rec.hitK : 0;
-    sD[j] = tier.tongues; sD[j + 1] = rec.beat; sD[j + 2] = k < CROWN_PUNCH.length ? 0 : CROWN_HOLE; sD[j + 3] = 0;
+    sD[j] = c ? RROW[rec.pi] : tier.tongues; sD[j + 1] = rec.beat; sD[j + 2] = k < CROWN_PUNCH.length ? 0 : c ? LC.crown.hole : CROWN_HOLE; sD[j + 3] = c ? age : 0;
     sE[j] = 0; sE[j + 1] = 0; sE[j + 2] = 0; sE[j + 3] = 0;
     return at + 1;
   }
@@ -1237,7 +1379,7 @@ export function createToonBeamFx({ scene, camera = null, quality = 'medium', red
         const size = p.ring.size * sc * 1.15;
         const R = RING_STEPS[Math.min(RING_STEPS.length - 1, Math.floor(age * RING_STEPS.length))] / 1.15;
         gA[j] = x; gA[j + 1] = z; gA[j + 2] = size; gA[j + 3] = 0;
-        gB[j] = age; gB[j + 1] = -1; gB[j + 2] = rec.seed * 0.029 + rec.rings * 0.31; gB[j + 3] = 1;
+        gB[j] = age; gB[j + 1] = inC() ? -2 : -1; gB[j + 2] = rec.seed * 0.029 + rec.rings * 0.31; gB[j + 3] = 1;
         gC[j] = rec.pi; gC[j + 1] = R; gC[j + 2] = 0.075; gC[j + 3] = 0;
         at++;
       }
@@ -1267,34 +1409,53 @@ export function createToonBeamFx({ scene, camera = null, quality = 'medium', red
     hold(on) {
       held = !!on;
       if (held) for (const L of layers) L.mesh.visible = false;
+      if (ribbons) ribbons.hold(on);
     },
     /** World units per CSS pixel (the camera rig's scale): the thinnest a beam is drawn. */
     setPixel(worldPerPx) {
       bodyMat.uniforms.uPx.value = worldPerPx;
+      if (ribbons) ribbons.setPixel(worldPerPx);
     },
+    /** The meshes it draws in: the bodies, the camera-facing pieces, the ground pieces (look C: the ribbons, their halos). */
     get meshes() {
-      return layers.map((L) => L.mesh);
+      const out = layers.map((L) => L.mesh);
+      if (ribbons) out.push(...ribbons.meshes);
+      return out;
+    },
+    /** The look ('a' or 'c'). */
+    get look() {
+      return LOOK.id;
     },
     /** Advances and draws (the visual clock's dt). */
     update(dt) {
       // idle: nothing up and nothing drawn last frame: no work at all
-      if (!anyOn() && drawnSegs + drawnSpots + drawnGround === 0) return;
+      if (!anyOn() && drawnSegs + drawnSpots + drawnGround + drawnRibbons === 0) return;
       for (let i = 0; i < recs.length; i++) if (recs[i].on) step(recs[i], dt);
       let nb = 0;
       let ns = 0;
       let ng = 0;
+      const c = inC();
+      if (ribbons) ribbons.begin();
       for (let i = 0; i < recs.length; i++) {
         const rec = recs[i];
         if (!rec.on) continue;
         ng = writeGround(rec, ng);
-        nb = writeBody(rec, nb);
+        // (look C: the body as light ribbons)
+        if (c) writeRibbon(rec);
+        else nb = writeBody(rec, nb);
         ns = writeCharge(rec, ns);
         ns = writeCrown(rec, ns);
+      }
+      if (ribbons) {
+        ribbons.end();
+        drawnRibbons = ribbons.count;
       }
       const add = bloom ? 1 : BEAM_CANVAS_ADD;
       bodyMat.uniforms.uAdd.value = add;
       spotMat.uniforms.uAdd.value = add;
       groundMat.uniforms.uAdd.value = add;
+      spotMat.uniforms.uCoverMode.value = bloom ? 1 : 0;
+      if (ribbons) spotMat.uniforms.uRGain.value = ribbons.gainRow;
       upload(body, nb);
       upload(spots, ns);
       upload(ground, ng);
@@ -1306,6 +1467,7 @@ export function createToonBeamFx({ scene, camera = null, quality = 'medium', red
     setQuality(q) {
       tierName = TOON_BEAM_TIERS[q] ? q : 'medium';
       tier = TOON_BEAM_TIERS[tierName];
+      if (ribbons) ribbons.setQuality(tierName);
       for (let i = 0; i < recs.length; i++) {
         const r = recs[i];
         if (r.on && r.prism) r.stripes = Math.min(tier.prism, r.p.stripes.length);
@@ -1314,22 +1476,28 @@ export function createToonBeamFx({ scene, camera = null, quality = 'medium', red
     /** Bloom on (high only): the white bands go a little over white. */
     setGlow(q, on) {
       bloom = q === 'high' && !!on;
+      if (ribbons) ribbons.setGlow(q, on);
     },
     /** Settings → Reduce motion (new beams and the ones up). */
     setReduceMotion(on) {
       rm = !!on;
+      if (ribbons) ribbons.setReduceMotion(rm);
       for (let i = 0; i < recs.length; i++) if (recs[i].on) beats(recs[i]);
     },
     /** Settings → Flashes & shake (off: no burst flash, nothing over white, the guard not asked). */
     setFlashes(on) {
       flashOn = !!on;
+      if (ribbons) ribbons.setFlashes(flashOn);
     },
     get stats() {
       let n = 0;
       for (let i = 0; i < recs.length; i++) if (recs[i].on) n++;
+      const rs = ribbons ? ribbons.stats : null;
       return {
-        tier: tierName, beams: n, segments: drawnSegs, spots: drawnSpots, ground: drawnGround, gates,
-        calls: (body.mesh.visible ? 1 : 0) + (spots.mesh.visible ? 1 : 0) + (ground.mesh.visible ? 1 : 0),
+        tier: tierName, beams: n, segments: drawnSegs, spots: drawnSpots, ground: drawnGround, gates, look: LOOK.id,
+        drawn: inC() ? 'c' : 'a', // (the look drawn now: look C draws look A on low)
+        ribbons: rs ? rs.segments : 0, rims: rs ? rs.rims : 0, halo: rs ? rs.halo : 0,
+        calls: (body.mesh.visible ? 1 : 0) + (spots.mesh.visible ? 1 : 0) + (ground.mesh.visible ? 1 : 0) + (rs ? rs.calls : 0),
       };
     },
     /** Live records (lab, tests). */
@@ -1341,6 +1509,7 @@ export function createToonBeamFx({ scene, camera = null, quality = 'medium', red
       const out = [];
       for (const L of layers) out.push(...L.A);
       for (const r of recs) out.push(r.A, r.B, r.F, r.P, r.U, r.V);
+      if (ribbons) out.push(...ribbons.buffers);
       return out;
     },
     /** The phase of a record now: 'charge', 'start', 'sustain', 'end' or 'off' (lab captions, tests). */
@@ -1354,9 +1523,11 @@ export function createToonBeamFx({ scene, camera = null, quality = 'medium', red
     clear() {
       for (const r of recs) r.on = false;
       for (const L of layers) upload(L, 0);
-      drawnSegs = drawnSpots = drawnGround = 0;
+      if (ribbons) ribbons.clear();
+      drawnSegs = drawnSpots = drawnGround = drawnRibbons = 0;
     },
     dispose() {
+      if (ribbons) ribbons.dispose();
       for (const L of layers) {
         scene.remove(L.mesh);
         L.geo.dispose();

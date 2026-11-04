@@ -22,8 +22,10 @@
 //   scorch              the electric ground decal: life, radius (tiles), erode [young, old]
 //   flicker             the core dims this much on every other strike (asked of the flash guard first)
 //   hdr                 high with bloom: the core this much over white (only while the flash guard allows it)
-//   look                'a' (the default) or 'b' (ELECTRIC_LOOKS below; the lab's ?look= and createElectricFx's `look`
-//                       override it)
+//   ribbon              look C's ribbon ramp: five bands, deep → white (sRGB hex, as drawn), on her chain's hue; the deep
+//                       band a saturated hue at every ribbon's edge (never black, translucent: the tornado's only outline)
+//   look                'a' (the default), 'b' or 'c' (ELECTRIC_LOOKS below; the lab's ?look= and createElectricFx's
+//                       `look` override it)
 import { LIGHTNING_PRESETS } from './lightningPresets.js';
 
 const L = LIGHTNING_PRESETS;
@@ -48,7 +50,7 @@ const SHAPE = Object.freeze({
 });
 
 const preset = (label, chain, colours, extra = {}) => Object.freeze({
-  label, chain, ...SHAPE, ...colours, ground: Object.freeze(colours.ground), ...extra,
+  label, chain, ...SHAPE, ...colours, ground: Object.freeze(colours.ground), ribbon: Object.freeze(colours.ribbon), ...extra,
 });
 
 export const ELECTRIC_PRESETS = Object.freeze({
@@ -56,26 +58,31 @@ export const ELECTRIC_PRESETS = Object.freeze({
   raika: preset('Raika (gold, violet ink)', 'storm', {
     ink: L.storm.ink, body: L.storm.body, core: L.storm.core,
     ground: ['#2a1a5c', '#2a1a5c', '#3a2c52', '#d9b636', '#ffd23f', '#ffe45c', '#fff6c8', '#ffffff'],
+    ribbon: ['#7a5410', '#ccb036', '#ffd84f', '#ffeb8c', '#fffbea'],
   }),
   // Chika: her Tesla chain's ice blue with its navy ink, a cyan glow band (lightning `tesla`)
   chika: preset('Chika (cyan, navy ink)', 'tesla', {
     ink: L.tesla.ink, body: L.tesla.body, core: L.tesla.core,
     ground: ['#0f2456', '#0f2456', '#1c3450', '#1fb2d8', '#8fdcff', '#62e6ff', '#e8fbff', '#ffffff'],
+    ribbon: ['#123a9c', '#1d8fd6', '#5fd0f5', '#b8f0ff', '#f3fcff'],
   }),
   // Tenka: violet-white (lightning `arcane`)
   tenka: preset('Tenka (violet-white, indigo ink)', 'arcane', {
     ink: L.arcane.ink, body: L.arcane.body, core: L.arcane.core,
     ground: ['#1b0f4d', '#1b0f4d', '#2c2350', '#7350dc', '#a67cff', '#d6c6ff', '#f5f0ff', '#ffffff'],
+    ribbon: ['#3a1a8a', '#7448e0', '#a98cff', '#dccbff', '#f5f0ff'],
   }),
   // Seiran: her sky chain's light blue on a storm-blue glow with an indigo ink (her style's chain colour)
   seiran: preset('Seiran (storm blue, indigo ink)', 'seiran', {
     ink: '#16245e', body: '#9fd8ff', core: '#f2f9ff',
     ground: ['#16245e', '#16245e', '#1f2c50', '#3a6fd8', '#6fa8ff', '#9fd8ff', '#eef7ff', '#ffffff'],
+    ribbon: ['#1a3a9a', '#3f74e8', '#7fb4ff', '#c8e6ff', '#f2f9ff'],
   }),
   // Yuzuha: pink electric (lightning `sakura`)
   yuzuha: preset('Yuzuha (pink electric, plum ink)', 'sakura', {
     ink: L.sakura.ink, body: L.sakura.body, core: L.sakura.core,
     ground: ['#4a1234', '#4a1234', '#3a2030', '#d65aa8', '#ff8cc6', '#ffb3dd', '#fff3f9', '#ffffff'],
+    ribbon: ['#7a1a70', '#c84aa8', '#ff86c4', '#ffc8e6', '#fff3f9'],
   }),
 });
 
@@ -116,9 +123,20 @@ export const ELECTRIC_CASTS = Object.freeze({
  *       over the ground ramp's deep and body bands, added light that covers little (`pool.cover`), eroding in and out.
  *       `pool.aura` (× a crackle's radius) puts one under each crackle too; 0, none: at 1:1 a tinted disc under every
  *       crackling girl read as a selection or range disc, not as light (the B2 round 2 review)
- * Neither is in the tornado's family: its look comes from translucent overlapping brush ribbons with no ink, and B's
- * bands are opaque. A look like that needs an opt-in translucent stroke mode in strokes.js that handles the joints (its
- * own round, with the tornado diff).
+ * Neither A nor B is in the tornado's family: its look comes from translucent overlapping brush ribbons with no ink, and
+ * B's bands are opaque. Look C is:
+ *   c   light ribbons (src/render/vfx/lightRibbon.js, docs/VFX.md "Light ribbons (look C)"): the main bolts (a beat
+ *       ring's, the arcs) as `ribbons` (3; the tier caps it) translucent ribbons twisting round a bright core,
+ *       their light adding where they cross, each in her `ribbon` ramp's stepped bands (deep at its edge, white in its
+ *       middle), the noise flowing along them, no ink at all: `half` × the bolt's body half width, `twist` turns a tile,
+ *       turning `spin` turns a second, flowing `flow` tiles a second, `noise` along; a short life: the leader in
+ *       `grow` hard steps, then it holds and erodes from its start on (`lag`); re-struck in steps `restrike` × less often
+ *       than A (a beat ring's `burstRestrike` ×, each bolt `burstSpan` × its sector); `halo` × the bundle's half width
+ *       (strength `haloK`) of stepped glow on the ground under an arc (0: none; a beat ring's stepped ground ring, wider
+ *       and softer in look C, is its bolts' halo: `ringHalo`, `ringK`). The micro-bolts round bodies (crackles, shocks,
+ *       the little crackles where arcs join) are thin cores only: the core of a bundle with no ribbons (`micro`: its half
+ *       width × the bolt's, its heat). The ground pieces (the charge and beat rings, the scorch) carry no ink. Low: look A
+ *       (the ribbons' fragment loops cost more than a stroke on the weakest phones).
  */
 export const ELECTRIC_LOOKS = Object.freeze({
   a: Object.freeze({ id: 'a', sheath: false }),
@@ -134,6 +152,33 @@ export const ELECTRIC_LOOKS = Object.freeze({
     burstRestrike: 2,
     burstSpan: 0.7,
     pool: Object.freeze({ aura: 0, burst: 0.6, cover: Object.freeze([0.06, 0.14]), strength: 0.4, erode: Object.freeze([0.22, 1.35]) }),
+  }),
+  c: Object.freeze({
+    id: 'c',
+    sheath: false,
+    ribbon: true,
+    half: 4,
+    ribbons: 3,
+    burstBolts: 0.6,
+    twist: 2.4,
+    spin: 1.1,
+    flow: 2.2,
+    noise: 1.3,
+    core: 0.18,
+    coreHeat: 0.42,
+    grow: 2,
+    lag: 0.6,
+    restrike: 1.6,
+    burstRestrike: 2,
+    burstSpan: 1.05,
+    // (no halo under the web's arcs: at drone height its glow on the road read as a pale smudge at 1:1; a beat ring's
+    // wide stepped ground ring is the halo of its bolts)
+    halo: 0,
+    haloK: 0.75,
+    ringHalo: 0.11,
+    ringK: 0.7,
+    micro: Object.freeze({ half: 0.7, heat: 0.35 }),
+    zig: 0.5,
   }),
 });
 

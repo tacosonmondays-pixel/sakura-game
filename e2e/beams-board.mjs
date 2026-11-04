@@ -7,7 +7,10 @@
 //   node e2e/beams-board.mjs --port 5192 --board 2 --out board-beams-2.jpg   # 390×844, Reduce Motion, 2.5× close-ups of
 //                                                                            #   the crown and the prism, beside the
 //                                                                            #   tornado, and today's beam vs the new one
-//   node e2e/beams-board.mjs --port 5192 --board quick --scene luna [--quality high --zoom 2.5 --focus crown --rm --old]
+//   node e2e/beams-board.mjs --port 5192 --board ribbons --out board-ribbons-2.jpg  # look A beside look C (light
+//                                                                                  #   ribbons) and the tornado
+//   node e2e/beams-board.mjs --port 5192 --board quick --scene luna [--quality high --zoom 2.5 --focus crown --rm --old
+//        --look c]
 //   --port: a dev server already running there (else it starts its own on a free port); --max-kb 300
 import { createServer } from 'vite';
 import { writeFileSync } from 'node:fs';
@@ -43,7 +46,7 @@ async function shoot(browser, port, c) {
     ? new URLSearchParams({ preset: c.preset, quality: c.quality, clean: '1', times: c.times.join(','), girl: c.girl ?? 'akane' })
     : new URLSearchParams({
       scene: c.scene, quality: c.quality, manual: '1', clean: '1', zoom: String(c.zoom || 1), focus: c.focus || 'beam',
-      ...(c.rm ? { rm: '1' } : {}), ...(c.old ? { old: '1' } : {}),
+      ...(c.rm ? { rm: '1' } : {}), ...(c.old ? { old: '1' } : {}), ...(c.look ? { look: c.look } : {}),
     });
   const path = c.page || '/previews/beams.html';
   await page.goto(`http://127.0.0.1:${port}${path}?${q}`, { waitUntil: 'load', timeout: 180000 });
@@ -225,13 +228,53 @@ async function main() {
         subtitle: 'An inked outer silhouette (none over her face), hard-stepped beats, flowing toon-core bands; the ink leaves before any erosion.',
         sections,
       };
+    } else if (BOARD === 'ribbons') {
+      // look C (light ribbons) beside look A and the tornado: every preset at 844×390 on high and medium (1:1), 390×844
+      // high, 2.5× close-ups of the prism and the crown, and Reduce Motion
+      const sections = [];
+      const crop = [230, 140];
+      const tor = await shoot(browser, port, { page: '/previews/tornado-stills.html', label: 'tornado vortex high', viewport: '844x390', preset: 'vortex', quality: 'high', crop, times: [0.7, 1.1], caps: ['tornado', 'tornado'] });
+      for (const quality of ['high', 'medium']) {
+        const rows = [];
+        if (quality === 'high') rows.push({ label: 'Tornado\n(vortex, high)', cells: cells(tor) });
+        for (const scene of PRESETS) {
+          const a = await shoot(browser, port, { viewport: '844x390', scene, quality, crop, pick: ['sustain'] });
+          const c = await shoot(browser, port, { viewport: '844x390', scene, quality, look: 'c', crop, pick: ['impact', 'sustain'] });
+          rows.push({ label: `${NAMES[scene]}\n${quality}`, cells: [...cells(a, 'A '), ...cells(c, 'C ')], gap: 1 });
+        }
+        sections.push({ title: `844×390, ${quality === 'high' ? 'high (bloom + grade), the tornado at the same 1:1 scale on top' : 'medium (no bloom)'}: look A | look C (impact, sustain)`, captions: true, rows });
+      }
+      const prow = [];
+      for (const scene of ['umeko', 'kohaku', 'raika']) {
+        const s = await shoot(browser, port, { viewport: '390x844', scene, quality: 'high', look: 'c', crop: [170, 220], pick: ['sustain'] });
+        prow.push(...cells(s, `${NAMES[scene].split('\n')[0].split(' ')[0]} `));
+      }
+      sections.push({ title: 'Portrait 390×844 (board turned 90°), high, look C, 1:1', captions: true, rows: [{ label: 'look C\nhigh 390×844', cells: prow }] });
+      const zrows = [];
+      for (const [scene, quality, focus] of [['kohaku', 'high', 'beam'], ['kohaku', 'medium', 'beam'], ['raika', 'high', 'crown'], ['luna', 'medium', 'crown']]) {
+        const s = await shoot(browser, port, { viewport: '844x390', scene, quality, look: 'c', zoom: 2.5, focus, crop: [250, 160], pick: focus === 'crown' ? ['impact', 'sustain'] : ['sustain', 'end'] });
+        zrows.push({ label: `${NAMES[scene].split('\n')[0]}\n${focus === 'crown' ? 'crown' : 'prism'} ${quality} 2.5×`, cells: cells(s, 'C ') });
+      }
+      sections.push({ title: 'Close-ups (2.5× zoom), look C: the prism\'s braided colour ribbons and the crown\'s curling tongues', captions: true, rows: zrows });
+      const rcells = [];
+      for (const scene of PRESETS) {
+        const s = await shoot(browser, port, { viewport: '844x390', scene, quality: 'high', rm: true, look: 'c', crop: [160, 110], pick: ['sustain'] });
+        rcells.push(...cells(s, `${scene} `));
+      }
+      sections.push({ title: 'Reduce Motion, look C, high: a still bundle (no flow, no spin), faded in; no halo, no crown burst', captions: true, rows: [{ label: 'Reduce Motion\nlook C, high', cells: rcells }] });
+      spec = {
+        title: 'Toon beams: look A beside look C (light ribbons) and the tornado',
+        subtitle: 'C: 3–4 translucent ribbons twisting round a bright core (the prism: 5 colours braided), one rim under all, a faint ground halo. Lab only.',
+        sections,
+      };
     } else {
       const scene = opt('scene', 'luna');
       const quality = opt('quality', 'high');
       const zoom = Number(opt('zoom', '1'));
       const vp = opt('viewport', '844x390');
-      const s = await shoot(browser, port, { viewport: vp, scene, quality, zoom, rm: args.includes('--rm'), old: args.includes('--old'), focus: opt('focus', 'beam'), crop: [300, 200] });
-      spec = { title: `beams ${scene} ${quality} zoom ${zoom}`, sections: [{ captions: true, rows: [{ label: `${scene}\n${quality}`, cells: cells(s) }] }] };
+      const look = opt('look', null);
+      const s = await shoot(browser, port, { viewport: vp, scene, quality, zoom, rm: args.includes('--rm'), old: args.includes('--old'), look, focus: opt('focus', 'beam'), crop: [300, 200] });
+      spec = { title: `beams ${scene} ${quality} zoom ${zoom}${look ? ` look ${look}` : ''}`, sections: [{ captions: true, rows: [{ label: `${scene}\n${quality}`, cells: cells(s) }] }] };
     }
     const r = await compose(browser, spec, MAX_KB);
     writeFileSync(OUT, Buffer.from(r.data, 'base64'));

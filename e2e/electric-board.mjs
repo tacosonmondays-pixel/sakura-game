@@ -11,8 +11,11 @@
 //                                                                      #   tornado (844×390 and 390×844 high; 844×390
 //                                                                      #   medium A and B only): 1:1 pixels and 2.5× of the
 //                                                                      #   same pixels
+//   node e2e/electric-board.mjs --board ribbons --out board-ribbons-1.jpg  # looks A, B and C (light ribbons) beside the
+//                                                                          #   tornado: Drumstorm, Drone Surge, the aura,
+//                                                                          #   844×390 high and medium, all 1:1
 //   node e2e/electric-board.mjs --board quick --scene aura [--quality high --zoom 2.5 --viewport 844x390 --rm]
-//   options: --times 0.1,0.3,0.6 --max-kb 300 --look a|b (boards 1, 2 and quick: every preset in that look)
+//   options: --times 0.1,0.3,0.6 --max-kb 300 --look a|b|c (boards 1, 2 and quick: every preset in that look)
 //            --url http://127.0.0.1:<port> (shoot from a dev server already running; else it starts its own)
 import { createServer } from 'vite';
 import { writeFileSync } from 'node:fs';
@@ -119,7 +122,7 @@ async function compose(browser, spec, maxKb) {
           imgs.push({ im, sx, sy, sw, sh, width: Math.round(sw * z), height: Math.round(sh * z) });
         }
         const rh = Math.max(...imgs.map((i) => i.height)) + (sec.captions ? 16 : 0);
-        const rw = labelW + imgs.reduce((s, i) => s + i.width + 4, 0);
+        const rw = labelW + imgs.reduce((s, i) => s + i.width + 4, 0) + (row.gap ? 10 : 0);
         rows.push({ row, imgs, rh });
         secW = Math.max(secW, rw);
         secH += rh + 4;
@@ -153,6 +156,8 @@ async function compose(browser, spec, maxKb) {
         lines.forEach((l, i) => g.fillText(l, pad, y + 18 + i * 15));
         let x = pad + labelW;
         r.row.cells.forEach((c, i) => {
+          // (row.gap: a wider gap before that cell, e.g. the tornado's)
+          if (r.row.gap && i === r.row.gap) x += 10;
           const im = r.imgs[i];
           g.imageSmoothingEnabled = false;
           g.drawImage(im.im, im.sx, im.sy, im.sw, im.sh, x, y, im.width, im.height);
@@ -254,6 +259,34 @@ async function main() {
       spec = {
         title: `Electricity (B2): portrait, Reduce Motion, close-ups, and beside the tornado${LOOK_TITLE}`,
         subtitle: `${LOOK_SUB[0].toUpperCase()}${LOOK_SUB.slice(1)}, stepped re-strikes, hard-stepped toon-core ground pieces; no soft sparks.`,
+        sections,
+      };
+    } else if (BOARD === 'ribbons') {
+      // look C (light ribbons) beside looks A and B and the tornado (vortex, high), every cell at the same 1:1 scale:
+      // Drumstorm, Drone Surge and the crackle aura, 844×390 on high and on medium
+      const sections = [];
+      const AT = { drumstorm: [0.2, 'ring bursts'], surge: [0.7, 're-struck web'], aura: [0.45, 're-struck'] };
+      const crop = [250, 180];
+      const tor = await shoot(browser, port, { page: '/previews/tornado-stills.html', label: 'tornado vortex high 844x390', viewport: '844x390', preset: 'vortex', quality: 'high', crop, times: [0.7, 1.1] });
+      for (const quality of ['high', 'medium']) {
+        const rows = [];
+        let k = 0;
+        for (const scene of ['drumstorm', 'surge', 'aura']) {
+          const [t, cap] = AT[scene];
+          const row = [];
+          for (const look of ['a', 'b', 'c']) {
+            const [s] = await shoot(browser, port, { viewport: '844x390', scene, quality, look, crop, times: [t] });
+            row.push({ b64: s.b64, caption: `${look.toUpperCase()}${look === 'c' ? ' (ribbons)' : ''} · ${cap} ${t.toFixed(2)} s` });
+          }
+          const tc = tor[k++ % tor.length];
+          row.push({ b64: tc.b64, caption: `tornado (vortex, high) ${tc.t.toFixed(2)} s` });
+          rows.push({ label: `${NAMES[scene]}\n${quality}`, cells: row, gap: 3 });
+        }
+        sections.push({ title: `844×390, ${quality === 'high' ? 'high (bloom + grade)' : 'medium (no bloom)'}: look A | look B | look C | the tornado (vortex, high), all 1:1`, captions: true, rows });
+      }
+      spec = {
+        title: 'Electricity: looks A, B and C (light ribbons) beside the tornado',
+        subtitle: 'A: inked line-work. B: thick opaque bands. C: 2–4 translucent ribbons twisting round a bright core, stepped bands, no ink, a stepped halo. Lab only, not wired.',
         sections,
       };
     } else if (BOARD === '3') {

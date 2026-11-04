@@ -4,7 +4,7 @@
 //
 //   /previews/electric.html            live: the scene loops; scene / preset / tier / Reduce Motion buttons
 //   ?scene=aura|shock|scorch|drumstorm|surge|all  &quality=high|medium|low  &rm=1  &preset=raika|chika|tenka|seiran|yuzuha
-//   &look=a|b (every preset in that look, ELECTRIC_LOOKS; none: each preset's own `look`)
+//   &look=a|b|c (every preset in that look, ELECTRIC_LOOKS; none: each preset's own `look`; c: the light ribbons)
 //   &focus=<i> (aura: which girl the crops and close-ups centre on)  &zoom=2.5 (a close-up)  &clean=1 (no buttons)
 //   &manual=1: no loop; window.__lab.shot(t) steps the scene to t s and draws it (call in rising order);
 //   window.__lab.screen() → the focus's screen px; window.__lab.stats() → draw calls etc. (and the real flash guard's
@@ -275,10 +275,11 @@ async function main() {
      * count (e2e/electric-ink.mjs) diffs the two, so only the electricity's own pixels are classified.
      */
     bare(keep = null) {
-      // keep: 'ground' draws the ground pieces only, 'strokes' the bolts only (the rest of the electric layer hidden)
+      // keep: 'ground' draws the ground pieces only (and look C's halos), 'strokes' the bolts only (and look C's
+      // ribbons); the rest of the electric layer hidden
       const ms = elec.meshes;
       const vis = ms.map((m) => m.visible);
-      ms.forEach((m, i) => { m.visible = vis[i] && ((keep === 'strokes' && i === 0) || (keep === 'ground' && i === 1)); });
+      ms.forEach((m, i) => { m.visible = vis[i] && ((keep === 'strokes' && (i === 0 || i === 2)) || (keep === 'ground' && (i === 1 || i === 3))); });
       stage.render();
       ms.forEach((m, i) => { m.visible = vis[i]; });
     },
@@ -339,7 +340,7 @@ async function main() {
   ps.onchange = () => reload('preset', ps.value);
   qs.onchange = () => reload('quality', qs.value);
   const lk = document.getElementById('look');
-  lk.value = elec.stats.look === 'b' ? 'b' : 'a';
+  lk.value = ['b', 'c'].includes(elec.stats.look) ? elec.stats.look : 'a';
   lk.onchange = () => reload('look', lk.value);
   const rmb = document.getElementById('rm');
   rmb.classList.toggle('on', rm);
