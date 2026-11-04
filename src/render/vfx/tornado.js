@@ -17,18 +17,25 @@
 // in the existing batches (the glowing ground ring in groundA, embers in bbA / petals in bbN). Every ring is born
 // after the cast and none after it ends, so the column builds from the ground up and leaves by rising away.
 // Randomness: the stream it is handed (createVisualRandom fork); never Math.random, never the sim's.
+// The fragment's noise, erosion, ramp, alpha shaping and tier switches are the shared toon core (src/render/vfx/toonCore.js:
+// the tornado's own maths, moved there so every eroding-shape family draws in the same look; e2e/toon-core-tornado-diff.mjs
+// holds the column to the same pixels).
 import * as THREE from 'three';
 import { TORNADO_PRESETS, TORNADO_TIERS, MAX_TORNADOES } from './tornadoPresets.js';
+import {
+  TOON_CORE, TOON_TIER, TOON_NOISE_N, TOON_RAMP_W, TOON_SPARSE_ERODE, TOON_REDUCE, paintToonNoise, paintToonRamp,
+  toonSparse, toonHold, toonMotion,
+} from './toonCore.js';
 
 const TAU = Math.PI * 2;
-const RAMP_W = 8;
-const NOISE_N = 128;
+const RAMP_W = TOON_RAMP_W;
+const NOISE_N = TOON_NOISE_N;
 /**
  * High has more rings than medium, so each one is sparser: its erosion threshold starts this much higher × (1 − medium's
  * rings ÷ high's), the same for every ring of the tier (a uniform). It changes the shape only, never the colour: the
- * colour index still comes from the preset's own erosion.
+ * colour index still comes from the preset's own erosion. (The shared core's TOON_SPARSE_ERODE.)
  */
-export const SPARSE_ERODE = 0.32;
+export const SPARSE_ERODE = TOON_SPARSE_ERODE;
 /** High's cover blend: a ring's strength on the far arc and the near arc (the far arc fainter: it is behind). */
 export const COVER_FRONT = [0.45, 0.85];
 /** …and a young ring's share of it (the low rings where the walkers are stay faint: readable, never a light blob). */
@@ -97,8 +104,7 @@ const FRAG = /* glsl */`
 uniform sampler2D uNoise;
 uniform sampler2D uRamp;
 uniform float uTime;
-uniform float uSparse; // the tier's sparser erosion (high): the mask only, never the colour
-uniform float uCover;  // 1 on high: every band covers the board in its own colour (see the header)
+${TOON_TIER}
 uniform vec2 uFront;   // COVER_FRONT
 uniform float uYoung;  // COVER_YOUNG
 uniform float uFar;    // COVER_FAR_ERODE
@@ -112,6 +118,7 @@ varying float vRow;
 varying float vRnd;
 varying float vCore;
 varying float vFront;
+${TOON_CORE}
 void main() {
   float d = length(vXZ);
   float vD = (d - vE.y) / (1.0 - vE.y); // 0 at the preset's hole, 1 at the rim
@@ -120,23 +127,22 @@ void main() {
   float band = 1.0 - x * x;
   float u = atan(vXZ.y, vXZ.x) / 6.2831853 + vRnd; // whole-number u scales: the noise wraps seamlessly
   vec2 uv = vec2(u * vF.x, vD * vF.y - vAge * 0.9 - uTime * vF.z * 0.35);
-  float n = texture2D(uNoise, uv).r * 0.85 + texture2D(uNoise, uv * vec2(2.0, 1.7) + vec2(0.37, uTime * vF.z * 0.2)).g * 0.15;
-  n = smoothstep(0.25, 0.75, n); // bolder: fewer, bigger tongues
-  float heat = band * (0.3 + 1.0 * n) + vCore * vF.w;
-  float cut = mix(vG.x, vG.y, vAge); // the preset's erosion
+  float n = toonNoise(uNoise, uv, uTime * vF.z * 0.2); // bolder: fewer, bigger tongues
+  float heat = toonHeat(band, n) + vCore * vF.w;
+  float cut = toonCut(vG.xy, vAge); // the preset's erosion
   // the hard toon edge: in or out, no soft fringe and no discard (high's far arc erodes harder: it is behind)
-  float m = step(cut + uSparse + uFar * (1.0 - vFront), heat) * step(0.0, band);
+  float m = toonMask(heat, cut + uSparse + uFar * (1.0 - vFront)) * step(0.0, band);
   // the colour index from the preset's erosion (the tier's sparser mask never darkens it)
-  float k = clamp((heat - cut) * 1.6, 0.0, 0.999) * mix(0.7, 1.0, vFront);
-  vec3 col = texture2D(uRamp, vec2(k, vRow)).rgb;
-  float hot = step(0.8, k);
+  float k = toonIndex(heat - cut, mix(0.7, 1.0, vFront));
+  vec3 col = toonRamp(uRamp, k, vRow);
+  float hot = toonHot(k);
   // the band at k ≥ 0.8 (the top of the yellow, the white) burns above white (high + bloom: vE.w > 0)
   col *= 1.0 + vE.w * hot;
-  float fade = smoothstep(0.0, 0.1, vAge) * (1.0 - smoothstep(0.82, 1.0, vAge));
+  float fade = toonFade(vAge);
   if (uCover > 0.5) {
     // high: a toon layer over the board in its own colour (premultiplied over: stacked rings settle on the ramp colour)
-    float A = m * fade * vOn * vE.z * mix(uFront.x, uFront.y, vFront) * mix(uYoung, 1.0, smoothstep(0.12, 0.45, vAge));
-    gl_FragColor = vec4(col * A, A);
+    float A = m * fade * vOn * vE.z * mix(uFront.x, uFront.y, vFront) * mix(uYoung, 1.0, toonYoung(vAge));
+    gl_FragColor = toonCover(col, A);
     #include <colorspace_fragment>
     return;
   }
@@ -144,8 +150,8 @@ void main() {
   // premultiplied (One, OneMinusSrcAlpha): the cooler bands cover the board a little (body: the colour reads on a
   // bright day), the hottest band is purely added light (alpha 0): one draw call gives the toon body and the glow.
   // Readability: the low rings (where the walkers are) and the near arc cover little, so the crowd stays visible.
-  float body = vG.z * (1.0 - step(0.8, k)) * (1.0 - vCore) * smoothstep(0.12, 0.45, vAge) * mix(1.0, 0.45, vFront);
-  gl_FragColor = vec4(col * a * vE.z, a * body);
+  float body = vG.z * (1.0 - toonHot(k)) * (1.0 - vCore) * toonYoung(vAge) * mix(1.0, 0.45, vFront);
+  gl_FragColor = toonAdd(col, a, vE.z, body);
   #include <colorspace_fragment>
 }`;
 
@@ -155,53 +161,9 @@ function lin(hex) {
   return [c.r, c.g, c.b];
 }
 
-/** Tileable value noise (0..255), two octave sets in R and G: painted once, no image files. */
+/** Tileable value noise (0..255), two octave sets in R and G: painted once, no image files (the shared core's painter). */
 export function paintTornadoNoise(n = NOISE_N, seed = 7) {
-  const hash = (x, y, s) => {
-    let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(s, 1442695041)) | 0;
-    h = Math.imul(h ^ (h >>> 13), 1274126177);
-    h ^= h >>> 16;
-    return (h >>> 0) / 4294967296;
-  };
-  const value = (x, y, period, s) => {
-    const xi = Math.floor(x);
-    const yi = Math.floor(y);
-    let fx = x - xi;
-    let fy = y - yi;
-    fx = fx * fx * (3 - 2 * fx);
-    fy = fy * fy * (3 - 2 * fy);
-    const w = (i) => ((i % period) + period) % period;
-    const a = hash(w(xi), w(yi), s);
-    const b = hash(w(xi + 1), w(yi), s);
-    const c = hash(w(xi), w(yi + 1), s);
-    const d = hash(w(xi + 1), w(yi + 1), s);
-    return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
-  };
-  const fbm = (u, v, base, oct, s) => {
-    let sum = 0;
-    let amp = 0.5;
-    let tot = 0;
-    for (let o = 0; o < oct; o++) {
-      const p = base << o;
-      sum += value(u * p, v * p, p, s + o) * amp;
-      tot += amp;
-      amp *= 0.5;
-    }
-    return sum / tot;
-  };
-  const data = new Uint8Array(n * n * 4);
-  for (let y = 0; y < n; y++) {
-    for (let x = 0; x < n; x++) {
-      const u = x / n;
-      const v = y / n;
-      const i = (y * n + x) * 4;
-      data[i] = Math.round(fbm(u, v, 4, 3, seed) * 255);
-      data[i + 1] = Math.round(fbm(u, v, 8, 2, seed + 11) * 255);
-      data[i + 2] = 0;
-      data[i + 3] = 255;
-    }
-  }
-  return data;
+  return paintToonNoise(n, seed);
 }
 
 /**
@@ -210,26 +172,9 @@ export function paintTornadoNoise(n = NOISE_N, seed = 7) {
  * (each band × COVER_GAIN in display bytes, clamped: the overshoot medium gets from adding).
  */
 export function paintTornadoRamp(ids, presets = TORNADO_PRESETS) {
-  const n = ids.length;
-  const data = new Uint8Array(RAMP_W * n * 2 * 4);
-  ids.forEach((id, row) => {
-    const ramp = presets[id].ramp;
-    for (let x = 0; x < RAMP_W; x++) {
-      const band = Math.min(ramp.length - 1, Math.floor((x / RAMP_W) * ramp.length));
-      const hex = ramp[band].replace('#', '');
-      const rgb = [0, 2, 4].map((o) => parseInt(hex.slice(o, o + 2), 16));
-      // (the gain for this band: the hottest band takes the last gain whatever the ramp's length)
-      const g = COVER_GAIN[Math.round((band / Math.max(1, ramp.length - 1)) * (COVER_GAIN.length - 1))];
-      for (const [r, mul] of [[row, 1], [n + row, g]]) {
-        const i = (r * RAMP_W + x) * 4;
-        data[i] = Math.min(255, Math.round(rgb[0] * mul));
-        data[i + 1] = Math.min(255, Math.round(rgb[1] * mul));
-        data[i + 2] = Math.min(255, Math.round(rgb[2] * mul));
-        data[i + 3] = 255;
-      }
-    }
-  });
-  return data;
+  const plain = ids.map((id) => ({ bands: presets[id].ramp }));
+  const cover = ids.map((id) => ({ bands: presets[id].ramp, gains: COVER_GAIN }));
+  return paintToonRamp([...plain, ...cover], RAMP_W);
 }
 
 /**
@@ -311,7 +256,8 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
   function write(rec, start) {
     const p = rec.p;
     const rm = reduceMotion;
-    const life = p.life * (rm ? 2.2 : 1);
+    const motion = toonMotion(rm);
+    const life = p.life * motion.life;
     const n = tier.rings;
     const nc = tier.core;
     const total = n + nc;
@@ -330,13 +276,13 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
       const B = attrs.iB.array;
       B[j] = (k + r0 * 0.35 / n) % 1; B[j + 1] = r1; B[j + 2] = core; B[j + 3] = row;
       const C = attrs.iC.array;
-      C[j] = p.r0 * rec.size; C[j + 1] = p.r1 * rec.size; C[j + 2] = p.height * (0.8 + 0.2 * rec.size); C[j + 3] = rm ? 0 : p.twist;
+      C[j] = p.r0 * rec.size; C[j + 1] = p.r1 * rec.size; C[j + 2] = p.height * (0.8 + 0.2 * rec.size); C[j + 3] = toonHold(rm, p.twist);
       const D = attrs.iD.array;
-      D[j] = rm ? 0 : p.sway; D[j + 1] = p.swayHz; D[j + 2] = rm ? 0 : p.spin; D[j + 3] = life;
+      D[j] = toonHold(rm, p.sway); D[j + 1] = p.swayHz; D[j + 2] = toonHold(rm, p.spin); D[j + 3] = life;
       const E = attrs.iE.array;
-      E[j] = rm ? 0 : p.helix; E[j + 1] = p.inner; E[j + 2] = p.alpha * (rm ? 0.7 : 1) * (core ? 0.18 : 1); E[j + 3] = hdr;
+      E[j] = toonHold(rm, p.helix); E[j + 1] = p.inner; E[j + 2] = p.alpha * motion.alpha * (core ? 0.18 : 1); E[j + 3] = hdr;
       const F = attrs.iF.array;
-      F[j] = p.noise[0]; F[j + 1] = p.noise[1]; F[j + 2] = rm ? 0 : p.scroll; F[j + 3] = p.core?.heat ?? 0;
+      F[j] = p.noise[0]; F[j + 1] = p.noise[1]; F[j + 2] = toonHold(rm, p.scroll); F[j + 3] = p.core?.heat ?? 0;
       const G = attrs.iG.array;
       G[j] = p.erode[0]; G[j + 1] = p.erode[1]; G[j + 2] = Math.min(0.95, p.body ?? 0.5); G[j + 3] = p.core?.radius ?? 0.45;
     }
@@ -345,9 +291,9 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
 
   /** The column's strength now: 0 → 1 over its first ring's rise, back to 0 as its last rings leave. */
   /** Seconds a ring (or an ember) takes to leave: the column is gone this long after it stops being fed. */
-  const tail = (p) => Math.max(p.life, (p.embers?.life ?? 0) * 1.25) * (reduceMotion ? 2.2 : 1);
+  const tail = (p) => Math.max(p.life, (p.embers?.life ?? 0) * 1.25) * (reduceMotion ? TOON_REDUCE.life : 1);
   const strength = (rec) => {
-    const life = rec.p.life * (reduceMotion ? 2.2 : 1);
+    const life = rec.p.life * (reduceMotion ? TOON_REDUCE.life : 1);
     const on = Math.min(1, rec.t / (life * 0.5));
     const off = rec.t <= rec.seconds ? 1 : Math.max(0, 1 - (rec.t - rec.seconds) / life);
     return on * off;
@@ -416,7 +362,7 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
       }
       material.uniforms.uTime.value = time;
       // high: more rings, each sparser (the mask only), and the cover blend
-      material.uniforms.uSparse.value = Math.max(0, 1 - TORNADO_TIERS.medium.rings / tier.rings) * SPARSE_ERODE;
+      material.uniforms.uSparse.value = toonSparse(tier.rings, TORNADO_TIERS.medium.rings);
       material.uniforms.uCover.value = tier.cover ? 1 : 0;
       material.uniforms.uFar.value = tier.cover ? COVER_FAR_ERODE : 0;
       geo.instanceCount = n;

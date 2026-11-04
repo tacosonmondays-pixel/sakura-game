@@ -188,9 +188,12 @@ describe('tornado layer', () => {
     expect(E[1]).toBeCloseTo(TORNADO_PRESETS.fire.inner, 5);
     expect(E[per * 4 + 1]).toBeCloseTo(TORNADO_PRESETS.vortex.inner, 5);
     // the shader: the sparser cut shapes the mask, the preset's cut picks the colour
+    // (the toon core's toonMask(heat, cut) is step(cut, heat); toonIndex(above, gain) is clamp(above × 1.6) × gain)
     const frag = mesh.material.fragmentShader;
-    expect(frag).toMatch(/step\(cut \+ uSparse \+ uFar \* \(1\.0 - vFront\), heat\)/);
-    expect(frag).toMatch(/clamp\(\(heat - cut\) \* 1\.6/);
+    expect(frag).toMatch(/toonMask\(heat, cut \+ uSparse \+ uFar \* \(1\.0 - vFront\)\)/);
+    expect(frag).toMatch(/toonIndex\(heat - cut, mix\(0\.7, 1\.0, vFront\)\)/);
+    expect(frag).toMatch(/float toonMask\(float heat, float cut\) \{\s*return step\(cut, heat\);/);
+    expect(frag).toMatch(/return clamp\(above \* 1\.6, 0\.0, 0\.999\) \* gain;/);
   });
 
   it('high with bloom: the hottest band goes over white, nothing else changes with the bloom (it keys on the bloom, not the preset)', () => {
