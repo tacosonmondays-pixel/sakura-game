@@ -58,6 +58,11 @@ const KON_FRONT = 0.17;
 const _home = new THREE.Vector3();
 const _m = new THREE.Matrix4();
 const _spot = { x: 0, z: 0 };
+/**
+ * Where Ruri stands (ground), set before each konStep: a skid-turn or a pivot turns away from her when the short way
+ * round would come near her.
+ */
+const _ruri = { x: 0, z: 0 };
 /** The ground direction toward the camera (unit), set once a frame: Kon's run bows that way (konArc). */
 const _cam = { x: 0, z: 1 };
 const _pos = { x: 0, y: 0, z: 0, out: false, hit: false, phase: null, squash: 1, pitch: 0 };
@@ -391,7 +396,7 @@ export class Companions {
       home: new THREE.Vector3(), facing: v.facing, face: 0, faceT: 0, state: 'idle', barRest: null,
       // manifest battleScale: a battle-only size factor over her scale (the student page keeps the figure's own size)
       battleScale: entry.battleScale > 0 ? entry.battleScale : 1,
-      kon: cid === 'kon' ? { s: konState(), view: { x: 0, z: 0, h: 0.2, away: false }, steps: 0 } : null,
+      kon: cid === 'kon' ? { s: konState(), view: { x: 0, z: 0, h: 0.2, away: false }, steps: 0, skids: 0 } : null,
       sortie: cid === 'kon' ? null : sortieState(),
     };
     this._kit(a);
@@ -413,7 +418,10 @@ export class Companions {
       a.swoopOpts = { reach: Infinity, lift: SWOOP_LIFT };
     }
     a.trail = a.cid === 'doll' ? null : trailState();
-    if (a.kon) a.kon.steps ??= 0;
+    if (a.kon) {
+      a.kon.steps ??= 0;
+      a.kon.skids ??= 0;
+    }
     a.pitch = 0;
     a.pPhase = null;
     a.lastY = 0;
@@ -508,7 +516,9 @@ export class Companions {
     let pitch = 0;
     if (a.kon) {
       const s = a.kon.s;
-      konStep(s, dt, a.home.x, a.home.z, konSpot(t, _spot), undefined, this.camSide ?? null);
+      _ruri.x = t.x;
+      _ruri.z = t.y;
+      konStep(s, dt, a.home.x, a.home.z, konSpot(t, _spot), undefined, this.camSide ?? null, _ruri);
       if (s.mode === 'home') {
         g.position.copy(a.home);
       } else {
@@ -526,10 +536,18 @@ export class Companions {
           a.kon.steps = s.steps;
           this._stride(g.position.x, g.position.y - _gait.lift, g.position.z, a.height * scale);
         }
+        // a skid-turn (he plants and swings round): a small puff of run dust where his paws dig in
+        if (s.skids !== a.kon.skids) {
+          a.kon.skids = s.skids;
+          this._dust(g.position.x, g.position.y - _gait.lift, g.position.z, 3, 0.45, C.runDust, 0.9);
+        }
       } else if (s.mode === 'spot') {
         facing = a.faceT > 0 ? a.face : v.facing;
       }
-      if (s.mode !== 'travel') a.kon.steps = s.steps;
+      if (s.mode !== 'travel') {
+        a.kon.steps = s.steps;
+        a.kon.skids = s.skids;
+      }
       // Moon Pounce: crouch, an arc leap at its target (he follows it while it walks), the impact, a hop back
       const pc = a.pounce;
       if (pc?.busy) {
