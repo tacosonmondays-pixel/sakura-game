@@ -20,6 +20,14 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.75', version: '0.1.75', date: '2026-11-03', title: 'Calmer Tornado, Smoother Kon',
+    changed: [
+      'Akane\'s fire tornado keeps its fire colours on its far side instead of looking lime over grass.',
+      'With Reduce Motion on, the fire tornado is calmer and lets you see more of what stands behind it, and on phones it reads as one solid funnel instead of two streaks.',
+      'Kon turns smoothly if his relay spot moves mid-run: a quick skid-turn the short way round, never across Ruri, instead of snapping round.',
+    ],
+  },
+  {
     id: 'v0.1.74', version: '0.1.74', date: '2026-11-03', title: 'Six More Path Looks',
     added: [
       'Path looks for six more girls: Sango, Umeko, Shiro, Midori, Suzu and Raika now wear a piece for each upgrade path from tier 3, with a capstone look at tier 5.',
